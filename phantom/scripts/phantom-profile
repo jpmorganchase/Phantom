@@ -1,0 +1,3 @@
+#!/bin/bash
+export PYTHONHASHSEED=1
+__phantom-profile.py $@
