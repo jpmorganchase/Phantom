@@ -1,6 +1,6 @@
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Unit Tests
+name: Workflow
 
 on:
   pull_request:
@@ -13,9 +13,8 @@ jobs:
       - uses: actions/checkout@v2
       - uses: psf/black@stable
 
-  build:
+  test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.9
