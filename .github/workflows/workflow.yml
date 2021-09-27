@@ -25,12 +25,14 @@ jobs:
     - name: Enforce black formatting
       run: |
         black .
+
     - name: Commit files # commit the output folder
       run: |
-        git config --local user.email ""
+        git config --local user.email "black@black.black"
         git config --local user.name "Black Code Formatter"
         git add ./output
         git commit -m "Add changes"
+
     - name: Push changes # push the output folder to your repo
       uses: ad-m/github-push-action@master
       with:
