@@ -7,11 +7,34 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  lint-black:
+  # lint-black:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - uses: psf/black@stable
+
+  enforce-black:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: psf/black@stable
+    - uses: actions/checkout@v2
+    - name: Set up action
+      run: |
+        python -m pip install --upgrade pip
+        pip install black
+
+    - name: Enforce black formatting
+      run: |
+        black .
+    - name: Commit files # commit the output folder
+      run: |
+        git config --local user.email ""
+        git config --local user.name "Black Code Formatter"
+        git add ./output
+        git commit -m "Add changes"
+    - name: Push changes # push the output folder to your repo
+      uses: ad-m/github-push-action@master
+      with:
+        branch: ${{ github.ref }}
 
   lint-flake8:
     runs-on: ubuntu-latest
