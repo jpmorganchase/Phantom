@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, AnyStr, Dict, Mapping, Optional, Type, TypeVar, Union
 
 import mercury as me
@@ -9,44 +9,7 @@ from .decoders import Decoder
 from .encoders import Encoder
 from .packet import Packet, Mutation
 from .rewards import RewardFunction
-
-
-class AgentType(ABC):
-    pass
-
-
-A = TypeVar("A", bound=AgentType)
-
-
-class Supertype(ABC):
-    @abstractmethod
-    def sample(self) -> A:
-        """
-        Base method for sampling a Type from a Supertype.
-
-        Must be implemented by supertypes that inherit from this class.
-        """
-        raise NotImplementedError
-
-
-class NullType(AgentType):
-    """
-    An implementation of AgentType that holds no values.
-    """
-
-    pass
-
-
-class NullSupertype(Supertype):
-    """
-    An implementation of Supertype that returns a type that holds no values.
-    """
-
-    def sample(self) -> NullType:
-        """
-        Returns a NullType that holds no values.
-        """
-        return NullType()
+from .supertypes import NullSupertype, Supertype, Type
 
 
 Action = TypeVar("Action")
@@ -238,8 +201,8 @@ class ZeroIntelligenceAgent(Agent, ABC):
     This class should be subclassed and the `decode_action` method implemented.
     """
 
-    def __init__(self, agent_id: me.ID) -> None:
-        super().__init__(agent_id)
+    def __init__(self, agent_id: me.ID, supertype: Optional[Supertype] = None) -> None:
+        super().__init__(agent_id, supertype=supertype)
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
         return 0.0

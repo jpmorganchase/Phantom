@@ -19,6 +19,8 @@ from termcolor import colored
 from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
+from .supertypes import NullSupertype, Supertype
+
 
 if "PYTHONHASHSEED" not in os.environ:
     warning_string = "=============================================================\n"
@@ -69,6 +71,7 @@ class PhantomEnv(MultiAgentEnv):
         policy_grouping: A mapping between custom policy name and list of agents
             sharing the policy (optional).
         seed: A random number generator seed to use (optional).
+        supertype: The supertype of the environment (optional).
     """
 
     env_name: str = "phantom"
@@ -89,6 +92,7 @@ class PhantomEnv(MultiAgentEnv):
         environment_actor: Optional[EnvironmentActor] = None,
         policy_grouping: Optional[Mapping[str, List[str]]] = None,
         seed: Optional[int] = None,
+        supertype: Optional[Supertype] = None,
     ) -> None:
         if clock is None:
             if n_steps is None:
@@ -107,6 +111,10 @@ class PhantomEnv(MultiAgentEnv):
             if isinstance(actor, Agent)
         }
         self._dones = set()
+
+        self.supertype: Supertype = (
+            supertype if supertype is not None else NullSupertype()
+        )
 
         if environment_actor is not None:
             # Connect the environment actor to all existing actors
@@ -179,10 +187,18 @@ class PhantomEnv(MultiAgentEnv):
         # Reset the agents' done status
         self._dones = set()
 
+        # Sample from the environment type
+        self.type = self.supertype.sample()
+
+        if "__ENV" in self.network.actors:
+            self.network.actors["__ENV"].env_type = self.type
+
         # Generate initial observations.
         observations: Dict[me.ID, Any] = dict()
 
         for aid, agent in self.agents.items():
+            agent.env_type = self.type
+
             ctx = self.network.context_for(aid)
 
             observations[aid] = agent.encode_obs(ctx)
