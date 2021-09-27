@@ -3,7 +3,7 @@ Module containing classes that subclass :code:`ray.rllib.agents.callbacks.Defaul
 used in :code:`rllib` experiments.
 """
 import logging
-from typing import Any, Mapping
+from typing import Any, Dict, Mapping
 
 import mercury as me
 import numpy as np
@@ -11,6 +11,7 @@ import phantom as ph
 from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
 from ray.tune.logger import TBXLoggerCallback
 from ray.tune.result import TIMESTEPS_TOTAL, TRAINING_ITERATION
+from ray.tune.trial import Trial
 
 from .metrics import Metric
 
