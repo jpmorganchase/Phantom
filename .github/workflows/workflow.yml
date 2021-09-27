@@ -30,7 +30,7 @@ jobs:
       run: |
         git config --local user.email "black@black.black"
         git config --local user.name "Black Code Formatter"
-        git commit -m "Add automatic black formatting changes" -a
+        if [[ `git status --porcelain` ]]; then git commit -m "Add automatic black formatting changes" -a fi
 
     - name: Push changes # push the output folder to your repo
       uses: ad-m/github-push-action@master
