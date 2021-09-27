@@ -26,17 +26,15 @@ jobs:
       run: |
         black .
 
-    - name: Commit files # commit the output folder
+    - name: Commit files
       run: |
         git config --local user.email "black@black.black"
         git config --local user.name "Black Code Formatter"
-        if [[ `git status --porcelain` ]]; then git commit -m "Add automatic black formatting changes" -a; else echo "No changes"; fi
+        if [[ `git status --porcelain` ]]; then git commit -m "style: apply black formatting" -a; else echo "No changes"; fi
 
-    - name: Push changes # push the output folder to your repo
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ github.ref }}
+    - name: Push commit
+      run: |
+        git push https://${{ secrets.GITHUB_PAT }}@github.com/jpmorganchase/Phantom.git
 
   lint-flake8:
     runs-on: ubuntu-latest
