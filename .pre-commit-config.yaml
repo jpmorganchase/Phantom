@@ -1,0 +1,30 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pytest-check (phantom)
+        name: pytest-check
+        entry: bash -c 'cd phantom && python -m pytest tests && cd ..'
+        language: system
+      - id: pytest-check (mercury)
+        name: pytest-check
+        entry: bash -c 'cd mercury && python -m pytest tests && cd ..'
+        language: system
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      # Simply check whether the files parse as valid python.
+      - id: check-ast
+      # Ensures that a file is either empty, or ends with one newline.
+      - id: end-of-file-fixer
+      # This hook trims trailing whitespace.
+      - id: trailing-whitespace
+      # Don't commit to branch.
+      # - id: no-commit-to-branch
+      #   args: ['--branch', 'master']
+
+  - repo: https://github.com/psf/black
+    rev: 21.7b0
+    hooks:
+      # Black: The uncompromising Python code formatter.
+      - id: black

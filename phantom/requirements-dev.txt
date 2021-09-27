@@ -1,0 +1,7 @@
+black==21.7b0
+mypy==0.910
+pre-commit==2.13
+pylint==2.7.2
+pytest==5.3.5
+pytest-cov==2.10.1
+sphinx-autodoc-typehints==1.11.1
