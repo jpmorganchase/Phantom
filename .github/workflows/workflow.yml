@@ -57,6 +57,7 @@ jobs:
 
     - name: Run Mercury tests
       run: |
+        cd mercury
         pytest tests
 
   test-phantom:
@@ -78,7 +79,6 @@ jobs:
 
         cd mercury
         python setup.py develop --user -O2
-        cd ..
     
     - name: Install Phantom
       run: |
@@ -87,4 +87,5 @@ jobs:
     
     - name: Run Phantom tests
       run: |
+        cd phantom
         pytest tests
