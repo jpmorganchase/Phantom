@@ -30,8 +30,7 @@ jobs:
       run: |
         git config --local user.email "black@black.black"
         git config --local user.name "Black Code Formatter"
-        git add .
-        git commit -m "Add automatic black formatting changes"
+        git commit -m "Add automatic black formatting changes" -a
 
     - name: Push changes # push the output folder to your repo
       uses: ad-m/github-push-action@master
