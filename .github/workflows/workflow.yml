@@ -7,13 +7,13 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  lint:
+  lint-black:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: psf/black@stable
 
-  test:
+  lint-flake8:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -25,7 +25,6 @@ jobs:
     - name: Set up action
       run: |
         python -m pip install --upgrade pip
-        pip install wheel
         pip install flake8
 
     - name: Lint with flake8
@@ -35,15 +34,48 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
+  test-mercury:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
     - name: Install dependencies
       run: |
+        python -m pip install --upgrade pip
+        pip install wheel
         pip install -r mercury/requirements.txt
         pip install -r mercury/requirements-dev.txt
-        pip install -r phantom/requirements.txt
-        pip install -r phantom/requirements-dev.txt
     
     - name: Install Mercury
       run: |
+        cd mercury
+        python setup.py develop --user -O2
+
+    - name: Run Mercury tests
+      run: |
+        pytest tests
+
+  test-phantom:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install wheel
+        pip install -r mercury/requirements.txt
+        pip install -r phantom/requirements.txt
+        pip install -r phantom/requirements-dev.txt
+
         cd mercury
         python setup.py develop --user -O2
         cd ..
@@ -52,16 +84,7 @@ jobs:
       run: |
         cd phantom
         python setup.py develop --user -O2
-        cd ..
-    
-    - name: Run Mercury tests
-      run: |
-        cd mercury
-        pytest tests
-        cd ..
     
     - name: Run Phantom tests
       run: |
-        cd phantom
         pytest tests
-        cd ..
