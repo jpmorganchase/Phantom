@@ -276,12 +276,20 @@ metrics.update(
     }
 )
 
-phantom_params = ph.PhantomParams(
-    experiment_name="supply-chain",
+training_params = ph.TrainingParams(
+    experiment_name="supply-chain-2",
     algorithm="PPO",
     num_workers=4,
     num_episodes=100,
     env=SupplyChainEnv,
-    env_config={"n_customers": NUM_CUSTOMERS, "seed": 0},
-    metrics=metrics,
+    env_config={"n_customers": NUM_CUSTOMERS},
+)
+
+rollout_params = ph.RolloutParams(
+    directory="/home/ubuntu/phantom_results/supply-chain-2/LATEST",
+    algorithm="PPO",
+    num_workers=1,
+    num_rollouts=2,
+    env=SupplyChainEnv,
+    env_config={"n_customers": NUM_CUSTOMERS},
 )

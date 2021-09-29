@@ -9,7 +9,7 @@ Usage
 import argparse
 import sys
 
-from phantom.cmd_utils import train_from_config_path
+from phantom.utils.training import train_from_config_path
 
 
 def main(args):

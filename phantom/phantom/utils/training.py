@@ -1,29 +1,21 @@
-import importlib
-import logging as log
-import pickle
 import os
 import shutil
 import tempfile
-from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 
 import gym
-import mercury as me
-import numpy as np
 import ray
 from ray import tune
-from ray.rllib.agents.registry import get_trainer_class
 from ray.tune.registry import register_env
 from tabulate import tabulate
 from termcolor import colored
 
-from .agent import ZeroIntelligenceAgent
-from .logging import Logger, MetricsLoggerCallbacks, MultiCallbacks
-from .logging.callbacks import TBXExtendedLoggerCallback
-from .params import PhantomParams
-from .rollout import RolloutReplay
+from ..agent import ZeroIntelligenceAgent
+from ..logging import MetricsLoggerCallbacks, MultiCallbacks
+from ..logging.callbacks import TBXExtendedLoggerCallback
+from ..params import TrainingParams
+from . import find_most_recent_results_dir, load_object
 
 
 def train_from_config_path(
@@ -43,7 +35,7 @@ def train_from_config_path(
     is set. In most cases, the phantom-train command should be used instead.
     """
 
-    _, params = load_config(config_path)
+    params = load_object(config_path, "training_params", TrainingParams)
 
     results_dir = train_from_params_object(params, local_mode, print_info, config_path)
 
@@ -71,7 +63,7 @@ def train_from_config_path(
 
 
 def train_from_params_object(
-    params: PhantomParams,
+    params: TrainingParams,
     local_mode: bool = False,
     print_info: bool = True,
     config_path: Union[str, Path, None] = None,
@@ -80,7 +72,7 @@ def train_from_params_object(
     Performs training of a Phantom experiment.
 
     Arguments:
-        params: A populated PhantomParams object.
+        params: A populated TrainingParams object.
         local_mode: If true will force Ray to run in one process (useful for
             profiling & debugging).
         print_info: If true will print a summary of the configuration before
@@ -131,175 +123,9 @@ def train_from_params_object(
         return find_most_recent_results_dir(Path(results_dir, params.experiment_name))
 
 
-def rollout(
-    params: PhantomParams,
-    results_dir: Union[str, Path],
-    checkpoint_num: int,
-    num_rollouts: int,
-    num_workers: int,
-    metrics_file: Optional[str] = "metrics.pkl",
-    replays_file: Optional[str] = "replays.pkl",
-) -> Tuple[List[Dict[str, np.ndarray]], List[RolloutReplay]]:
+def create_rllib_config_dict(params: TrainingParams) -> dict:
     """
-    Performs rollout of a previously trained Phantom experiment.
-
-    Arguments:
-        params: The populated PhantomParams object that was used in training.
-        results_dir: The directory that the experiment results reside in.
-        checkpoint_num: The checkpoint to use.
-        num_rollouts: The number of rollouts to perform.
-        num_workers: The number of rollout workers to use.
-        metrics_file: Filename relative to the results directory to save rollout
-        metrics (None = no file saved).
-        replays_file: Filename relative to the results directory to save rollout
-        replays (None = no file saved).
-    """
-
-    checkpoint_path = Path(
-        results_dir,
-        f"checkpoint_{str(checkpoint_num).zfill(6)}",
-        f"checkpoint-{checkpoint_num}",
-    )
-
-    if not os.path.exists(checkpoint_path):
-        print(colored(f"Checkpoint {checkpoint_num} not found!", "red"))
-        return
-
-    def parallel_fn(args) -> Tuple[RolloutReplay, Dict[str, np.ndarray]]:
-        env, i = args
-
-        log.info(f"Running rollout {i+1}/{num_rollouts}")
-        np.random.seed(i)
-
-        # Load config from results directory.
-        with open(Path(results_dir, "params.pkl"), "rb") as f:
-            config = pickle.load(f)
-
-        # Set to zero as rollout workers != training workers - if > 0 will spin up
-        # unnecessary additional workers.
-        config["num_workers"] = 0
-
-        trainer = get_trainer_class(params.algorithm)(env=env.env_name, config=config)
-
-        trainer.restore(str(checkpoint_path))
-
-        # Create environment instance from config from results directory.
-        env = env(**config["env_config"])
-
-        logger2 = deepcopy(logger)
-
-        shared_policy_mapping = {}
-
-        # Construct mapping of agent_id --> shared_policy_id
-        if env.policy_grouping is not None:
-            for policy_id, agent_ids in env.policy_grouping.items():
-                for agent_id in agent_ids:
-                    shared_policy_mapping[agent_id] = policy_id
-
-        observation = env.reset()
-
-        observations: List[Dict[me.ID, Any]] = [observation]
-        rewards: List[Dict[me.ID, float]] = []
-        dones: List[Dict[me.ID, bool]] = []
-        infos: List[Dict[me.ID, Dict[str, Any]]] = []
-        actions: List[Dict[me.ID, Any]] = []
-
-        # Run rollout steps.
-        for _ in range(env.clock.n_steps):
-            step_actions = {}
-
-            for agent_id, agent_obs in observation.items():
-                policy_id = shared_policy_mapping.get(agent_id, agent_id)
-
-                agent_action = trainer.compute_action(
-                    agent_obs, policy_id=policy_id, explore=False
-                )
-                step_actions[agent_id] = agent_action
-
-            observation, reward, done, info = env.step(step_actions)
-            logger2.log(env)
-
-            observations.append(observation)
-            rewards.append(reward)
-            dones.append(done)
-            infos.append(info)
-            actions.append(step_actions)
-
-        metrics = {k: np.array(v) for k, v in logger2.to_dict().items()}
-
-        replay = RolloutReplay(
-            observations,
-            rewards,
-            dones,
-            infos,
-            actions,
-        )
-
-        return metrics, replay
-
-    ray.init()
-
-    logger = Logger(params.metrics)
-
-    # Register custom environment with Ray
-    register_env(params.env.env_name, lambda config: params.env(**config))
-
-    parallel_fn_args = [(params.env, i) for i in range(num_rollouts)]
-
-    results = list(
-        ray.util.iter.from_items(parallel_fn_args, num_shards=max(num_workers, 1))
-        .for_each(parallel_fn)
-        .gather_sync()
-    )
-
-    metrics, replays = list(zip(*results))
-
-    ray.shutdown()
-
-    if replays_file is not None:
-        pickle.dump(replays, open(os.path.join(results_dir, replays_file), "wb"))
-
-    if metrics_file is not None:
-        pickle.dump(metrics, open(os.path.join(results_dir, metrics_file), "wb"))
-
-    return replays, metrics
-
-
-def load_config(config_path: str) -> Tuple[str, PhantomParams]:
-    """
-    Attempts to load a PhantomParams object from a config file.
-
-    Arguments:
-        config_path: The filesystem path pointing to the config Python file.
-
-    Returns:
-        A tuple containing the config name (taken from the filename) and the
-            PhantomParams object found in the file (under the name 'phantom_params').
-    """
-
-    if not os.path.exists(config_path):
-        raise Exception(f"Config file '{config_path}' does not exist!")
-
-    module_name = config_path[:-3].split("/")[-1]
-
-    spec = importlib.util.spec_from_file_location(module_name, config_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, "phantom_params"):
-        raise Exception("'phantom_params' field not found in config file.")
-
-    if not isinstance(module.phantom_params, PhantomParams):
-        raise Exception(
-            "'phantom_params' object is not an instance of the PhantomParams class."
-        )
-
-    return (module_name, module.phantom_params)
-
-
-def create_rllib_config_dict(params: PhantomParams) -> dict:
-    """
-    Converts a PhantomParams object into a config dictionary compatible with
+    Converts a TrainingParams object into a config dictionary compatible with
     Ray/RLlib.
     """
 
@@ -414,31 +240,8 @@ def create_rllib_config_dict(params: PhantomParams) -> dict:
     return config
 
 
-def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
-    """
-    Scans a directory containing ray experiment results and returns the path of
-    the most recent experiment.
-
-    Arguments:
-        base_path: The directory to search in.
-    """
-
-    base_path = Path(os.path.expanduser(base_path))
-
-    experiment_dirs = [d for d in base_path.iterdir() if d.is_dir()]
-
-    if len(experiment_dirs) == 0:
-        raise ValueError(f"No experiment directories found in '{base_path}'")
-
-    experiment_dirs.sort(
-        key=lambda d: datetime.strptime(str(d)[-19:], "%Y-%m-%d_%H-%M-%S")
-    )
-
-    return experiment_dirs[-1]
-
-
 def print_experiment_info(
-    phantom_params: PhantomParams, config: Dict, config_path: Optional[str] = None
+    phantom_params: TrainingParams, config: Dict, config_path: Optional[str] = None
 ):
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):
