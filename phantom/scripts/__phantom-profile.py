@@ -18,6 +18,7 @@ from phantom.params import TrainingParams
 from phantom.utils import load_object
 from phantom.utils.training import train_from_params_object
 
+
 def main(args):
     parser = argparse.ArgumentParser(
         prog="phantom-profile",
@@ -45,9 +46,7 @@ def main(args):
 
     @profile(stdout=False, immediate=True, filename=f"{filename_root}.prof")
     def run():
-        train_from_params_object(
-            params, local_mode=True, config_path=flags.config_file
-        )
+        train_from_params_object(params, local_mode=True, config_path=flags.config_file)
 
     run()
 
