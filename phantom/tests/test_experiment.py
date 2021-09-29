@@ -22,7 +22,7 @@ class MinimalEnv(ph.PhantomEnv):
 
 
 def test_experiment():
-    phantom_params = ph.PhantomParams(
+    params = ph.TrainingParams(
         experiment_name="unit-testing",
         algorithm="PPO",
         num_workers=0,
@@ -32,4 +32,4 @@ def test_experiment():
         discard_results=True,
     )
 
-    ph.cmd_utils.train_from_params_object(phantom_params)
+    ph.utils.training.train_from_params_object(params)
