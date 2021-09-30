@@ -89,7 +89,9 @@ def run_rollouts(
     return metrics, trajectories
 
 
-def _parallel_fn(args: Tuple[RolloutParams, List[int]]) -> List[Dict[str, Any]]:
+def _parallel_fn(
+    args: Tuple[RolloutParams, List[int]]
+) -> List[Tuple[Dict[str, np.ndarray], EpisodeTrajectory]]:
     params, seeds = args
 
     checkpoint_path = Path(
