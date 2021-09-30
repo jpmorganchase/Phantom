@@ -18,7 +18,7 @@ from . import find_most_recent_results_dir
 
 
 @dataclass
-class EpisodeReplay:
+class EpisodeTrajectory:
     """
     Class describing all the actions, observations, rewards, infos and dones of
     a single episode.
@@ -33,7 +33,7 @@ class EpisodeReplay:
 
 def run_rollouts(
     params: RolloutParams,
-) -> Tuple[List[Dict[str, np.ndarray]], List[EpisodeReplay]]:
+) -> Tuple[List[Dict[str, np.ndarray]], List[EpisodeTrajectory]]:
     if params.directory is not None:
         params.directory = Path(params.directory)
 
@@ -71,21 +71,22 @@ def run_rollouts(
         )
     )
 
-    metrics, replays = zip(*results)
+    metrics, trajectories = zip(*results)
 
     if params.metrics_file is not None:
         pickle.dump(
             list(metrics), open(Path(params.directory, params.metrics_file), "wb")
         )
 
-    if params.replays_file is not None:
+    if params.trajectories_file is not None:
         pickle.dump(
-            list(replays), open(Path(params.directory, params.replays_file), "wb")
+            list(trajectories),
+            open(Path(params.directory, params.trajectories_file), "wb"),
         )
 
     ray.shutdown()
 
-    return metrics, replays
+    return metrics, trajectories
 
 
 def _parallel_fn(args: Tuple[RolloutParams, List[int]]) -> List[Dict[str, Any]]:
@@ -162,7 +163,7 @@ def _parallel_fn(args: Tuple[RolloutParams, List[int]]) -> List[Dict[str, Any]]:
 
         metrics = {k: np.array(v) for k, v in logger.to_dict().items()}
 
-        replay = EpisodeReplay(
+        trajectory = EpisodeTrajectory(
             observations,
             rewards,
             dones,
@@ -170,6 +171,6 @@ def _parallel_fn(args: Tuple[RolloutParams, List[int]]) -> List[Dict[str, Any]]:
             actions,
         )
 
-        results.append((metrics, replay))
+        results.append((metrics, trajectory))
 
     return results

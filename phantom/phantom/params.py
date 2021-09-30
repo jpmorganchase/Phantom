@@ -69,8 +69,8 @@ class RolloutParams:
             (https://docs.ray.io/en/master/rllib-training.html#callbacks-and-custom-metrics)
         metrics_file: Name of the metrics file to save to, if None is given no file
             will be saved (default is "metrics.pkl").
-        replays_file: Name of the replays file to save to, if None is given no file
-            will be saved (default is "replays.pkl").
+        trajectories_file: Name of the trajectories file to save to, if None is
+            given no file will be saved (default is "trajectories.pkl").
     """
 
     directory: Union[str, Path]
@@ -83,4 +83,4 @@ class RolloutParams:
     metrics: Mapping[str, Metric] = field(default_factory=dict)
     callbacks: Optional[Iterable[DefaultCallbacks]] = None
     metrics_file: Optional[Union[str, Path]] = "metrics.pkl"
-    replays_file: Optional[Union[str, Path]] = "replays.pkl"
+    trajectories_file: Optional[Union[str, Path]] = "trajectories.pkl"
