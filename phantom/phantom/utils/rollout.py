@@ -2,7 +2,7 @@ import math
 import pickle
 from dataclasses import dataclass
 from itertools import chain
-from logging import info
+from logging import error, info
 from pathlib import Path
 from typing import *
 
@@ -48,6 +48,11 @@ def run_rollouts(
 
     if params.checkpoint is None:
         checkpoint_dirs = sorted(Path(params.directory).glob("checkpoint_*"))
+        
+        if len(checkpoint_dirs) == 0:
+            error(f"No checkpoints found in directory '{params.directory}'")
+            return
+
         params.checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
 
     rollouts_per_worker = int(math.ceil(params.num_rollouts / params.num_workers))
