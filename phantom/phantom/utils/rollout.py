@@ -48,7 +48,7 @@ def run_rollouts(
 
     if params.checkpoint is None:
         checkpoint_dirs = sorted(Path(params.directory).glob("checkpoint_*"))
-        
+
         if len(checkpoint_dirs) == 0:
             error(f"No checkpoints found in directory '{params.directory}'")
             return
@@ -64,17 +64,25 @@ def run_rollouts(
         for i in range(0, len(seeds), rollouts_per_worker)
     ]
 
-    ray.init()
+    try:
+        ray.init(include_dashboard=False)
 
-    results = list(
-        chain.from_iterable(
-            ray.util.iter.from_items(
-                worker_payloads, num_shards=max(params.num_workers, 1)
+        results = list(
+            chain.from_iterable(
+                ray.util.iter.from_items(
+                    worker_payloads, num_shards=max(params.num_workers, 1)
+                )
+                .for_each(_parallel_fn)
+                .gather_sync()
             )
-            .for_each(_parallel_fn)
-            .gather_sync()
         )
-    )
+
+    except Exception as e:
+        # ensure that Ray is properly shutdown in the instance of any error occuring
+        ray.shutdown()
+        raise e
+    else:
+        ray.shutdown()
 
     metrics, trajectories = zip(*results)
 
@@ -88,8 +96,6 @@ def run_rollouts(
             list(trajectories),
             open(Path(params.directory, params.trajectories_file), "wb"),
         )
-
-    ray.shutdown()
 
     return metrics, trajectories
 
