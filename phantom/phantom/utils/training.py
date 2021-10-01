@@ -91,31 +91,34 @@ def train_from_params_object(
 
     register_env(params.env.env_name, lambda config: params.env(**config))
 
-    ray.init(local_mode=local_mode)
-
     training_it = (
         int(params.num_episodes / params.num_workers)
         if params.num_workers > 0
         else params.num_episodes
     )
 
-    if params.discard_results:
-        results_dir = tempfile.mkdtemp()
+    results_dir = tempfile.mkdtemp() if params.discard_results else params.results_dir
+
+    ray.init(local_mode=local_mode)
+
+    try:
+        tune.run(
+            params.algorithm,
+            name=params.experiment_name,
+            local_dir=results_dir,
+            checkpoint_freq=params.checkpoint_freq,
+            checkpoint_at_end=True,
+            stop={"training_iteration": training_it},
+            config=config,
+            callbacks=[TBXExtendedLoggerCallback()],
+        )
+
+    except Exception as e:
+        # ensure that Ray is properly shutdown in the instance of any error occuring
+        ray.shutdown()
+        raise e
     else:
-        results_dir = params.results_dir
-
-    _ = tune.run(
-        params.algorithm,
-        name=params.experiment_name,
-        local_dir=results_dir,
-        checkpoint_freq=params.checkpoint_freq,
-        checkpoint_at_end=True,
-        stop={"training_iteration": training_it},
-        config=config,
-        callbacks=[TBXExtendedLoggerCallback()],
-    )
-
-    ray.shutdown()
+        ray.shutdown()
 
     if params.discard_results:
         return None
