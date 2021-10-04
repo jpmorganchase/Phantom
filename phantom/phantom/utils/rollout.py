@@ -1,5 +1,5 @@
 import math
-import pickle
+import cloudpickle
 from dataclasses import dataclass
 from itertools import chain
 from logging import error, info
@@ -55,6 +55,8 @@ def run_rollouts(
 
         params.checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
 
+    params.num_workers = max(params.num_workers, 1)
+
     rollouts_per_worker = int(math.ceil(params.num_rollouts / params.num_workers))
 
     seeds = list(range(params.num_rollouts))
@@ -87,12 +89,12 @@ def run_rollouts(
     metrics, trajectories = zip(*results)
 
     if params.metrics_file is not None:
-        pickle.dump(
+        cloudpickle.dump(
             list(metrics), open(Path(params.directory, params.metrics_file), "wb")
         )
 
     if params.trajectories_file is not None:
-        pickle.dump(
+        cloudpickle.dump(
             list(trajectories),
             open(Path(params.directory, params.trajectories_file), "wb"),
         )
@@ -113,7 +115,11 @@ def _parallel_fn(
 
     # Load config from results directory.
     with open(Path(params.directory, "params.pkl"), "rb") as f:
-        config = pickle.load(f)
+        config = cloudpickle.load(f)
+
+    # Load env class from results directory.
+    with open(Path(params.directory, "env.pkl"), "rb") as f:
+        env_class = cloudpickle.load(f)
 
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
@@ -121,16 +127,16 @@ def _parallel_fn(
     config["env_config"] = params.env_config
 
     # Register custom environment with Ray
-    register_env(params.env.env_name, lambda config: params.env(**config))
+    register_env(env_class.env_name, lambda config: env_class(**config))
 
-    trainer = get_trainer_class("PPO")(env=params.env.env_name, config=config)
+    trainer = get_trainer_class("PPO")(env=env_class.env_name, config=config)
     trainer.restore(str(checkpoint_path))
 
     results = []
 
     for seed in seeds:
         # Create environment instance from config from results directory
-        env = params.env(**config["env_config"])
+        env = env_class(**config["env_config"])
 
         shared_policy_mapping = {}
 

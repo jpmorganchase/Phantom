@@ -2,20 +2,34 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Type, Union
 
+import cloudpickle
 import gym
 import ray
 from ray import tune
+from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 from termcolor import colored
 
 from ..agent import ZeroIntelligenceAgent
+from ..env import PhantomEnv
 from ..logging import MetricsLoggerCallbacks, MultiCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..params import TrainingParams
 from . import find_most_recent_results_dir, load_object
+
+
+class EnvSaveLoggerCallback(LoggerCallback):
+    def __init__(self, env: Type[PhantomEnv]) -> None:
+        self.env = env
+
+    def log_trial_start(self, trial: "Trial"):
+        cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
+
+    def __call__(self) -> "EnvSaveLoggerCallback":
+        return self
 
 
 def train_from_config_path(
@@ -110,7 +124,7 @@ def train_from_params_object(
             checkpoint_at_end=True,
             stop={"training_iteration": training_it},
             config=config,
-            callbacks=[TBXExtendedLoggerCallback()],
+            callbacks=[TBXExtendedLoggerCallback(), EnvSaveLoggerCallback(params.env)],
         )
 
     except Exception as e:

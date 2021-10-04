@@ -58,7 +58,6 @@ class RolloutParams:
 
     Attributes:
         directory: Phantom results directory containing trained policies.
-        env: A PhantomEnv subclass.
         num_workers: Number of Ray rollout workers to initialise.
         num_rollouts: Number of rollouts to perform, distributed over all workers.
         algorithm: RL algorithm to use, defaults to PPO.
@@ -74,7 +73,6 @@ class RolloutParams:
     """
 
     directory: Union[str, Path]
-    env: Type[PhantomEnv]
     num_workers: int
     num_rollouts: int
     algorithm: str = "PPO"

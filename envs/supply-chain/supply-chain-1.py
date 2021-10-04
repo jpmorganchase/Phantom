@@ -168,6 +168,5 @@ rollout_params = ph.RolloutParams(
     algorithm="PPO",
     num_workers=1,
     num_rollouts=2,
-    env=SupplyChainEnv,
     env_config={"n_customers": 5},
 )
