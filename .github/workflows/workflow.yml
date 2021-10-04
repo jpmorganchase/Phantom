@@ -5,6 +5,8 @@ name: Workflow
 on:
   pull_request:
     branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
 
 jobs:
   lint-black:
