@@ -12,7 +12,57 @@ from .rewards import RewardFunction
 
 
 class AgentType(ABC):
-    pass
+    def to_array(self) -> np.ndarray:
+        """
+        Converts the parameters of the AgentType into a flattened numpy array
+        for use in observation spaces.
+
+        An exception will be raised if any of the parameters are not of the type
+        int, float or numpy array.
+        """
+        type_array = np.array([])
+
+        for field in self.__dict__.keys():
+            attr = getattr(self, field)
+            if isinstance(attr, (np.ndarray, int, float)):
+                type_array = np.hstack((type_array, getattr(self, field)))
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(attr)}' into array"
+                )
+
+        return type_array
+
+    def to_basic_obs_space(self, low=-np.inf, high=np.inf) -> Box:
+        """
+        Converts the parameters of the AgentType into a `gym.spaces.Box`
+        representing the space given by the `to_array` method.
+
+        All elements of the space span the same range given by the `low` and
+        `high` arguments.
+
+        An exception will be raised if any of the parameters are not of the type
+        int, float or numpy array.
+
+        Arguments:
+            low: Optional 'low' bound for the space (default is -∞)
+            high: Optional 'high' bound for the space (default is ∞)
+        """
+        type_array = np.array([])
+
+        for field in self.__dict__.keys():
+            attr = getattr(self, field)
+            if isinstance(attr, (np.ndarray, int, float)):
+                type_array = np.hstack((type_array, getattr(self, field)))
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(attr)}' into obs space array"
+                )
+
+        return Box(
+            low=low * np.ones_like(type_array),
+            high=high * np.ones_like(type_array),
+        )
 
 
 A = TypeVar("A", bound=AgentType)
