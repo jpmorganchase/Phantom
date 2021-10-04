@@ -1,6 +1,8 @@
 import shutil
 import os
+from pathlib import Path
 
+import cloudpickle
 import gym
 import mercury as me
 import numpy as np
@@ -44,13 +46,25 @@ def test_experiment():
         num_workers=1,
         num_rollouts=5,
         env_config={},
+        save_trajectories=True,
     )
 
     metrics, trajectories = ph.utils.rollout.run_rollouts(rollout_params)
 
     assert len(metrics) == 5
     assert len(trajectories) == 5
-    assert isinstance(metrics[0], dict)
-    assert isinstance(trajectories[0], ph.utils.rollout.EpisodeTrajectory)
+    assert type(metrics[0]) == dict
+    assert type(trajectories[0]) == ph.utils.rollout.EpisodeTrajectory
+
+    results = cloudpickle.load(
+        open(Path(results_dir, rollout_params.results_file), "rb")
+    )
+
+    assert type(results) == dict
+    assert "metrics" not in results
+    assert "trajectories" in results
+
+    assert len(results["trajectories"]) == 5
+    assert type(results["trajectories"][0]) == ph.utils.rollout.EpisodeTrajectory
 
     shutil.rmtree(results_dir)

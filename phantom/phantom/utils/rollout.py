@@ -88,15 +88,17 @@ def run_rollouts(
 
     metrics, trajectories = zip(*results)
 
-    if params.metrics_file is not None:
-        cloudpickle.dump(
-            list(metrics), open(Path(params.directory, params.metrics_file), "wb")
-        )
+    results = {}
 
-    if params.trajectories_file is not None:
+    if params.metrics != {}:
+        results["metrics"] = metrics
+
+    if params.save_trajectories:
+        results["trajectories"] = trajectories
+
+    if params.results_file is not None and results != {}:
         cloudpickle.dump(
-            list(trajectories),
-            open(Path(params.directory, params.trajectories_file), "wb"),
+            results, open(Path(params.directory, params.results_file), "wb")
         )
 
     return metrics, trajectories

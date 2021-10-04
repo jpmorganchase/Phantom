@@ -66,10 +66,10 @@ class RolloutParams:
         metrics: Optional set of metrics to record and log.
         callbacks: Optional Ray Callbacks for custom metrics.
             (https://docs.ray.io/en/master/rllib-training.html#callbacks-and-custom-metrics)
-        metrics_file: Name of the metrics file to save to, if None is given no file
-            will be saved (default is "metrics.pkl").
-        trajectories_file: Name of the trajectories file to save to, if None is
-            given no file will be saved (default is "trajectories.pkl").
+        results_file: Name of the results file to save to, if None is given no file
+            will be saved (default is "results.pkl").
+        save_trajectories: If True the full set of epsiode trajectories for the
+            rollouts will be saved into the results file.
     """
 
     directory: Union[str, Path]
@@ -80,5 +80,5 @@ class RolloutParams:
     env_config: Mapping[str, Any] = field(default_factory=dict)
     metrics: Mapping[str, Metric] = field(default_factory=dict)
     callbacks: Optional[Iterable[DefaultCallbacks]] = None
-    metrics_file: Optional[Union[str, Path]] = "metrics.pkl"
-    trajectories_file: Optional[Union[str, Path]] = "trajectories.pkl"
+    results_file: Optional[Union[str, Path]] = "results.pkl"
+    save_trajectories: bool = False
