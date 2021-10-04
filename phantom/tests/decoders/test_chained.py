@@ -1,10 +1,9 @@
-from phantom.decoders.decoder import Packet
-
 import gym
 import mercury as me
 import numpy as np
 import phantom as ph
 from phantom.decoders import ChainedDecoder, Decoder
+from phantom.packet import Packet
 
 
 class TestDecoder(Decoder):

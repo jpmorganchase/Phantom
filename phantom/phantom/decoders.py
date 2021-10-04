@@ -4,10 +4,9 @@ from typing import Any, Generic, Iterable, List, Tuple, TypeVar
 
 import numpy as np
 from gym.spaces import Space, Tuple as GymTuple, Box
-
 from mercury import Network
 
-from ..packet import Packet
+from .packet import Packet
 
 
 Action = TypeVar("Action")

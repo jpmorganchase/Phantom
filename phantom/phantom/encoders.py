@@ -95,3 +95,58 @@ class ChainedEncoder(Encoder[Tuple]):
     def reset(self):
         for encoder in self.encoders:
             encoder.reset()
+
+
+class Constant(Encoder[np.ndarray]):
+    def __init__(self, shape: Tuple[int], value: float = 0.0) -> None:
+        self._shape = shape
+        self._value = value
+
+    @property
+    def output_space(self) -> Box:
+        return Box(-np.inf, np.inf, shape=self._shape, dtype=np.float32)
+
+    def encode(self, ctx: Network.Context) -> np.ndarray:
+        return np.full(self._shape, self._value)
+
+
+class DataEntry(Encoder[np.ndarray]):
+    def __init__(self, key: Any, shape: Tuple[int]) -> None:
+        self._key = key
+        self._shape = shape
+
+    @property
+    def output_space(self) -> Box:
+        return Box(-np.inf, np.inf, shape=self._shape, dtype=np.float32)
+
+    def encode(self, ctx: Network.Context) -> np.ndarray:
+        v = ctx.actor.data[self._key]
+
+        if np.isscalar(v):
+            return np.array([v])
+
+        return v
+
+
+class ElapsedTime(Encoder[np.ndarray]):
+    """Encoder providing the fraction of time elapsed since the beginning of the episode.
+
+    The `clock` comes from the `ActorMixin`, `MarketShareFrequencyTracker` for Market Maker
+    or `TradeSideFrequencyTracker` for Investor.
+    """
+
+    @property
+    def output_space(self) -> Box:
+        return Box(low=-1e-12, high=1.5, shape=(1,))
+
+    @staticmethod
+    def _elapsed_time_fraction(clock):
+        return (
+            1.0
+            if clock.is_terminal
+            else 2 * np.ceil(clock.elapsed / 2) / clock.terminal_time
+        )
+
+    def encode(self, ctx: Network.Context) -> np.ndarray:
+        elapsed_time = self._elapsed_time_fraction(ctx.actor.clock)
+        return np.array([elapsed_time])
