@@ -25,7 +25,7 @@ class EnvSaveLoggerCallback(LoggerCallback):
     def __init__(self, env: Type[PhantomEnv]) -> None:
         self.env = env
 
-    def log_trial_start(self, trial: "Trial"):
+    def log_trial_start(self, trial: tune.trial.Trial):
         cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
 
     def __call__(self) -> "EnvSaveLoggerCallback":
