@@ -14,7 +14,9 @@ from datetime import datetime
 
 from profilehooks import profile
 
-from phantom.cmd_utils import load_config, train_from_params_object
+from phantom.params import TrainingParams
+from phantom.utils import load_object
+from phantom.utils.training import train_from_params_object
 
 
 def main(args):
@@ -36,17 +38,15 @@ def main(args):
     print("╚═════════════════╝")
     print()
 
-    config_name, phantom_params = load_config(flags.config_file)
+    params = load_object(flags.config_file, "training_params", TrainingParams)
 
     timestamp_str = datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
 
-    filename_root = f"phantom-profiling_{timestamp_str}_{config_name}"
+    filename_root = f"phantom-profiling_{timestamp_str}"
 
     @profile(stdout=False, immediate=True, filename=f"{filename_root}.prof")
     def run():
-        train_from_params_object(
-            phantom_params, local_mode=True, config_path=flags.config_file
-        )
+        train_from_params_object(params, local_mode=True, config_path=flags.config_file)
 
     run()
 

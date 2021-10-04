@@ -592,7 +592,7 @@ for aid in (f"ADV_{i}" for i in range(1, 9)):
 ##  Params
 #######################################
 
-phantom_params = ph.PhantomParams(
+training_params = ph.TrainingParams(
     experiment_name="digital-ads",
     algorithm="PPO",
     num_workers=0,

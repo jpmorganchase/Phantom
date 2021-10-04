@@ -13,6 +13,9 @@ phantom-train
 
 Runs RL training for an experiment defined in the given Phantom experiment config file.
 
+The config file should contain an instance of the ``TrainingParams`` class in the global
+scope named ``training_params``.
+
 Usage:
 
 .. code-block:: bash
@@ -26,25 +29,23 @@ phantom-rollout
 
 Performs rollouts for an already trained experiment.
 
+The config file should contain an instance of the ``RolloutParams`` class in the global
+scope named ``rollout_params``.
+
 Usage:
 
 .. code-block:: bash
 
-    phantom-rollout <config_file> <results_directory>
-
-
-Additional Arguments:
-
-- ``--num-workers NUM_WORKERS`` -- How many Ray workers to use.
-- ``--num-rollouts NUM_ROLLOUTS`` -- How many steps are in a training batch.
-- ``--checkpoint-num CHECKPOINT_NUM`` -- The number of the checkpoint to use.
-- ``--metrics-file METRICS_FILE`` -- The pickle file to save the rollout results to.
+    phantom-rollout <config_file>
 
 
 phantom-profile
 ---------------
 
 Runs RL training for an experiment and profiles the execution.
+
+The config file should contain an instance of the ``TrainingParams`` class in the global
+scope named ``training_params``.
 
 Usage:
 

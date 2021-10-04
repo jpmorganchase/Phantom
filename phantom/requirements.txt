@@ -1,3 +1,5 @@
+cloudpickle==1.6.0
+coloredlogs==15.0.1
 fsspec==0.8
 gputil==1.4
 gym==0.18

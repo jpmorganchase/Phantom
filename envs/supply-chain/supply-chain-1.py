@@ -154,11 +154,19 @@ class SupplyChainEnv(ph.PhantomEnv):
         super().__init__(network=network, n_steps=NUM_EPISODE_STEPS, seed=seed)
 
 
-phantom_params = ph.PhantomParams(
-    experiment_name="supply-chain",
+training_params = ph.TrainingParams(
+    experiment_name="supply-chain-1",
     algorithm="PPO",
     num_workers=4,
     num_episodes=100,
     env=SupplyChainEnv,
-    env_config={"n_customers": 5, "seed": 0},
+    env_config={"n_customers": 5},
+)
+
+rollout_params = ph.RolloutParams(
+    directory="/home/ubuntu/phantom_results/supply-chain-1/LATEST",
+    algorithm="PPO",
+    num_workers=1,
+    num_rollouts=2,
+    env_config={"n_customers": 5},
 )
