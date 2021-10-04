@@ -20,18 +20,27 @@ class AgentType(ABC):
         An exception will be raised if any of the parameters are not of the type
         int, float or numpy array.
         """
-        type_array = np.array([])
 
-        for field in self.__dict__.keys():
-            attr = getattr(self, field)
-            if isinstance(attr, (np.ndarray, int, float)):
-                type_array = np.hstack((type_array, getattr(self, field)))
+        def _to_array(field: str, obj: Any) -> np.ndarray:
+            type_array = np.array([])
+
+            if isinstance(obj, (np.ndarray, int, float)):
+                type_array = np.hstack((type_array, obj))
+            elif isinstance(obj, (list, tuple)):
+                for i, elem in enumerate(obj):
+                    type_array = np.hstack(
+                        (type_array, _to_array(f"{field}[{i}]", elem))
+                    )
             else:
                 raise ValueError(
-                    f"Can't encode field '{field}' with type '{type(attr)}' into array"
+                    f"Can't encode field '{field}' with type '{type(obj)}' into array"
                 )
 
-        return type_array
+            return type_array
+
+        return np.hstack(
+            [_to_array(field, obj) for field, obj in self.__dict__.items()]
+        )
 
     def to_basic_obs_space(self, low=-np.inf, high=np.inf) -> Box:
         """
@@ -48,16 +57,7 @@ class AgentType(ABC):
             low: Optional 'low' bound for the space (default is -∞)
             high: Optional 'high' bound for the space (default is ∞)
         """
-        type_array = np.array([])
-
-        for field in self.__dict__.keys():
-            attr = getattr(self, field)
-            if isinstance(attr, (np.ndarray, int, float)):
-                type_array = np.hstack((type_array, getattr(self, field)))
-            else:
-                raise ValueError(
-                    f"Can't encode field '{field}' with type '{type(attr)}' into obs space array"
-                )
+        type_array = self.to_array()
 
         return Box(
             low=low * np.ones_like(type_array),
