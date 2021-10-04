@@ -12,13 +12,18 @@ from .rewards import RewardFunction
 
 
 class AgentType(ABC):
+    """
+    Abstract base class representing Agent Types.
+    """
+
     def to_array(self) -> np.ndarray:
         """
         Converts the parameters of the AgentType into a flattened numpy array
         for use in observation spaces.
 
         An exception will be raised if any of the parameters are not of the type
-        int, float or numpy array.
+        int, float or numpy array. For AgentTypes with more complex parameter
+        types, eg. Dicts, the user should implement their own conversion.
         """
 
         def _to_array(field: str, obj: Any) -> np.ndarray:
@@ -51,7 +56,8 @@ class AgentType(ABC):
         `high` arguments.
 
         An exception will be raised if any of the parameters are not of the type
-        int, float or numpy array.
+        int, float or numpy array. For AgentTypes with more complex parameter
+        types, eg. Dicts, the user should implement their own conversion.
 
         Arguments:
             low: Optional 'low' bound for the space (default is -∞)
