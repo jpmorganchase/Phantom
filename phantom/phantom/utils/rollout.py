@@ -55,6 +55,10 @@ def run_rollouts(
 
         params.checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
 
+        info(f"Using most recent checkpoint: {params.checkpoint}")
+    else:
+        info(f"Using checkpoint: {params.checkpoint}")
+
     params.num_workers = max(params.num_workers, 1)
 
     rollouts_per_worker = int(math.ceil(params.num_rollouts / params.num_workers))
@@ -65,6 +69,10 @@ def run_rollouts(
         (params, seeds[i : i + rollouts_per_worker])
         for i in range(0, len(seeds), rollouts_per_worker)
     ]
+
+    info(
+        f"Starting {params.num_rollouts} rollout(s) using {params.num_workers} worker(s)"
+    )
 
     try:
         ray.init(include_dashboard=False)
@@ -97,9 +105,11 @@ def run_rollouts(
         results["trajectories"] = trajectories
 
     if params.results_file is not None and results != {}:
-        cloudpickle.dump(
-            results, open(Path(params.directory, params.results_file), "wb")
-        )
+        results_file = Path(params.directory, params.results_file)
+
+        cloudpickle.dump(results, open(results_file, "wb"))
+
+        info(f"Saved rollout results to '{results_file}'")
 
     return metrics, trajectories
 
