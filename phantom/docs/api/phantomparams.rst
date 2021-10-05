@@ -1,7 +1,14 @@
 .. _api_phantomparams:
 
-PhantomParams
+TrainingParams
+==============
+
+.. autoclass:: phantom.params.TrainingParams
+   :inherited-members:
+
+
+RolloutParams
 =============
 
-.. autoclass:: phantom.params.PhantomParams
+.. autoclass:: phantom.params.RolloutParams
    :inherited-members:

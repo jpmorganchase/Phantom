@@ -50,13 +50,13 @@ get its ``stock`` property.
 Metrics should not make any modification to the environment or any objects within it -
 they should be completely passive.
 
-We then register our metric using the ``metrics`` property on the ``PhantomParams``
+We then register our metric using the ``metrics`` property on the ``TrainingParams``
 object. The name can be whatever the user wants however it is sensible to include the
 name of the agent and the property that is being measured, eg. ``stock/SHOP``.
 
 .. code-block:: python
 
-    phantom_params = ph.PhantomParams(
+    training_params = ph.TrainingParams(
         experiment_name="supply-chain",
         algorithm="PPO",
         num_workers=15,

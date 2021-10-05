@@ -443,7 +443,7 @@ Experiment Parameters
 
 
 Every Phantom experiment using the standard design as described above must provide in
-the configuration script an instance of the ``PhantomParams`` class under a variable
+the configuration script an instance of the ``TrainingParams`` class under a variable
 named ``phantom_params``.
 
 In this we define key parameters of our experiment. The experiment name is important as
@@ -451,12 +451,12 @@ this determines where the experiment results will be stored. Any items given in 
 ``env_config`` dictionary will be passed into the initialisation method of the
 environment.
 
-There are more fields available in ``PhantomParams`` than what is shown here. See
+There are more fields available in ``TrainingParams`` than what is shown here. See
 :ref:`api_phantomparams` for full documentation.
 
 .. code-block:: python
 
-    phantom_params = ph.PhantomParams(
+    training_params = ph.TrainingParams(
         experiment_name="supply-chain",
         algorithm="PPO",
         num_workers=2,
@@ -492,7 +492,7 @@ In a new terminal we can monitor the progress of the experiment live with Tensor
     tensorboard --logdir ~/phantom_results/supply-chain
 
 Note the last element of the path matches the name we gave to our experiment in the
-``PhantomParams`` object.
+``TrainingParams`` object.
 
 Below is a screenshot of TensorBoard. By default many plots are included providing
 statistics on the experiment. You can also view the experiment progress live as it is
