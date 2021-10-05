@@ -38,8 +38,6 @@ def test_agent_type_utilities():
 
     t_space = t.to_obs_space()
 
-    print(t_space)
-
     assert t_space == gym.spaces.Dict(
         {
             "a": gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
