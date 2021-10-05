@@ -45,7 +45,7 @@ class AgentType(ABC):
 
         return np.hstack(
             [_to_array(field, obj) for field, obj in self.__dict__.items()]
-        )
+        ).flatten()
 
     def to_basic_obs_space(self, low=-np.inf, high=np.inf) -> Box:
         """
@@ -66,8 +66,8 @@ class AgentType(ABC):
         type_array = self.to_array()
 
         return Box(
-            low=low * np.ones_like(type_array),
-            high=high * np.ones_like(type_array),
+            low=np.full(type_array.shape, low),
+            high=np.full(type_array.shape, high),
         )
 
 
