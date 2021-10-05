@@ -1,53 +1,76 @@
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import phantom as ph
 import pytest
-from gym.spaces import Box
+import gym.spaces
 
 
-def test_agent_type_simple():
-    # 3 basic accepted types are int, float and np.ndarray
+def test_agent_type_utilities():
     @dataclass
     class Type(ph.AgentType):
-        a: int = 1
-        b: float = 2.0
-        c: np.ndarray = np.array([3, 4, 5])
+        a: int
+        b: float
+        c: List[int]
+        d: Tuple[int]
+        e: np.ndarray
+        f: Dict[str, int]
 
-    t = Type()
+    t = Type(
+        a=1,
+        b=2.0,
+        c=[6, 7, 8],
+        d=(9, 10, 11),
+        e=np.array([15, 16, 17]),
+        f={"x": 12, "y": 13, "z": 14},
+    )
 
-    assert (t.to_array() == np.array([1, 2, 3, 4, 5])).all()
-    assert t.to_basic_obs_space() == Box(-np.inf, np.inf, (5,), np.float32)
-    assert t.to_basic_obs_space(low=0, high=1) == Box(0, 1, (5,), np.float32)
+    t_compat = t.to_obs_space_compatible_type()
 
+    assert len(t_compat) == 6
+    assert t_compat["a"] == t.a
+    assert t_compat["b"] == t.b
+    assert t_compat["c"] == t.c
+    assert t_compat["d"] == t.d
+    assert np.all(t_compat["e"] == t.e)
+    assert t_compat["f"] == t.f
 
-def test_agent_type_complex():
-    # 3 basic accepted types are int, float and np.ndarray
-    @dataclass
-    class Type(ph.AgentType):
-        a: List[int]
-        b: Tuple[int, int]
+    t_space = t.to_obs_space()
 
-    t = Type([1, 2, 3], (4, 5))
+    print(t_space)
 
-    assert (t.to_array() == np.array([1, 2, 3, 4, 5])).all()
-    assert t.to_basic_obs_space() == Box(-np.inf, np.inf, (5,), np.float32)
-    assert t.to_basic_obs_space(low=0, high=1) == Box(0, 1, (5,), np.float32)
+    assert t_space == gym.spaces.Dict(
+        {
+            "a": gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+            "b": gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+            "c": gym.spaces.Tuple(
+                [
+                    gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                    gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                    gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                ]
+            ),
+            "d": gym.spaces.Tuple(
+                [
+                    gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                    gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                    gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                ]
+            ),
+            "e": gym.spaces.Box(-np.inf, np.inf, (3,), np.float32),
+            "f": gym.spaces.Dict(
+                {
+                    "x": gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                    "y": gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                    "z": gym.spaces.Box(-np.inf, np.inf, (1,), np.float32),
+                }
+            ),
+        }
+    )
 
-    # Test nested types
-    @dataclass
-    class Type(ph.AgentType):
-        a: List[List[int]]
+    assert t_space.contains(t_compat)
 
-    t = Type([[1, 2, 3], [4, 5]])
-
-    assert (t.to_array() == np.array([1, 2, 3, 4, 5])).all()
-    assert t.to_basic_obs_space() == Box(-np.inf, np.inf, (5,), np.float32)
-    assert t.to_basic_obs_space(low=0, high=1) == Box(0, 1, (5,), np.float32)
-
-
-def test_agent_type_errors():
     # String is not currently a supported type
     @dataclass
     class Type(ph.AgentType):
@@ -56,20 +79,7 @@ def test_agent_type_errors():
     t = Type()
 
     with pytest.raises(ValueError):
-        t.to_array()
+        t.to_obs_space_compatible_type()
 
     with pytest.raises(ValueError):
-        t.to_basic_obs_space()
-
-    # Dict is currently not a supported type
-    @dataclass
-    class Type(ph.AgentType):
-        d: dict = field(default_factory=dict)
-
-    t = Type()
-
-    with pytest.raises(ValueError):
-        t.to_array()
-
-    with pytest.raises(ValueError):
-        t.to_basic_obs_space()
+        t.to_obs_space()

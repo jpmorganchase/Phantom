@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
 from typing import Any, AnyStr, Dict, Mapping, Optional, Type, TypeVar, Union
 
 import mercury as me
 import numpy as np
-from gym.spaces import Box, Discrete, Space
+import gym.spaces
 
 from .decoders import Decoder
 from .encoders import Encoder
@@ -11,63 +12,91 @@ from .packet import Packet, Mutation
 from .rewards import RewardFunction
 
 
+ObsSpaceCompatibleTypes = Union[dict, float, int, list, np.ndarray, tuple]
+
+
+@dataclass
 class AgentType(ABC):
     """
     Abstract base class representing Agent Types.
     """
 
-    def to_array(self) -> np.ndarray:
+    def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
         """
-        Converts the parameters of the AgentType into a flattened numpy array
-        for use in observation spaces.
-
-        An exception will be raised if any of the parameters are not of the type
-        int, float or numpy array. For AgentTypes with more complex parameter
-        types, eg. Dicts, the user should implement their own conversion.
+        Converts the parameters of the AgentType into a dict for use in observation
+        spaces.
         """
 
-        def _to_array(field: str, obj: Any) -> np.ndarray:
-            type_array = np.array([])
-
-            if isinstance(obj, (np.ndarray, int, float)):
-                type_array = np.hstack((type_array, obj))
-            elif isinstance(obj, (list, tuple)):
-                for i, elem in enumerate(obj):
-                    type_array = np.hstack(
-                        (type_array, _to_array(f"{field}[{i}]", elem))
-                    )
+        def _to_compatible_type(field: str, obj: Any) -> ObsSpaceCompatibleTypes:
+            if isinstance(obj, dict):
+                return {
+                    key: _to_compatible_type(key, value) for key, value in obj.items()
+                }
+            elif isinstance(obj, (float, int)):
+                return np.array([obj])
+            elif isinstance(obj, list):
+                return [
+                    _to_compatible_type(f"{field}[{i}]", value)
+                    for i, value in enumerate(obj)
+                ]
+            elif isinstance(obj, tuple):
+                return tuple(
+                    _to_compatible_type(f"{field}[{i}]", value)
+                    for i, value in enumerate(obj)
+                )
+            elif isinstance(obj, np.ndarray):
+                return obj
             else:
                 raise ValueError(
-                    f"Can't encode field '{field}' with type '{type(obj)}' into array"
+                    f"Can't encode field '{field}' with type '{type(obj)}' into obs space compatible type"
                 )
 
-            return type_array
+        return {
+            name: _to_compatible_type(name, value)
+            for name, value in asdict(self).items()
+        }
 
-        return np.hstack(
-            [_to_array(field, obj) for field, obj in self.__dict__.items()]
-        ).flatten()
-
-    def to_basic_obs_space(self, low=-np.inf, high=np.inf) -> Box:
+    def to_obs_space(self, low=-np.inf, high=np.inf) -> gym.spaces.Space:
         """
-        Converts the parameters of the AgentType into a `gym.spaces.Box`
-        representing the space given by the `to_array` method.
+        Converts the parameters of the AgentType into a `gym.spaces.Space` representing
+        the space.
 
-        All elements of the space span the same range given by the `low` and
-        `high` arguments.
-
-        An exception will be raised if any of the parameters are not of the type
-        int, float or numpy array. For AgentTypes with more complex parameter
-        types, eg. Dicts, the user should implement their own conversion.
+        All elements of the space span the same range given by the `low` and `high`
+        arguments.
 
         Arguments:
             low: Optional 'low' bound for the space (default is -∞)
             high: Optional 'high' bound for the space (default is ∞)
         """
-        type_array = self.to_array()
 
-        return Box(
-            low=np.full(type_array.shape, low),
-            high=np.full(type_array.shape, high),
+        def _to_obs_space(field: str, obj: Any) -> gym.spaces.Space:
+            if isinstance(obj, dict):
+                return gym.spaces.Dict(
+                    {key: _to_obs_space(key, value) for key, value in obj.items()}
+                )
+            elif isinstance(obj, float):
+                return gym.spaces.Box(low, high, (1,), np.float32)
+            elif isinstance(obj, int):
+                return gym.spaces.Box(low, high, (1,), np.float32)
+            elif isinstance(obj, (list, tuple)):
+                return gym.spaces.Tuple(
+                    [
+                        _to_obs_space(f"{field}[{i}]", value)
+                        for i, value in enumerate(obj)
+                    ]
+                )
+            elif isinstance(obj, np.ndarray):
+                return gym.spaces.Box(low, high, obj.shape, np.float32)
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(obj)}' into gym.spaces.Space"
+                )
+
+        return gym.spaces.Dict(
+            {
+                field: _to_obs_space(field, value)
+                for field, value in asdict(self).items()
+            }
         )
 
 
@@ -263,7 +292,7 @@ class Agent(me.actors.SimpleSyncActor):
 
         super().reset()
 
-    def get_observation_space(self) -> Space:
+    def get_observation_space(self) -> gym.spaces.Space:
         """
         Returns the gym observation space of this agent.
         """
@@ -274,7 +303,7 @@ class Agent(me.actors.SimpleSyncActor):
 
         return self.obs_encoder.output_space
 
-    def get_action_space(self) -> Space:
+    def get_action_space(self) -> gym.spaces.Space:
         """
         Returns the gym action space of this agent.
         """
@@ -307,7 +336,7 @@ class ZeroIntelligenceAgent(Agent, ABC):
         raise NotImplementedError
 
     def get_observation_space(self):
-        return Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def get_action_space(self):
-        return Discrete(1)
+        return gym.spaces.Discrete(1)
