@@ -267,8 +267,10 @@ def print_experiment_info(
             return 1
         elif isinstance(space, gym.spaces.Tuple):
             return sum(get_space_size(elem) for elem in space)
+        elif isinstance(space, gym.spaces.Dict):
+            return sum(get_space_size(elem) for elem in space.spaces.values())
         else:
-            raise NotImplementedError
+            raise NotImplementedError(type(space))
 
     print()
     print("General Parameters")

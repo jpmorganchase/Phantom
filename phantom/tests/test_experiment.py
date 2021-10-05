@@ -7,11 +7,50 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
+from phantom.decoders import Decoder, DictDecoder
+from phantom.encoders import DictEncoder, Encoder
 
 
-class MinimalAgent(ph.agent.ZeroIntelligenceAgent):
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        return ph.packet.Packet()
+class TestEncoder(Encoder):
+    def __init__(self, id: int):
+        self.id = id
+
+    @property
+    def output_space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+    def encode(self, ctx: me.Network.Context) -> np.ndarray:
+        return np.array([self.id])
+
+    def reset(self):
+        self.id = None
+
+
+class TestDecoder(Decoder):
+    def __init__(self, id: int):
+        self.id = id
+
+    @property
+    def action_space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+    def decode(self, ctx: me.Network.Context, action) -> ph.Packet:
+        return ph.Packet()
+
+    def reset(self):
+        self.id = None
+
+
+class MinimalAgent(ph.agent.Agent):
+    def __init__(self) -> None:
+        super().__init__(
+            agent_id="Agent",
+            obs_encoder=DictEncoder({"e1": TestEncoder(1), "e2": TestEncoder(2)}),
+            action_decoder=DictDecoder({"d1": TestDecoder(1), "d2": TestDecoder(2)}),
+        )
+
+    def compute_reward(self, ctx: me.Network.Context) -> float:
+        return 0
 
 
 class MinimalEnv(ph.PhantomEnv):
@@ -19,7 +58,7 @@ class MinimalEnv(ph.PhantomEnv):
     env_name: str = "unit-testing"
 
     def __init__(self):
-        agents = [MinimalAgent("ZI1")]
+        agents = [MinimalAgent()]
 
         network = me.Network(me.resolvers.UnorderedResolver(), agents)
 

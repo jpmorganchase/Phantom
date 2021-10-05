@@ -1,9 +1,9 @@
 from abc import abstractmethod, abstractproperty, ABC
-from typing import Any, Generic, Iterable, List, Tuple, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, Mapping, Tuple, TypeVar
 
 import numpy as np
 from gym import Space
-from gym.spaces import Box, Tuple as GymTuple
+from gym.spaces import Box, Dict as GymDict, Tuple as GymTuple
 from mercury import Network
 
 
@@ -94,6 +94,30 @@ class ChainedEncoder(Encoder[Tuple]):
 
     def reset(self):
         for encoder in self.encoders:
+            encoder.reset()
+
+
+class DictEncoder(Encoder[Dict[str, Any]]):
+    """Combines n encoders into a single encoder with a dict action space.
+
+    Attributes:
+        encoders: A mapping of encoder names to encoders.
+    """
+
+    def __init__(self, encoders: Mapping[str, Encoder]):
+        self.encoders: Dict[str, Encoder] = dict(encoders)
+
+    @property
+    def output_space(self) -> Space:
+        return GymDict(
+            {name: encoder.output_space for name, encoder in self.encoders.items()}
+        )
+
+    def encode(self, ctx: Network.Context) -> Dict[str, Any]:
+        return {name: encoder.encode(ctx) for name, encoder in self.encoders.items()}
+
+    def reset(self):
+        for encoder in self.encoders.values():
             encoder.reset()
 
 
