@@ -314,7 +314,7 @@ def print_experiment_info(
 
     print("Trained Policies")
     print("================")
-    if len(untrained_policy_data) > 0:
+    if len(trained_policy_data) > 0:
         print(
             tabulate(
                 trained_policy_data,
