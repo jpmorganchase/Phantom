@@ -54,7 +54,7 @@ def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
     experiment_directories = []
 
     for directory in directories:
-        # Not all directories will be experiment results directories. Filter by 
+        # Not all directories will be experiment results directories. Filter by
         # attempting to parse a datetime from the directory name.
         try:
             datetime.strptime(str(directory)[-19:], "%Y-%m-%d_%H-%M-%S")
