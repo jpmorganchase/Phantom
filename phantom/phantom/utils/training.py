@@ -2,12 +2,13 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import cloudpickle
 import gym
 import ray
 from ray import tune
+from ray.rllib.policy.policy import PolicySpec
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
@@ -140,7 +141,7 @@ def train_from_params_object(
         return find_most_recent_results_dir(Path(results_dir, params.experiment_name))
 
 
-def create_rllib_config_dict(params: TrainingParams) -> dict:
+def create_rllib_config_dict(params: TrainingParams) -> Dict[str, Any]:
     """
     Converts a TrainingParams object into a config dictionary compatible with
     Ray/RLlib.
@@ -157,19 +158,19 @@ def create_rllib_config_dict(params: TrainingParams) -> dict:
     except:
         env = params.env()
 
-    mas = {}
+    ma_config = {}
 
-    if env.policy_grouping is not None:
+    if params.policy_grouping is not None:
         custom_policies = {}
         custom_policies_to_train = []
         mapping = {}
 
-        for pid, aids in env.policy_grouping.items():
-            custom_policies[pid] = (
-                None,
-                env.agents[aids[0]].get_observation_space(),
-                env.agents[aids[0]].get_action_space(),
-                env.agents[aids[0]].policy_config or dict(),
+        for pid, aids in params.policy_grouping.items():
+            custom_policies[pid] = PolicySpec(
+                policy_class=None,
+                observation_space=env.agents[aids[0]].get_observation_space(),
+                action_space=env.agents[aids[0]].get_action_space(),
+                config=env.agents[aids[0]].policy_config or dict(),
             )
 
             for aid in aids:
@@ -179,11 +180,11 @@ def create_rllib_config_dict(params: TrainingParams) -> dict:
 
         for aid, agent in env.agents.items():
             if aid not in mapping:
-                custom_policies[aid] = (
-                    agent.policy_type,
-                    agent.get_observation_space(),
-                    agent.get_action_space(),
-                    agent.policy_config or dict(),
+                custom_policies[aid] = PolicySpec(
+                    policy_class=agent.policy_type,
+                    observation_space=agent.get_observation_space(),
+                    action_space=agent.get_action_space(),
+                    config=agent.policy_config or dict(),
                 )
 
                 mapping[aid] = aid
@@ -193,30 +194,32 @@ def create_rllib_config_dict(params: TrainingParams) -> dict:
                 ):
                     custom_policies_to_train.append(aid)
 
-        mas["policies"] = custom_policies
-        mas["policy_mapping"] = mapping
-        mas["policy_mapping_fn"] = lambda agent_id, episode=None, **kwargs: mapping[
-            agent_id
-        ]
-        mas["policies_to_train"] = custom_policies_to_train
+        ma_config["policies"] = custom_policies
+        ma_config["policy_mapping"] = mapping
+        ma_config[
+            "policy_mapping_fn"
+        ] = lambda agent_id, episode=None, **kwargs: mapping[agent_id]
+        ma_config["policies_to_train"] = custom_policies_to_train
 
     else:
-        mas["policies"] = {
-            aid: (
-                agent.policy_type,
-                agent.get_observation_space(),
-                agent.get_action_space(),
-                agent.policy_config or dict(),
+        ma_config["policies"] = {
+            aid: PolicySpec(
+                policy_class=agent.policy_type,
+                observation_space=agent.get_observation_space(),
+                action_space=agent.get_action_space(),
+                config=agent.policy_config or dict(),
             )
             for aid, agent in env.agents.items()
         }
 
-        mas["policy_mapping"] = {aid: aid for aid in env.agents.keys()}
-        mas["policy_mapping_fn"] = lambda agent_id, episode=None, **kwargs: agent_id
+        ma_config["policy_mapping"] = {aid: aid for aid in env.agents.keys()}
+        ma_config[
+            "policy_mapping_fn"
+        ] = lambda agent_id, episode=None, **kwargs: agent_id
 
-        mas["policies_to_train"] = [
+        ma_config["policies_to_train"] = [
             agent_id
-            for agent_id, policy_spec in mas["policies"].items()
+            for agent_id, policy_spec in ma_config["policies"].items()
             if policy_spec[0] is None
             and not isinstance(env.agents[agent_id], ZeroIntelligenceAgent)
         ]
@@ -226,7 +229,7 @@ def create_rllib_config_dict(params: TrainingParams) -> dict:
     config["env"] = params.env.env_name
     config["env_config"] = params.env_config
     config["seed"] = params.seed
-    config["multiagent"] = mas
+    config["multiagent"] = ma_config
     config["num_workers"] = params.num_workers
     config["rollout_fragment_length"] = env.clock.n_steps
 
@@ -259,7 +262,7 @@ def create_rllib_config_dict(params: TrainingParams) -> dict:
 
 def print_experiment_info(
     phantom_params: TrainingParams, config: Dict, config_path: Optional[str] = None
-):
+) -> None:
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):
             return sum(space.shape)

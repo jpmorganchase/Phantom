@@ -42,9 +42,9 @@ class TestDecoder(Decoder):
 
 
 class MinimalAgent(ph.agent.Agent):
-    def __init__(self) -> None:
+    def __init__(self, id: str) -> None:
         super().__init__(
-            agent_id="Agent",
+            agent_id=id,
             obs_encoder=DictEncoder({"e1": TestEncoder(1), "e2": TestEncoder(2)}),
             action_decoder=DictDecoder({"d1": TestDecoder(1), "d2": TestDecoder(2)}),
         )
@@ -58,7 +58,7 @@ class MinimalEnv(ph.PhantomEnv):
     env_name: str = "unit-testing"
 
     def __init__(self):
-        agents = [MinimalAgent()]
+        agents = [MinimalAgent("a1"), MinimalAgent("a2"), MinimalAgent("a3")]
 
         network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -73,6 +73,7 @@ def test_experiment():
         num_episodes=3,
         env=MinimalEnv,
         env_config={},
+        policy_grouping={"shared_policy": ["a2", "a3"]},
     )
 
     results_dir = ph.utils.training.train_from_params_object(training_params)

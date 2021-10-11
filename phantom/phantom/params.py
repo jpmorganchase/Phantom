@@ -23,6 +23,8 @@ class TrainingParams:
         checkpoint_freq: Episodic frequency at which to save checkpoints.
         env_config: Configuration parameters to pass to the environment init method.
         alg_config: Optional algorithm parameters dictionary to pass to RLlib.
+        policy_grouping: A mapping between custom policy names and lists of agents
+            sharing the same policy.
         metrics: Optional set of metrics to record and log.
         callbacks: Optional Ray Callbacks for custom metrics.
             (https://docs.ray.io/en/master/rllib-training.html#callbacks-and-custom-metrics)
@@ -43,6 +45,7 @@ class TrainingParams:
     checkpoint_freq: Optional[int] = None
     env_config: Mapping[str, Any] = field(default_factory=dict)
     alg_config: Mapping[str, Any] = field(default_factory=dict)
+    policy_grouping: Mapping[str, List[str]] = field(default_factory=dict)
     metrics: Mapping[str, Metric] = field(default_factory=dict)
     callbacks: Optional[Iterable[DefaultCallbacks]] = None
     discard_results: bool = False
