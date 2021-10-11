@@ -244,8 +244,6 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         enforced_actions = self._states[self.current_state].enforced_actions
         enforced_rewards = self._states[self.current_state].enforced_rewards
 
-        print(f"Agents taking actions: {enforced_actions}")
-
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
 
