@@ -33,26 +33,29 @@ class fsm_state:
         self,
         state_id: StateID,
         next_states: Optional[Iterable[StateID]] = None,
-        enforced_actions: Optional[Iterable[me.ID]] = None,
-        enforced_rewards: Optional[Iterable[me.ID]] = None,
+        take_actions_subset: Optional[Iterable[me.ID]] = None,
+        calc_rewards_subset: Optional[Iterable[me.ID]] = None,
     ) -> None:
         """
         Arguments:
             state_id: The name of this state.
-            next_states: The states that this state can transition to. This is
-                not required if using the TurnBasedEnv.
-            enforced_actions:
-            enforced_rewards:
+            next_states: The states that this state can transition to.
+            take_actions_subset: If provided, only the agents given will take an action
+                at the start of the step for this state. If not provided, all agents
+                will take actions.
+            calc_rewards_subset: If provided, only the agents given will calculate and
+                return a reward at the end of the step for this state. If not provided,
+                all agents will calculate and return a reward.
         """
         self.state_id = state_id
         self.next_states = next_states
-        self.enforced_actions = enforced_actions
-        self.enforced_rewards = enforced_rewards
-        self.handler: Optional[StateHandler] = None
+        self.take_actions_subset = take_actions_subset
+        self.calc_rewards_subset = calc_rewards_subset
+        self._handler: Optional[StateHandler] = None
 
     def __call__(self, fn: Callable[..., Optional[StateID]]):
         setattr(fn, "_decorator", self)
-        self.handler = fn
+        self._handler = fn
 
         return fn
 
@@ -186,12 +189,12 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         # Generate initial observations.
         observations: Dict[me.ID, Any] = {}
 
-        enforced_actions = self._states[self.initial_state].enforced_actions
+        take_actions_subset = self._states[self.initial_state].take_actions_subset
 
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
 
-            if enforced_actions is None or aid in enforced_actions:
+            if take_actions_subset is None or aid in take_actions_subset:
                 observations[aid] = agent.encode_obs(ctx)
 
             self._rewards[aid] = agent.compute_reward(ctx)
@@ -221,7 +224,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         old_state = self.current_state
 
-        self.current_state = self._states[self.current_state].handler(self)
+        self.current_state = self._states[self.current_state]._handler(self)
 
         if self.current_state not in self._states[old_state].next_states:
             raise FSMRuntimeError(
@@ -241,8 +244,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         terminals: Dict[me.ID, bool] = {"__all__": False}
         infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        enforced_actions = self._states[self.current_state].enforced_actions
-        enforced_rewards = self._states[self.current_state].enforced_rewards
+        take_actions_subset = self._states[self.current_state].take_actions_subset
+        calc_rewards_subset = self._states[self.current_state].calc_rewards_subset
 
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
@@ -252,11 +255,11 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if terminals[aid]:
                 self._dones.add(aid)
 
-            if enforced_actions is None or aid in enforced_actions:
+            if take_actions_subset is None or aid in take_actions_subset:
                 observations[aid] = agent.encode_obs(ctx)
                 infos[aid] = agent.collect_infos(ctx)
 
-            if enforced_rewards is None or aid in enforced_rewards:
+            if calc_rewards_subset is None or aid in calc_rewards_subset:
                 rewards[aid] = agent.compute_reward(ctx)
 
         self._observations.update(observations)
