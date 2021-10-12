@@ -12,7 +12,7 @@ from .packet import Packet, Mutation
 from .rewards import RewardFunction
 
 
-ObsSpaceCompatibleTypes = Union[dict, float, int, list, np.ndarray, tuple]
+ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 
 
 @dataclass
