@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
 from typing import Any, AnyStr, Dict, Mapping, Optional, Type, TypeVar, Union
 
 import mercury as me
 import numpy as np
-from gym.spaces import Box, Discrete, Space
+import gym.spaces
 
 from .decoders import Decoder
 from .encoders import Encoder
@@ -11,8 +12,92 @@ from .packet import Packet, Mutation
 from .rewards import RewardFunction
 
 
+ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
+
+
+@dataclass
 class AgentType(ABC):
-    pass
+    """
+    Abstract base class representing Agent Types.
+    """
+
+    def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
+        """
+        Converts the parameters of the AgentType into a dict for use in observation
+        spaces.
+        """
+
+        def _to_compatible_type(field: str, obj: Any) -> ObsSpaceCompatibleTypes:
+            if isinstance(obj, dict):
+                return {
+                    key: _to_compatible_type(key, value) for key, value in obj.items()
+                }
+            elif isinstance(obj, (float, int)):
+                return np.array([obj])
+            elif isinstance(obj, list):
+                return [
+                    _to_compatible_type(f"{field}[{i}]", value)
+                    for i, value in enumerate(obj)
+                ]
+            elif isinstance(obj, tuple):
+                return tuple(
+                    _to_compatible_type(f"{field}[{i}]", value)
+                    for i, value in enumerate(obj)
+                )
+            elif isinstance(obj, np.ndarray):
+                return obj
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(obj)}' into obs space compatible type"
+                )
+
+        return {
+            name: _to_compatible_type(name, value)
+            for name, value in asdict(self).items()
+        }
+
+    def to_obs_space(self, low=-np.inf, high=np.inf) -> gym.spaces.Space:
+        """
+        Converts the parameters of the AgentType into a `gym.spaces.Space` representing
+        the space.
+
+        All elements of the space span the same range given by the `low` and `high`
+        arguments.
+
+        Arguments:
+            low: Optional 'low' bound for the space (default is -∞)
+            high: Optional 'high' bound for the space (default is ∞)
+        """
+
+        def _to_obs_space(field: str, obj: Any) -> gym.spaces.Space:
+            if isinstance(obj, dict):
+                return gym.spaces.Dict(
+                    {key: _to_obs_space(key, value) for key, value in obj.items()}
+                )
+            elif isinstance(obj, float):
+                return gym.spaces.Box(low, high, (1,), np.float32)
+            elif isinstance(obj, int):
+                return gym.spaces.Box(low, high, (1,), np.float32)
+            elif isinstance(obj, (list, tuple)):
+                return gym.spaces.Tuple(
+                    [
+                        _to_obs_space(f"{field}[{i}]", value)
+                        for i, value in enumerate(obj)
+                    ]
+                )
+            elif isinstance(obj, np.ndarray):
+                return gym.spaces.Box(low, high, obj.shape, np.float32)
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(obj)}' into gym.spaces.Space"
+                )
+
+        return gym.spaces.Dict(
+            {
+                field: _to_obs_space(field, value)
+                for field, value in asdict(self).items()
+            }
+        )
 
 
 A = TypeVar("A", bound=AgentType)
@@ -207,7 +292,7 @@ class Agent(me.actors.SimpleSyncActor):
 
         super().reset()
 
-    def get_observation_space(self) -> Space:
+    def get_observation_space(self) -> gym.spaces.Space:
         """
         Returns the gym observation space of this agent.
         """
@@ -218,7 +303,7 @@ class Agent(me.actors.SimpleSyncActor):
 
         return self.obs_encoder.output_space
 
-    def get_action_space(self) -> Space:
+    def get_action_space(self) -> gym.spaces.Space:
         """
         Returns the gym action space of this agent.
         """
@@ -251,7 +336,7 @@ class ZeroIntelligenceAgent(Agent, ABC):
         raise NotImplementedError
 
     def get_observation_space(self):
-        return Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def get_action_space(self):
-        return Discrete(1)
+        return gym.spaces.Discrete(1)
