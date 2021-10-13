@@ -49,16 +49,27 @@ def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
 
     base_path = Path(os.path.expanduser(base_path))
 
-    experiment_dirs = [d for d in base_path.iterdir() if d.is_dir()]
+    directories = [d for d in base_path.iterdir() if d.is_dir()]
 
-    if len(experiment_dirs) == 0:
+    experiment_directories = []
+
+    for directory in directories:
+        # Not all directories will be experiment results directories. Filter by
+        # attempting to parse a datetime from the directory name.
+        try:
+            datetime.strptime(str(directory)[-19:], "%Y-%m-%d_%H-%M-%S")
+            experiment_directories.append(directory)
+        except ValueError:
+            pass
+
+    if len(experiment_directories) == 0:
         raise ValueError(f"No experiment directories found in '{base_path}'")
 
-    experiment_dirs.sort(
+    experiment_directories.sort(
         key=lambda d: datetime.strptime(str(d)[-19:], "%Y-%m-%d_%H-%M-%S")
     )
 
-    return experiment_dirs[-1]
+    return experiment_directories[-1]
 
 
 from . import rollout, training

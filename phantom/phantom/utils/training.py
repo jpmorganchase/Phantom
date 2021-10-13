@@ -1,8 +1,9 @@
+import logging
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import cloudpickle
 import gym
@@ -25,14 +26,41 @@ from ..params import TrainingParams
 from . import find_most_recent_results_dir, load_object
 
 
-class EnvSaveLoggerCallback(LoggerCallback):
-    def __init__(self, env: Type[PhantomEnv]) -> None:
-        self.env = env
+logger = logging.getLogger(__name__)
 
-    def log_trial_start(self, trial: tune.trial.Trial):
+
+class TrialStartTasksCallback(LoggerCallback):
+    """
+    Internal Callback for performing tasks at the start of each trial such as copying
+    files to the results directory.
+    """
+
+    def __init__(
+        self,
+        env: Type[PhantomEnv],
+        local_dir: Optional[Path],
+        files: List[Union[str, Path]],
+    ) -> None:
+        self.env = env
+        self.local_dir = local_dir
+        self.files = files
+
+    def log_trial_start(self, trial: tune.trial.Trial) -> None:
+        # Save environment for use by rollout script
         cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
 
-    def __call__(self) -> "EnvSaveLoggerCallback":
+        # Copy any files provided in the params.copy_files_to_results_dir field
+        if self.local_dir is not None:
+            source_code_dir = Path(trial.logdir).joinpath("copied_files")
+            os.mkdir(source_code_dir)
+
+            for file in self.files:
+                old_path = Path(self.local_dir, file)
+                new_path = Path(source_code_dir, file)
+
+                shutil.copy(old_path, new_path)
+
+    def __call__(self) -> "TrialStartTasksCallback":
         return self
 
 
@@ -56,26 +84,6 @@ def train_from_config_path(
     params = load_object(config_path, "training_params", TrainingParams)
 
     results_dir = train_from_params_object(params, local_mode, print_info, config_path)
-
-    if params.discard_results == False and len(params.copy_files_to_results_dir) > 0:
-        source_code_dir = results_dir.joinpath("source_code")
-        os.mkdir(source_code_dir)
-
-        base_dir = Path(config_path).parent
-
-        for file in params.copy_files_to_results_dir:
-            old_path = Path(base_dir, file)
-            new_path = Path(source_code_dir, file)
-
-            if old_path.exists():
-                shutil.copy(old_path, new_path)
-            else:
-                print(
-                    colored(
-                        f"Could not find file '{old_path}' to copy to results directory",
-                        "yellow",
-                    )
-                )
 
     return results_dir
 
@@ -101,6 +109,25 @@ def train_from_params_object(
     NOTE: this method and the other train* methods do not ensure that PYTHONHASHSEED
     is set. In most cases, the phantom-train command should be used instead.
     """
+    local_files_to_copy = []
+    local_dir = None
+
+    if params.discard_results == False and len(params.copy_files_to_results_dir) > 0:
+        if config_path is None:
+            logger.warning("Can't copy local files when 'config_path' is None")
+        else:
+            local_dir = Path(config_path).parent
+
+            # Check that files in the copy_files_to_results_dir list exist
+            for file in params.copy_files_to_results_dir:
+                path = Path(local_dir, file)
+
+                if path.exists():
+                    local_files_to_copy.append(file)
+                else:
+                    logger.warning(
+                        f"Could not find file '{path}' to copy to results directory",
+                    )
 
     config = create_rllib_config_dict(params)
 
@@ -128,7 +155,10 @@ def train_from_params_object(
             checkpoint_at_end=True,
             stop={"training_iteration": training_it},
             config=config,
-            callbacks=[TBXExtendedLoggerCallback(), EnvSaveLoggerCallback(params.env)],
+            callbacks=[
+                TBXExtendedLoggerCallback(),
+                TrialStartTasksCallback(params.env, local_dir, local_files_to_copy),
+            ],
         )
 
     except Exception as e:
