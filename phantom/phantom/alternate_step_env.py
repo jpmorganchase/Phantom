@@ -20,8 +20,6 @@ class AlternateStepEnv(ph.PhantomEnv):
         clock: A Phantom Clock defining the episode length and episode step size.
         environment_actor: An optional actor that has access to global environment
             information.
-        policy_grouping: A mapping between custom policy name and list of agents
-            sharing the policy (optional).
         seed: A random number generator seed to use (optional).
     """
 
@@ -33,12 +31,9 @@ class AlternateStepEnv(ph.PhantomEnv):
         clock: Optional[ph.Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[ph.EnvironmentActor] = None,
-        policy_grouping: Optional[Mapping[str, List[str]]] = None,
         seed: Optional[int] = None,
     ) -> None:
-        super().__init__(
-            network, clock, n_steps, environment_actor, policy_grouping, seed
-        )
+        super().__init__(network, clock, n_steps, environment_actor, seed)
 
         self.odd_step_filter = odd_step_filter
         self.even_step_filter = even_step_filter

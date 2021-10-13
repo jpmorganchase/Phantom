@@ -66,8 +66,6 @@ class PhantomEnv(MultiAgentEnv):
         clock: A Phantom Clock defining the episode length and episode step size.
         environment_actor: An optional actor that has access to global environment
             information.
-        policy_grouping: A mapping between custom policy name and list of agents
-            sharing the policy (optional).
         seed: A random number generator seed to use (optional).
     """
 
@@ -87,7 +85,6 @@ class PhantomEnv(MultiAgentEnv):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        policy_grouping: Optional[Mapping[str, List[str]]] = None,
         seed: Optional[int] = None,
     ) -> None:
         if clock is None:
@@ -100,7 +97,6 @@ class PhantomEnv(MultiAgentEnv):
 
         self.network: me.Network = network
         self.clock: Clock = clock
-        self.policy_grouping: Optional[Mapping[str, List[str]]] = policy_grouping
         self.agents: Dict[me.ID, Agent] = {
             aid: actor
             for aid, actor in network.actors.items()
