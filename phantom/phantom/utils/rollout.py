@@ -1,20 +1,22 @@
+import logging
 import math
 import cloudpickle
 from dataclasses import dataclass
 from itertools import chain
-from logging import error, info
 from pathlib import Path
 from typing import *
 
 import mercury as me
 import numpy as np
 import ray
-from phantom.params import RolloutParams
-from phantom.logging import Logger
 from ray.rllib.agents.registry import get_trainer_class
 from ray.tune.registry import register_env
 
+from ..logging import Logger, Metric
 from . import find_most_recent_results_dir
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,48 +33,81 @@ class EpisodeTrajectory:
     actions: List[Dict[me.ID, Any]]
 
 
-def run_rollouts(
-    params: RolloutParams,
+def rollout(
+    directory: Union[str, Path],
+    num_workers: int,
+    num_rollouts: int,
+    algorithm: str,
+    checkpoint: Optional[int] = None,
+    env_config: Optional[Mapping[str, Any]] = None,
+    metrics: Optional[Mapping[str, Metric]] = None,
+    results_file: Optional[Union[str, Path]] = "results.pkl",
+    save_trajectories: bool = False,
 ) -> Tuple[List[Dict[str, np.ndarray]], List[EpisodeTrajectory]]:
-    if params.directory is not None:
-        params.directory = Path(params.directory)
+    """
+    Performs rollouts for a previously trained Phantom experiment.
 
-    if params.directory.stem == "LATEST":
-        info(f"Trying to find latest experiment results in '{params.directory.parent}'")
+    Attributes:
+        directory: Phantom results directory containing trained policies.
+        num_workers: Number of Ray rollout workers to initialise.
+        num_rollouts: Number of rollouts to perform, distributed over all workers.
+        algorithm: RLlib algorithm to use.
+        checkpoint: Checkpoint to use (defaults to most recent).
+        env_config: Configuration parameters to pass to the environment init method.
+        metrics: Optional set of metrics to record and log.
+        results_file: Name of the results file to save to, if None is given no file
+            will be saved (default is "results.pkl").
+        save_trajectories: If True the full set of epsiode trajectories for the
+            rollouts will be saved into the results file.
+    """
 
-        params.directory = find_most_recent_results_dir(params.directory.parent)
+    metrics = metrics or {}
+    env_config = env_config or {}
 
-        info(f"Found experiment results: '{params.directory.stem}'")
+    if directory is not None:
+        directory = Path(directory)
+
+    if directory.stem == "LATEST":
+        logger.info(f"Trying to find latest experiment results in '{directory.parent}'")
+
+        directory = find_most_recent_results_dir(directory.parent)
+
+        logger.info(f"Found experiment results: '{directory.stem}'")
     else:
-        info(f"Using results directory: '{params.directory}'")
+        logger.info(f"Using results directory: '{directory}'")
 
-    if params.checkpoint is None:
-        checkpoint_dirs = sorted(Path(params.directory).glob("checkpoint_*"))
+    if checkpoint is None:
+        checkpoint_dirs = sorted(Path(directory).glob("checkpoint_*"))
 
         if len(checkpoint_dirs) == 0:
-            error(f"No checkpoints found in directory '{params.directory}'")
+            logger.error(f"No checkpoints found in directory '{directory}'")
             return
 
-        params.checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
+        checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
 
-        info(f"Using most recent checkpoint: {params.checkpoint}")
+        logger.info(f"Using most recent checkpoint: {checkpoint}")
     else:
-        info(f"Using checkpoint: {params.checkpoint}")
+        logger.info(f"Using checkpoint: {checkpoint}")
 
-    params.num_workers = max(params.num_workers, 1)
+    num_workers = max(num_workers, 1)
 
-    rollouts_per_worker = int(math.ceil(params.num_rollouts / params.num_workers))
+    rollouts_per_worker = int(math.ceil(num_rollouts / num_workers))
 
-    seeds = list(range(params.num_rollouts))
+    seeds = list(range(num_rollouts))
 
     worker_payloads = [
-        (params, seeds[i : i + rollouts_per_worker])
+        ParallelFunctionArgs(
+            seeds[i : i + rollouts_per_worker],
+            directory,
+            checkpoint,
+            env_config,
+            metrics,
+            algorithm,
+        )
         for i in range(0, len(seeds), rollouts_per_worker)
     ]
 
-    info(
-        f"Starting {params.num_rollouts} rollout(s) using {params.num_workers} worker(s)"
-    )
+    logger.info(f"Starting {num_rollouts} rollout(s) using {num_workers} worker(s)")
 
     try:
         ray.init(include_dashboard=False)
@@ -80,7 +115,7 @@ def run_rollouts(
         results = list(
             chain.from_iterable(
                 ray.util.iter.from_items(
-                    worker_payloads, num_shards=max(params.num_workers, 1)
+                    worker_payloads, num_shards=max(num_workers, 1)
                 )
                 .for_each(_parallel_fn)
                 .gather_sync()
@@ -94,66 +129,78 @@ def run_rollouts(
     else:
         ray.shutdown()
 
-    metrics, trajectories = zip(*results)
+    metrics_results, trajectories = zip(*results)
 
     results = {}
 
-    if params.metrics != {}:
-        results["metrics"] = metrics
+    if metrics != {}:
+        results["metrics"] = metrics_results
 
-    if params.save_trajectories:
+    if save_trajectories:
         results["trajectories"] = trajectories
 
-    if params.results_file is not None and results != {}:
-        results_file = Path(params.directory, params.results_file)
+    if results_file is not None and results != {}:
+        results_file = Path(directory, results_file)
 
         cloudpickle.dump(results, open(results_file, "wb"))
 
-        info(f"Saved rollout results to '{results_file}'")
+        logger.info(f"Saved rollout results to '{results_file}'")
 
-    return metrics, trajectories
+    return metrics_results, trajectories
+
+
+@dataclass
+class ParallelFunctionArgs:
+    """
+    Internal dataclass
+    """
+
+    seeds: List[int]
+    directory: Path
+    checkpoint: int
+    env_config: Mapping[str, Any]
+    metrics: Optional[Mapping[str, Metric]]
+    algorithm: str
 
 
 def _parallel_fn(
-    args: Tuple[RolloutParams, List[int]]
+    args: ParallelFunctionArgs,
 ) -> List[Tuple[Dict[str, np.ndarray], EpisodeTrajectory]]:
-    params, seeds = args
-
     checkpoint_path = Path(
-        params.directory,
-        f"checkpoint_{str(params.checkpoint).zfill(6)}",
-        f"checkpoint-{params.checkpoint}",
+        args.directory,
+        f"checkpoint_{str(args.checkpoint).zfill(6)}",
+        f"checkpoint-{args.checkpoint}",
     )
 
     # Load config from results directory.
-    with open(Path(params.directory, "params.pkl"), "rb") as f:
+    with open(Path(args.directory, "params.pkl"), "rb") as f:
         config = cloudpickle.load(f)
 
     # Load env class from results directory.
-    with open(Path(params.directory, "env.pkl"), "rb") as f:
+    with open(Path(args.directory, "env.pkl"), "rb") as f:
         env_class = cloudpickle.load(f)
 
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
     config["num_workers"] = 0
-    config["env_config"] = params.env_config
+    config["env_config"] = args.env_config
 
     # Register custom environment with Ray
     register_env(env_class.env_name, lambda config: env_class(**config))
 
-    trainer = get_trainer_class("PPO")(env=env_class.env_name, config=config)
+    trainer = get_trainer_class(args.algorithm)(env=env_class.env_name, config=config)
     trainer.restore(str(checkpoint_path))
 
     results = []
 
-    for seed in seeds:
+    for seed in args.seeds:
         # Create environment instance from config from results directory
         env = env_class(**config["env_config"])
 
         # Setting seed needs to come after trainer setup
         np.random.seed(seed)
 
-        logger = Logger(params.metrics)
+        logger = Logger(args.metrics)
 
         observation = env.reset()
 

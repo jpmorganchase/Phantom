@@ -1,10 +1,9 @@
-from mercury import actors
-from phantom.env import EnvironmentActor, PhantomEnv
 import pytest
 import mercury as me
 import phantom as ph
 import unittest
 import numpy as np
+from phantom.env import EnvironmentActor, PhantomEnv
 
 
 class MockAgent(ph.ZeroIntelligenceAgent):

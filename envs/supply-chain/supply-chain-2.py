@@ -1,11 +1,18 @@
+import sys
 from dataclasses import dataclass
 from typing import List
 
+import coloredlogs
 import gym
 import mercury as me
 import numpy as np
 import phantom as ph
 
+
+coloredlogs.install(
+    level="INFO",
+    fmt="(pid=%(process)d) %(levelname)s %(name)s %(message)s",
+)
 
 NUM_EPISODE_STEPS = 100
 NUM_SHOPS = 2
@@ -194,6 +201,8 @@ class ShopAgent(ph.Agent):
         )
 
 
+shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
+
 class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v2"
@@ -201,7 +210,7 @@ class SupplyChainEnv(ph.PhantomEnv):
     def __init__(self, n_customers: int = 5, seed: int = 0):
         # Define actor and agent IDs
         warehouse_id = "WAREHOUSE"
-        shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
+        
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
         shop_agents = [
@@ -231,7 +240,6 @@ class SupplyChainEnv(ph.PhantomEnv):
             network=network,
             clock=clock,
             seed=seed,
-            policy_grouping={"shared_SHOP_policy": shop_ids},
         )
 
 
@@ -276,19 +284,24 @@ metrics.update(
     }
 )
 
-training_params = ph.TrainingParams(
-    experiment_name="supply-chain-2",
-    algorithm="PPO",
-    num_workers=4,
-    num_episodes=100,
-    env=SupplyChainEnv,
-    env_config={"n_customers": NUM_CUSTOMERS},
-)
 
-rollout_params = ph.RolloutParams(
-    directory="/home/ubuntu/phantom_results/supply-chain-2/LATEST",
-    algorithm="PPO",
-    num_workers=1,
-    num_rollouts=2,
-    env_config={"n_customers": NUM_CUSTOMERS},
-)
+if sys.argv[1].lower() == "train":
+    ph.train(
+        experiment_name="supply-chain-2",
+        algorithm="PPO",
+        num_workers=4,
+        num_episodes=100,
+        env=SupplyChainEnv,
+        env_config={"n_customers": NUM_CUSTOMERS},
+        metrics=metrics,
+        policy_grouping={"shared_SHOP_policy": shop_ids},
+    )
+
+elif sys.argv[1].lower() == "rollout":
+    ph.rollout(
+        directory="/home/ubuntu/phantom_results/supply-chain-2/LATEST",
+        algorithm="PPO",
+        num_workers=1,
+        num_rollouts=10,
+        env_config={"n_customers": NUM_CUSTOMERS},
+    )

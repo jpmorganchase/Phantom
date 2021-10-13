@@ -1,3 +1,0 @@
-#!/bin/bash
-export PYTHONHASHSEED=1
-__phantom-train.py $@

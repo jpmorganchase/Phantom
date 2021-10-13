@@ -66,7 +66,7 @@ class MinimalEnv(ph.PhantomEnv):
 
 
 def test_experiment():
-    training_params = ph.TrainingParams(
+    results_dir = ph.train(
         experiment_name="unit-testing",
         algorithm="PPO",
         num_workers=0,
@@ -76,11 +76,9 @@ def test_experiment():
         policy_grouping={"shared_policy": ["a2", "a3"]},
     )
 
-    results_dir = ph.utils.training.train_from_params_object(training_params)
-
     assert os.path.exists(results_dir)
 
-    rollout_params = ph.RolloutParams(
+    metrics, trajectories = ph.rollout(
         directory=results_dir,
         algorithm="PPO",
         num_workers=1,
@@ -89,16 +87,12 @@ def test_experiment():
         save_trajectories=True,
     )
 
-    metrics, trajectories = ph.utils.rollout.run_rollouts(rollout_params)
-
     assert len(metrics) == 5
     assert len(trajectories) == 5
     assert type(metrics[0]) == dict
     assert type(trajectories[0]) == ph.utils.rollout.EpisodeTrajectory
 
-    results = cloudpickle.load(
-        open(Path(results_dir, rollout_params.results_file), "rb")
-    )
+    results = cloudpickle.load(open(Path(results_dir, "results.pkl"), "rb"))
 
     assert type(results) == dict
     assert "metrics" not in results

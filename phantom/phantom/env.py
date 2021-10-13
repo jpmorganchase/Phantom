@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import (
     Any,
     AnyStr,
@@ -21,12 +22,18 @@ from .clock import Clock
 from .packet import Mutation
 
 if "PYTHONHASHSEED" not in os.environ:
-    warning_string = "=============================================================\n"
+    warning_string = (
+        "================================================================\n"
+    )
     warning_string += "WARNING: The $PYTHONHASHSEED environment variable is not set!\n"
-    warning_string += "Reproducibility may not be possible whilst this is not set.\n"
-    warning_string += "============================================================="
+    warning_string += (
+        "Please set this before using Phantom to improve reproducibility.\n"
+    )
+    warning_string += "================================================================"
 
     print(colored(warning_string, "yellow"))
+
+    sys.exit()
 
 
 class EnvironmentActor(me.actors.SyncActor):
