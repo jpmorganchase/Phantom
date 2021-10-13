@@ -8,7 +8,10 @@ import cloudpickle
 import gym
 import ray
 from ray import tune
-from ray.rllib.policy.policy import PolicySpec
+
+# Enable with Ray 1.7.0:
+# from ray.rllib.policy.policy import PolicySpec
+
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
@@ -166,11 +169,18 @@ def create_rllib_config_dict(params: TrainingParams) -> Dict[str, Any]:
         mapping = {}
 
         for pid, aids in params.policy_grouping.items():
-            custom_policies[pid] = PolicySpec(
-                policy_class=None,
-                observation_space=env.agents[aids[0]].get_observation_space(),
-                action_space=env.agents[aids[0]].get_action_space(),
-                config=env.agents[aids[0]].policy_config or dict(),
+            # Enable with Ray 1.7.0:
+            # custom_policies[pid] = PolicySpec(
+            #     policy_class=None,
+            #     observation_space=env.agents[aids[0]].get_observation_space(),
+            #     action_space=env.agents[aids[0]].get_action_space(),
+            #     config=env.agents[aids[0]].policy_config or dict(),
+            # )
+            custom_policies[pid] = (
+                None,
+                env.agents[aids[0]].get_observation_space(),
+                env.agents[aids[0]].get_action_space(),
+                env.agents[aids[0]].policy_config or dict(),
             )
 
             for aid in aids:
@@ -180,11 +190,18 @@ def create_rllib_config_dict(params: TrainingParams) -> Dict[str, Any]:
 
         for aid, agent in env.agents.items():
             if aid not in mapping:
-                custom_policies[aid] = PolicySpec(
-                    policy_class=agent.policy_type,
-                    observation_space=agent.get_observation_space(),
-                    action_space=agent.get_action_space(),
-                    config=agent.policy_config or dict(),
+                # Enable with Ray 1.7.0:
+                # custom_policies[aid] = PolicySpec(
+                #     policy_class=agent.policy_type,
+                #     observation_space=agent.get_observation_space(),
+                #     action_space=agent.get_action_space(),
+                #     config=agent.policy_config or dict(),
+                # )
+                custom_policies[aid] = (
+                    agent.policy_type,
+                    agent.get_observation_space(),
+                    agent.get_action_space(),
+                    agent.policy_config or dict(),
                 )
 
                 mapping[aid] = aid
@@ -203,11 +220,18 @@ def create_rllib_config_dict(params: TrainingParams) -> Dict[str, Any]:
 
     else:
         ma_config["policies"] = {
-            aid: PolicySpec(
-                policy_class=agent.policy_type,
-                observation_space=agent.get_observation_space(),
-                action_space=agent.get_action_space(),
-                config=agent.policy_config or dict(),
+            # Enable with Ray 1.7.0:
+            # aid: PolicySpec(
+            #     policy_class=agent.policy_type,
+            #     observation_space=agent.get_observation_space(),
+            #     action_space=agent.get_action_space(),
+            #     config=agent.policy_config or dict(),
+            # )
+            aid: (
+                agent.policy_type,
+                agent.get_observation_space(),
+                agent.get_action_space(),
+                agent.policy_config or dict(),
             )
             for aid, agent in env.agents.items()
         }
