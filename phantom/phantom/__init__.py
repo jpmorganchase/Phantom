@@ -1,4 +1,4 @@
-from . import decoders, encoders, logging, rewards, utils
+from . import decoders, encoders, fsm_env, logging, rewards, utils
 
 from .packet import Mutation, Packet
 
