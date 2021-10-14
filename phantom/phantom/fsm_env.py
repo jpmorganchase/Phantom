@@ -112,9 +112,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         environment_actor: Optional[EnvironmentActor] = None,
         seed: Optional[int] = None,
     ) -> None:
-        super().__init__(
-            network, clock, n_steps, environment_actor, seed
-        )
+        super().__init__(network, clock, n_steps, environment_actor, seed)
 
         self.initial_state: StateID = initial_state
 
