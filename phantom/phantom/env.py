@@ -53,6 +53,7 @@ class PhantomEnv(MultiAgentEnv):
         network: A Mercury Network class or derived class describing the connections
             between agents and actors in the environment.
         clock: A Phantom Clock defining the episode length and episode step size.
+        n_steps: Alternative to providing a Clock instance.
         environment_actor: An optional actor that has access to global environment
             information.
         seed: A random number generator seed to use (optional).
