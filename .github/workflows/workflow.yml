@@ -51,7 +51,7 @@ jobs:
         pip install wheel
         pip install -r mercury/requirements.txt
         pip install -r mercury/requirements-dev.txt
-    
+
     - name: Install Mercury
       run: |
         cd mercury
@@ -83,12 +83,12 @@ jobs:
       run: |
         cd mercury
         python setup.py develop --user -O2
-    
+
     - name: Install Phantom
       run: |
         cd phantom
         python setup.py develop --user -O2
-    
+
     - name: Run Phantom tests
       run: |
         cd phantom
@@ -141,12 +141,12 @@ jobs:
       run: |
         cd mercury
         python setup.py develop --user -O2
-    
+
     - name: Install Phantom
       run: |
         cd phantom
         python setup.py develop --user -O2
-    
+
     - name: Build Phantom docs
       run: |
         cd phantom/docs
