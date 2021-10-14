@@ -1,8 +1,12 @@
 import importlib
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Generic, TypeVar, Union
+
+from termcolor import colored
+
 
 T = TypeVar("T")
 
@@ -70,6 +74,16 @@ def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
     )
 
     return experiment_directories[-1]
+
+
+def show_pythonhashseed_warning() -> None:
+    string = "================================================================\n"
+    string += "WARNING: The $PYTHONHASHSEED environment variable is not set!\n"
+    string += "Please set this before using Phantom to improve reproducibility.\n"
+    string += "================================================================"
+
+    if "PYTHONHASHSEED" not in os.environ:
+        print(colored(string, "yellow"))
 
 
 from . import rollout, training

@@ -13,7 +13,7 @@ from ray.rllib.agents.registry import get_trainer_class
 from ray.tune.registry import register_env
 
 from ..logging import Logger, Metric
-from . import find_most_recent_results_dir
+from . import find_most_recent_results_dir, show_pythonhashseed_warning
 
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ def rollout(
     is set before starting the Python interpreter to run this code. Not setting this may
     lead to reproducibility issues.
     """
+    show_pythonhashseed_warning()
 
     metrics = metrics or {}
     env_config = env_config or {}

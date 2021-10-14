@@ -23,7 +23,7 @@ from ..agent import ZeroIntelligenceAgent
 from ..env import PhantomEnv
 from ..logging import Metric, MetricsLoggerCallbacks, MultiCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
-from . import find_most_recent_results_dir
+from . import find_most_recent_results_dir, show_pythonhashseed_warning
 
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,8 @@ def train(
     is set before starting the Python interpreter to run this code. Not setting this may
     lead to reproducibility issues.
     """
+    show_pythonhashseed_warning()
+
     env_config = env_config or {}
     alg_config = alg_config or {}
     policy_grouping = policy_grouping or {}
