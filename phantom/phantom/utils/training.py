@@ -1,3 +1,4 @@
+import __main__
 import logging
 import os
 import shutil
@@ -28,65 +29,6 @@ from . import find_most_recent_results_dir
 logger = logging.getLogger(__name__)
 
 
-class TrialStartTasksCallback(LoggerCallback):
-    """
-    Internal Callback for performing tasks at the start of each trial such as copying
-    files to the results directory.
-    """
-
-    def __init__(
-        self,
-        env: Type[PhantomEnv],
-        local_dir: Optional[Path],
-        files: List[Union[str, Path]],
-    ) -> None:
-        self.env = env
-        self.local_dir = local_dir
-        self.files = files
-
-    def log_trial_start(self, trial: tune.trial.Trial) -> None:
-        # Save environment for use by rollout script
-        cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
-
-        # Copy any files provided in the copy_files_to_results_dir field
-        if self.local_dir is not None:
-            source_code_dir = Path(trial.logdir).joinpath("copied_files")
-            os.mkdir(source_code_dir)
-
-            for file in self.files:
-                old_path = Path(self.local_dir, file)
-                new_path = Path(source_code_dir, file)
-
-                shutil.copy(old_path, new_path)
-
-    def __call__(self) -> "TrialStartTasksCallback":
-        return self
-
-
-# def train_from_config_path(
-#     config_path: Union[str, Path], local_mode: bool = False, print_info: bool = True
-# ) -> Optional[Path]:
-#     """
-#     Performs training of a Phantom experiment.
-
-#     Arguments:
-#         config_path: The filesystem path pointing to the config Python file.
-#         local_mode: If true will force Ray to run in one process (useful for
-#             profiling & debugging).
-#         print_info: If true will print a summary of the configuration before
-#             running.
-
-#     NOTE: this method and the other train* methods do not ensure that PYTHONHASHSEED
-#     is set. In most cases, the phantom-train command should be used instead.
-#     """
-
-#     params = load_object(config_path, "training_params", TrainingParams)
-
-#     results_dir = train_from_params_object(params, local_mode, print_info, config_path)
-
-#     return results_dir
-
-
 def train(
     experiment_name: str,
     env: Type[PhantomEnv],
@@ -102,10 +44,9 @@ def train(
     callbacks: Optional[Iterable[DefaultCallbacks]] = None,
     discard_results: bool = False,
     results_dir: Union[str, Path] = "~/phantom_results",
-    copy_files_to_results_dir: Optional[Iterable[str]] = None,
+    copy_files_to_results_dir: Optional[Iterable[Union[str, Path]]] = None,
     local_mode: bool = False,
     print_info: bool = True,
-    config_path: Union[str, Path, None] = None,
 ) -> Optional[Path]:
     """
     Performs training of a Phantom experiment.
@@ -128,18 +69,20 @@ def train(
         discard_results: If True, all results are discarded (useful for unit testing & development).
         results_dir: Directory where training results will be saved (defaults to "~/phantom_results").
         copy_files_to_results_dir: Any files given here will be copied to a
-            "source_code" sub-directory in the experiment results directory. Paths
+            "copied_files" sub-directory in the experiment results directory. Paths
             should be given relative to the main experiment entry point script.
-            NOTE: currently only functional when using phantom-train command.
         local_mode: If true will force Ray to run in one process (useful for
             profiling & debugging).
         print_info: If true will print a summary of the configuration before
             running.
-        config_path: The filesystem path pointing to the config Python file
-            (optional - used for display purposes only).
 
-    NOTE: this method and the other train* methods do not ensure that PYTHONHASHSEED
-    is set. In most cases, the phantom-train command should be used instead.
+    Returns:
+        The results directory of the experiment if results are saved and the experiment
+        was successful.
+
+    NOTE: It is the users responsibility to ensure the PYTHONHASHSEED environment variable
+    is set before starting the Python interpreter to run this code. Not setting this may
+    lead to reproducibility issues.
     """
     env_config = env_config or {}
     alg_config = alg_config or {}
@@ -149,24 +92,19 @@ def train(
     copy_files_to_results_dir = copy_files_to_results_dir or []
 
     local_files_to_copy = []
-    local_dir = None
+    local_dir = Path(__main__.__file__).parent
 
     if discard_results == False and len(copy_files_to_results_dir) > 0:
-        if config_path is None:
-            logger.warning("Can't copy local files when 'config_path' is None")
-        else:
-            local_dir = Path(config_path).parent
+        # Check that files in the copy_files_to_results_dir list exist
+        for file in copy_files_to_results_dir:
+            path = Path(local_dir, file)
 
-            # Check that files in the copy_files_to_results_dir list exist
-            for file in copy_files_to_results_dir:
-                path = Path(local_dir, file)
-
-                if path.exists():
-                    local_files_to_copy.append(file)
-                else:
-                    logger.warning(
-                        f"Could not find file '{path}' to copy to results directory",
-                    )
+            if path.exists():
+                local_files_to_copy.append(file)
+            else:
+                logger.warning(
+                    f"Could not find file '{path}' to copy to results directory",
+                )
 
     config = create_rllib_config_dict(
         env,
@@ -214,7 +152,7 @@ def train(
         )
 
     except Exception as e:
-        # ensure that Ray is properly shutdown in the instance of any error occuring
+        # Ensure that Ray is properly shutdown in the instance of an error occuring
         ray.shutdown()
         raise e
     else:
@@ -461,3 +399,38 @@ def print_experiment_info(
     else:
         print("None")
     print()
+
+
+class TrialStartTasksCallback(LoggerCallback):
+    """
+    Internal Callback for performing tasks at the start of each trial such as copying
+    files to the results directory.
+    """
+
+    def __init__(
+        self,
+        env: Type[PhantomEnv],
+        local_dir: Optional[Path],
+        files: List[Union[str, Path]],
+    ) -> None:
+        self.env = env
+        self.local_dir = local_dir
+        self.files = files
+
+    def log_trial_start(self, trial: tune.trial.Trial) -> None:
+        # Save environment for use by rollout script
+        cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
+
+        # Copy any files provided in the copy_files_to_results_dir field
+        if self.local_dir is not None:
+            source_code_dir = Path(trial.logdir).joinpath("copied_files")
+            os.mkdir(source_code_dir)
+
+            for file in self.files:
+                old_path = Path(self.local_dir, file)
+                new_path = Path(source_code_dir, file)
+
+                shutil.copy(old_path, new_path)
+
+    def __call__(self) -> "TrialStartTasksCallback":
+        return self

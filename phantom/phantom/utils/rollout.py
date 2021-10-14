@@ -59,6 +59,14 @@ def rollout(
             will be saved (default is "results.pkl").
         save_trajectories: If True the full set of epsiode trajectories for the
             rollouts will be saved into the results file.
+
+    Returns:
+        - A list of dictionaries containing recorded metrics for each rollout.
+        - A list of EpisodeTrajectory's.
+
+    NOTE: It is the users responsibility to ensure the PYTHONHASHSEED environment variable
+    is set before starting the Python interpreter to run this code. Not setting this may
+    lead to reproducibility issues.
     """
 
     metrics = metrics or {}
