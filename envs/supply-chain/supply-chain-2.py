@@ -203,6 +203,7 @@ class ShopAgent(ph.Agent):
 
 shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
 
+
 class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v2"
@@ -210,7 +211,7 @@ class SupplyChainEnv(ph.PhantomEnv):
     def __init__(self, n_customers: int = 5, seed: int = 0):
         # Define actor and agent IDs
         warehouse_id = "WAREHOUSE"
-        
+
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
         shop_agents = [
