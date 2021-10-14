@@ -72,8 +72,8 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
     @fsm_state(
         state_id=States.ODD,
         next_states=[States.EVEN],
-        take_actions_subset=["odd_agent"],
-        calc_rewards_subset=["odd_agent"],
+        acting_agents=["odd_agent"],
+        rewarded_agents=["odd_agent"],
     )
     def handle_odd(self):
         assert self.network.resolver._cq == {"odd_agent": {"odd_agent": ["message"]}}
@@ -85,8 +85,8 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
     @fsm_state(
         state_id=States.EVEN,
         next_states=[States.ODD],
-        take_actions_subset=["even_agent"],
-        calc_rewards_subset=["even_agent"],
+        acting_agents=["even_agent"],
+        rewarded_agents=["even_agent"],
     )
     def handle_even(self):
         assert self.network.resolver._cq == {"even_agent": {"even_agent": ["message"]}}

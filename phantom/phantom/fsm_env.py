@@ -33,24 +33,24 @@ class fsm_state:
         self,
         state_id: StateID,
         next_states: Optional[Iterable[StateID]] = None,
-        take_actions_subset: Optional[Iterable[me.ID]] = None,
-        calc_rewards_subset: Optional[Iterable[me.ID]] = None,
+        acting_agents: Optional[Iterable[me.ID]] = None,
+        rewarded_agents: Optional[Iterable[me.ID]] = None,
     ) -> None:
         """
         Arguments:
             state_id: The name of this state.
             next_states: The states that this state can transition to.
-            take_actions_subset: If provided, only the agents given will take an action
-                at the start of the step for this state. If not provided, all agents
-                will take actions.
-            calc_rewards_subset: If provided, only the agents given will calculate and
+            acting_agents: If provided, only the given agents will make an observation
+                at the end of this step and take an action at the start of the next
+                step. If not provided, all agents will make observations and take actions.
+            rewarded_agents: If provided, only the given agents will calculate and
                 return a reward at the end of the step for this state. If not provided,
                 all agents will calculate and return a reward.
         """
         self.state_id = state_id
         self.next_states = next_states
-        self.take_actions_subset = take_actions_subset
-        self.calc_rewards_subset = calc_rewards_subset
+        self.acting_agents = acting_agents
+        self.rewarded_agents = rewarded_agents
         self._handler: Optional[StateHandler] = None
 
     def __call__(self, fn: Callable[..., Optional[StateID]]):
@@ -65,16 +65,12 @@ class FSMValidationError(Exception):
     Error raised when validating the FSM when initialising the FiniteStateMachineEnv.
     """
 
-    pass
-
 
 class FSMRuntimeError(Exception):
     """
     Error raised when validating FSM state changes when running an episode using the
     FiniteStateMachineEnv.
     """
-
-    pass
 
 
 class FiniteStateMachineEnv(PhantomEnv, ABC):
@@ -186,12 +182,12 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         # Generate initial observations.
         observations: Dict[me.ID, Any] = {}
 
-        take_actions_subset = self._states[self.initial_state].take_actions_subset
+        acting_agents = self._states[self.initial_state].acting_agents
 
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
 
-            if take_actions_subset is None or aid in take_actions_subset:
+            if acting_agents is None or aid in acting_agents:
                 observations[aid] = agent.encode_obs(ctx)
 
             self._rewards[aid] = agent.compute_reward(ctx)
@@ -241,8 +237,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         terminals: Dict[me.ID, bool] = {"__all__": False}
         infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        take_actions_subset = self._states[self.current_state].take_actions_subset
-        calc_rewards_subset = self._states[self.current_state].calc_rewards_subset
+        acting_agents = self._states[self.current_state].acting_agents
+        rewarded_agents = self._states[self.current_state].rewarded_agents
 
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
@@ -252,11 +248,11 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if terminals[aid]:
                 self._dones.add(aid)
 
-            if take_actions_subset is None or aid in take_actions_subset:
+            if acting_agents is None or aid in acting_agents:
                 observations[aid] = agent.encode_obs(ctx)
                 infos[aid] = agent.collect_infos(ctx)
 
-            if calc_rewards_subset is None or aid in calc_rewards_subset:
+            if rewarded_agents is None or aid in rewarded_agents:
                 rewards[aid] = agent.compute_reward(ctx)
 
         self._observations.update(observations)
