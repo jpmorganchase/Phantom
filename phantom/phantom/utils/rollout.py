@@ -150,14 +150,6 @@ def _parallel_fn(
         # Create environment instance from config from results directory
         env = env_class(**config["env_config"])
 
-        shared_policy_mapping = {}
-
-        # Construct mapping of agent_id --> shared_policy_id
-        if env.policy_grouping is not None:
-            for policy_id, agent_ids in env.policy_grouping.items():
-                for agent_id in agent_ids:
-                    shared_policy_mapping[agent_id] = policy_id
-
         # Setting seed needs to come after trainer setup
         np.random.seed(seed)
 
@@ -176,7 +168,7 @@ def _parallel_fn(
             step_actions = {}
 
             for agent_id, agent_obs in observation.items():
-                policy_id = shared_policy_mapping.get(agent_id, agent_id)
+                policy_id = config["multiagent"]["policy_mapping"][agent_id]
 
                 agent_action = trainer.compute_action(
                     agent_obs, policy_id=policy_id, explore=False
