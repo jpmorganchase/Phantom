@@ -37,8 +37,6 @@ The first uses the :class:`FSMState` as a decorator directly on the state handle
          self.network.resolve()
          # Perform any post-resolve tasks
 
-   Env()
-
 
 The second defines the states via a list of :class:`FSMState` instances passed to the
 :class:`FiniteStateMachineEnv` init method. This method is needed when values of
@@ -70,8 +68,6 @@ environment class is initialised (eg. lists of agent IDs).
          # Perform any pre-resolve tasks
          self.network.resolve()
          # Perform any post-resolve tasks
-
-   Env()
 
 
 .. autoclass:: phantom.fsm_env.FiniteStateMachineEnv
