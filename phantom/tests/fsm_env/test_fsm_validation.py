@@ -1,41 +1,16 @@
 from enum import Enum
 
 
-import gym
 import mercury as me
-import numpy as np
-import phantom as ph
 import pytest
 from phantom.fsm_env import (
-    fsm_state,
+    FSMState,
     FiniteStateMachineEnv,
     FSMRuntimeError,
     FSMValidationError,
 )
 
-
-class MinimalAgent(ph.Agent):
-    def __init__(self, id: str) -> None:
-        super().__init__(agent_id=id)
-
-    def compute_reward(self, ctx: me.Network.Context) -> float:
-        return 0
-
-    def encode_obs(self, ctx: me.Network.Context) -> np.ndarray:
-        return np.array([0])
-
-    def decode_action(self, ctx: me.Network.Context, action) -> ph.Packet:
-        return ph.Packet()
-
-    def get_observation_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(shape=(1,), low=-np.inf, high=np.inf)
-
-    def get_action_space(self) -> gym.spaces.Space:
-        return gym.spaces.Discrete(1)
-
-    @me.actors.handler(str)
-    def handle_message(self, ctx, msg):
-        yield from ()
+from . import MinimalAgent
 
 
 class States(Enum):
@@ -45,7 +20,7 @@ class States(Enum):
 
 def test_no_states_registered():
     """
-    All FSM envs must have at least one state registered using the fsm_state decorator.
+    All FSM envs must have at least one state registered using the FSMState decorator.
     """
 
     class Env(FiniteStateMachineEnv):
@@ -81,14 +56,14 @@ def test_duplicate_states():
                 initial_state=States.A,
             )
 
-        @fsm_state(
+        @FSMState(
             state_id=States.A,
             next_states=[States.A],
         )
         def handle_1(self):
             pass
 
-        @fsm_state(
+        @FSMState(
             state_id=States.A,
             next_states=[States.A],
         )
@@ -116,7 +91,7 @@ def test_invalid_initial_state():
                 initial_state=States.B,
             )
 
-        @fsm_state(
+        @FSMState(
             state_id=States.A,
             next_states=[States.A],
         )
@@ -129,7 +104,7 @@ def test_invalid_initial_state():
 
 def test_invalid_next_state():
     """
-    All next states passed into the fsm_state decorator must be valid states.
+    All next states passed into the FSMState decorator must be valid states.
     """
 
     class Env(FiniteStateMachineEnv):
@@ -144,7 +119,7 @@ def test_invalid_next_state():
                 initial_state=States.A,
             )
 
-        @fsm_state(
+        @FSMState(
             state_id=States.A,
             next_states=[States.B],
         )
@@ -172,7 +147,7 @@ def test_invalid_next_state_runtime():
                 initial_state=States.A,
             )
 
-        @fsm_state(
+        @FSMState(
             state_id=States.A,
             next_states=[States.A],
         )

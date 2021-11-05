@@ -1,13 +1,17 @@
-.. _api_environment:
+.. _api_env:
 
 Environment
 ===========
 
-.. autoclass:: phantom.Clock
-   :inherited-members:
+PhantomEnv
+----------
 
 .. autoclass:: phantom.PhantomEnv
    :inherited-members:
+
+
+Step
+----
 
 .. autoclass:: phantom.PhantomEnv.Step
    :inherited-members:

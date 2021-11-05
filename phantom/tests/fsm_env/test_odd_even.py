@@ -12,7 +12,7 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
-from phantom.fsm_env import fsm_state, FiniteStateMachineEnv
+from phantom.fsm_env import FSMState, FiniteStateMachineEnv
 
 
 class MinimalAgent(ph.agent.Agent):
@@ -69,7 +69,7 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
             initial_state=States.ODD,
         )
 
-    @fsm_state(
+    @FSMState(
         state_id=States.ODD,
         next_states=[States.EVEN],
         acting_agents=["odd_agent"],
@@ -82,7 +82,7 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
 
         return States.EVEN
 
-    @fsm_state(
+    @FSMState(
         state_id=States.EVEN,
         next_states=[States.ODD],
         acting_agents=["even_agent"],
