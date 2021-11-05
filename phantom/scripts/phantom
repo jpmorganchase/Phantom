@@ -1,0 +1,4 @@
+#!/bin/bash
+export PYTHONHASHSEED=1
+echo "hello"
+python3 $@
