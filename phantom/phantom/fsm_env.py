@@ -5,7 +5,6 @@ from typing import (
     Dict,
     Hashable,
     Iterable,
-    List,
     Optional,
     Mapping,
     Set,
@@ -23,7 +22,7 @@ StateID = Hashable
 StateHandler = Callable[[], StateID]
 
 
-class fsm_state:
+class FSMState:
     """
     Decorator used in the FiniteStateMachineEnv and TurnBasedEnv to declare the
     FSM structure and assign handler functions to states.
@@ -35,6 +34,7 @@ class fsm_state:
         next_states: Optional[Iterable[StateID]] = None,
         acting_agents: Optional[Iterable[me.ID]] = None,
         rewarded_agents: Optional[Iterable[me.ID]] = None,
+        handler: Optional[StateHandler] = None,
     ) -> None:
         """
         Arguments:
@@ -46,16 +46,18 @@ class fsm_state:
             rewarded_agents: If provided, only the given agents will calculate and
                 return a reward at the end of the step for this state. If not provided,
                 all agents will calculate and return a reward.
+            handler: Environment class method to be called when the FSM enters this
+                state (optional).
         """
         self.state_id = state_id
         self.next_states = next_states
         self.acting_agents = acting_agents
         self.rewarded_agents = rewarded_agents
-        self._handler: Optional[StateHandler] = None
+        self.handler: Optional[StateHandler] = handler
 
     def __call__(self, fn: Callable[..., Optional[StateID]]):
         setattr(fn, "_decorator", self)
-        self._handler = fn
+        self.handler = fn
 
         return fn
 
@@ -78,7 +80,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
     Base environment class that allows implementation of a finite state machine to
     handle complex environment multi-step setups.
 
-    Use the fsm_state decorator on handler methods within subclasses of this class to
+    Use the FSMState decorator on handler methods within subclasses of this class to
     register states to the FSM.
 
     State IDs can be anything type that is hashable, eg. strings, ints, enums.
@@ -86,6 +88,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
     Attributes:
         initial_state: The initial starting state of the FSM. When the reset() method is
             called the environment is initialised into this state.
+        state_definitions: List of FSM states (optional). FSM states can be defined via
+            this list of alternatively via the FSMState decorator.
         network: A Mercury Network class or derived class describing the connections
             between agents and actors in the environment.
         clock: A Phantom Clock defining the episode length and episode step size.
@@ -99,7 +103,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
     def __init__(
         self,
-        # custom:
+        # fsm env specific:
         initial_state: StateID,
         # from phantom env:
         network: me.Network,
@@ -107,6 +111,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
         seed: Optional[int] = None,
+        # fsm env specific:
+        state_definitions: Optional[Iterable[FSMState]] = None,
     ) -> None:
         super().__init__(network, clock, n_steps, environment_actor, seed)
 
@@ -117,10 +123,16 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._dones: Set[me.ID] = set()
         self._infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        self._states: Dict[StateID, fsm_state] = {}
+        self._states: Dict[StateID, FSMState] = {}
         self.current_state: Optional[StateID] = None
 
-        # Register all states via fsm_state decorator
+        # Register states via optional class initialiser list
+        if state_definitions is not None:
+            for state in state_definitions:
+                if state.state_id not in self._states:
+                    self._states[state.state_id] = state
+
+        # Register states via FSMState decorator
         for attr in dir(self):
             attr = getattr(self, attr)
             if callable(attr):
@@ -136,7 +148,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         # Check there is at least one state
         if len(self._states) == 0:
             raise FSMValidationError(
-                f"Found no registered states. Please use the 'fsm_state' decorator."
+                "No registered states. Please use the 'FSMState' decorator or the state_definitions init parameter"
             )
 
         # Check initial state is valid
@@ -217,7 +229,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         old_state = self.current_state
 
-        self.current_state = self._states[self.current_state]._handler(self)
+        self.current_state = self._states[self.current_state].handler(self)
 
         if self.current_state not in self._states[old_state].next_states:
             raise FSMRuntimeError(

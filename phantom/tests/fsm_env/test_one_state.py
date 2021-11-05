@@ -12,7 +12,7 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
-from phantom.fsm_env import fsm_state, FiniteStateMachineEnv
+from phantom.fsm_env import FSMState, FiniteStateMachineEnv
 
 
 class MinimalAgent(ph.agent.Agent):
@@ -64,7 +64,7 @@ class OneStateFSMEnv(FiniteStateMachineEnv):
             initial_state=States.UNIT,
         )
 
-    @fsm_state(state_id=States.UNIT, next_states=[States.UNIT])
+    @FSMState(state_id=States.UNIT, next_states=[States.UNIT])
     def handle(self):
         assert self.network.resolver._cq == {"agent": {"agent": ["message"]}}
 
