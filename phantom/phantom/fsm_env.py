@@ -24,8 +24,19 @@ StateHandler = Callable[[], StateID]
 
 class FSMState:
     """
-    Decorator used in the FiniteStateMachineEnv and TurnBasedEnv to declare the
-    FSM structure and assign handler functions to states.
+    Decorator used in the :class:`FiniteStateMachineEnv` to declare the finite state
+    machine structure and assign handler functions to states.
+
+    Attributes:
+        state_id: The name of this state.
+        next_states: The states that this state can transition to.
+        acting_agents: If provided, only the given agents will make an observation at
+            the end of this step and take an action at the start of the next step. If
+            not provided, all agents will make observations and take actions.
+        rewarded_agents: If provided, only the given agents will calculate and return a
+            reward at the end of the step for this state. If not provided, all agents
+            will calculate and return a reward.
+        handler: Environment class method to be called when the FSM enters this state.
     """
 
     def __init__(
@@ -36,19 +47,6 @@ class FSMState:
         rewarded_agents: Optional[Iterable[me.ID]] = None,
         handler: Optional[StateHandler] = None,
     ) -> None:
-        """
-        Arguments:
-            state_id: The name of this state.
-            next_states: The states that this state can transition to.
-            acting_agents: If provided, only the given agents will make an observation
-                at the end of this step and take an action at the start of the next
-                step. If not provided, all agents will make observations and take actions.
-            rewarded_agents: If provided, only the given agents will calculate and
-                return a reward at the end of the step for this state. If not provided,
-                all agents will calculate and return a reward.
-            handler: Environment class method to be called when the FSM enters this
-                state (optional).
-        """
         self.state_id = state_id
         self.next_states = next_states
         self.acting_agents = acting_agents
@@ -64,14 +62,15 @@ class FSMState:
 
 class FSMValidationError(Exception):
     """
-    Error raised when validating the FSM when initialising the FiniteStateMachineEnv.
+    Error raised when validating the FSM when initialising the
+    :class:`FiniteStateMachineEnv`.
     """
 
 
 class FSMRuntimeError(Exception):
     """
     Error raised when validating FSM state changes when running an episode using the
-    FiniteStateMachineEnv.
+    :class:`FiniteStateMachineEnv`.
     """
 
 
@@ -80,8 +79,10 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
     Base environment class that allows implementation of a finite state machine to
     handle complex environment multi-step setups.
 
-    Use the FSMState decorator on handler methods within subclasses of this class to
-    register states to the FSM.
+    This class should not be used directly and instead should be subclassed.
+
+    Use the :class:`FSMState` decorator on handler methods within subclasses of this
+    class to register states to the FSM.
 
     State IDs can be anything type that is hashable, eg. strings, ints, enums.
 
@@ -89,7 +90,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         initial_state: The initial starting state of the FSM. When the reset() method is
             called the environment is initialised into this state.
         state_definitions: List of FSM states (optional). FSM states can be defined via
-            this list of alternatively via the FSMState decorator.
+            this list of alternatively via the :class:`FSMState` decorator.
         network: A Mercury Network class or derived class describing the connections
             between agents and actors in the environment.
         clock: A Phantom Clock defining the episode length and episode step size.

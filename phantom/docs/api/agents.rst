@@ -28,9 +28,15 @@ If the ``decode_action()`` method is provided with a custom implementation, the
    :figclass: align-center
 
 
+Agent
+-----
+
 .. autoclass:: phantom.agent.Agent
    :inherited-members:
 
+
+ZeroIntelligenceAgent
+---------------------
 
 .. autoclass:: phantom.agent.ZeroIntelligenceAgent
    :inherited-members:

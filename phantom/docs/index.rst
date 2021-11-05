@@ -24,9 +24,11 @@ Developer API
     :maxdepth: 2
 
     api/agents
+    api/clock
     api/decoders
     api/encoders
-    api/environment
+    api/env
+    api/fsm_env
     api/logging
     api/phantomparams
     api/rewards
