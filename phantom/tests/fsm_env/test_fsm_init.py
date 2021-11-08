@@ -25,9 +25,11 @@ def test_decorator_style():
             next_states=["A"],
         )
         def handle(self):
-            pass
+            return "A"
 
-    Env()
+    env = Env()
+    env.reset()
+    env.step({})
 
 
 def test_state_definition_list_style():
@@ -51,6 +53,8 @@ def test_state_definition_list_style():
             )
 
         def handle(self):
-            pass
+            return "A"
 
-    Env()
+    env = Env()
+    env.reset()
+    env.step({})

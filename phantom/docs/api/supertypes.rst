@@ -13,7 +13,7 @@ Basic example:
 
     # We define a base type for our agent:
     @dataclass
-    class TrafficAgentType(ph.AgentType):
+    class TrafficAgentType(ph.BaseType):
         speed_reward_factor: float
 
     # Next we define our agent that encodes this type:
@@ -51,7 +51,7 @@ Basic example:
 
 
 
-.. autoclass:: phantom.agent.AgentType
+.. autoclass:: phantom.agent.BaseType
    :inherited-members:
 
 .. autoclass:: phantom.agent.Supertype

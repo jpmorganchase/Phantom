@@ -111,11 +111,10 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        seed: Optional[int] = None,
         # fsm env specific:
         state_definitions: Optional[Iterable[FSMState]] = None,
     ) -> None:
-        super().__init__(network, clock, n_steps, environment_actor, seed)
+        super().__init__(network, clock, n_steps, environment_actor)
 
         self.initial_state: StateID = initial_state
 
@@ -230,7 +229,16 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         old_state = self.current_state
 
-        self.current_state = self._states[self.current_state].handler(self)
+        handler = self._states[self.current_state].handler
+
+        if hasattr(handler, "__self__"):
+            # If the FSMState is defined with the state definitions the handler will be
+            # a bound method of the env class.
+            self.current_state = self._states[self.current_state].handler()
+        else:
+            # If the FSMState is defined as a decorator the handler will be an unbound
+            # function.
+            self.current_state = self._states[self.current_state].handler(self)
 
         if self.current_state not in self._states[old_state].next_states:
             raise FSMRuntimeError(

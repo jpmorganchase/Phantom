@@ -75,7 +75,6 @@ class PhantomEnv(MultiAgentEnv):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        seed: Optional[int] = None,
     ) -> None:
         if clock is None:
             if n_steps is None:
@@ -93,6 +92,8 @@ class PhantomEnv(MultiAgentEnv):
             if isinstance(actor, Agent)
         }
         self._dones = set()
+        self._samplers = []
+        self._env_supertype = None
 
         if environment_actor is not None:
             # Connect the environment actor to all existing actors
@@ -131,9 +132,6 @@ class PhantomEnv(MultiAgentEnv):
             # Override network.resolve method
             self.network.resolve = resolve
 
-        if seed is not None:
-            self.seed(seed)
-
     @property
     def agent_ids(self) -> Collection[me.ID]:
         """Return a list of the IDs of the agents in the environment."""
@@ -157,6 +155,7 @@ class PhantomEnv(MultiAgentEnv):
         """
         # Set clock back to time step 0
         self.clock.reset()
+
         # Reset network and call reset method on all actors in the network.
         # Message samplers should be called here from the respective actor's reset method.
         self.network.reset()

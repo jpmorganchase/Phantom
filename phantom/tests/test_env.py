@@ -26,7 +26,7 @@ def phantom_network():
 def phantom_env(phantom_network):
     environment_actor = EnvironmentActor()
     return PhantomEnv(
-        network=phantom_network, n_steps=2, environment_actor=environment_actor, seed=1
+        network=phantom_network, n_steps=2, environment_actor=environment_actor
     )
 
 

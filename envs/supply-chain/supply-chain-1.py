@@ -137,7 +137,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v1"
 
-    def __init__(self, n_customers: int = 5, seed: int = 0):
+    def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
         shop_id = "SHOP"
         warehouse_id = "WAREHOUSE"
@@ -159,10 +159,10 @@ class SupplyChainEnv(ph.PhantomEnv):
         # Connect the shop to the customers
         network.add_connections_between([shop_id], customer_ids)
 
-        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS, seed=seed)
+        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
 
 
-if sys.argv[1].lower() == "train":
+if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
         experiment_name="supply-chain-1",
         algorithm="PPO",

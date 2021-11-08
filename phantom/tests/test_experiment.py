@@ -1,5 +1,5 @@
-import shutil
 import os
+import shutil
 from pathlib import Path
 
 import cloudpickle
@@ -82,7 +82,7 @@ def test_experiment():
         directory=results_dir,
         algorithm="PPO",
         num_workers=1,
-        num_rollouts=5,
+        num_repeats=5,
         env_config={},
         save_trajectories=True,
     )

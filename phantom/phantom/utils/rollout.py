@@ -1,11 +1,13 @@
+import collections.abc
 import logging
 import math
-import cloudpickle
+from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
 from typing import *
 
+import cloudpickle
 import mercury as me
 import numpy as np
 import ray
@@ -13,7 +15,16 @@ from ray.rllib.agents.registry import get_trainer_class
 from ray.tune.registry import register_env
 
 from ..logging import Logger, Metric
-from . import find_most_recent_results_dir, show_pythonhashseed_warning
+from ..type import BaseType
+from .ranges import BaseRange
+from .samplers import BaseSampler
+from . import (
+    collect_instances_of_type_with_paths,
+    contains_type,
+    find_most_recent_results_dir,
+    show_pythonhashseed_warning,
+    update_val,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -33,27 +44,52 @@ class EpisodeTrajectory:
     actions: List[Dict[me.ID, Any]]
 
 
+@dataclass
+class RolloutConfig:
+    seed: int
+    env_config: Mapping[str, Any]
+    env_supertype: Optional[BaseType]
+    agent_supertypes: Dict[me.ID, BaseType]
+
+
 def rollout(
     directory: Union[str, Path],
-    num_workers: int,
-    num_rollouts: int,
     algorithm: str,
+    num_workers: int = 0,
+    num_repeats: int = 1,
     checkpoint: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
+    env_supertype: Optional[Mapping[str, Any]] = None,
+    agent_supertypes: Optional[Mapping[me.ID, BaseType]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
-) -> Tuple[List[Dict[str, np.ndarray]], List[EpisodeTrajectory]]:
+) -> Tuple[List[RolloutConfig], List[Dict[str, np.ndarray]], List[EpisodeTrajectory]]:
     """
     Performs rollouts for a previously trained Phantom experiment.
 
+    Any objects that inherit from BaseRange in the env_supertype or agent_supertypes
+    parameters will be expanded out into a multidimensional space of rollouts.
+
+    For example, if two distinct UniformRanges are used, one with a length of 10 and one
+    with a length of 5, 10 * 5 = 50 rollouts will be performed.
+
+    If num_repeats is also given, say with a value of 2, then each of the 50 rollouts
+    will be repeated twice, each time with a different random seed.
+
     Attributes:
         directory: Phantom results directory containing trained policies.
-        num_workers: Number of Ray rollout workers to initialise.
-        num_rollouts: Number of rollouts to perform, distributed over all workers.
         algorithm: RLlib algorithm to use.
+        num_workers: Number of Ray rollout workers to initialise.
+        num_repeats: Number of rollout repeats to perform, distributed over all workers.
         checkpoint: Checkpoint to use (defaults to most recent).
         env_config: Configuration parameters to pass to the environment init method.
+        env_supertype: Type object for the environment. Any contained objects that
+            inherit from BaseRange will be sampled from and automatically applied to
+            the environment (and environment actor).
+        agent_supertypes: Mapping of agent IDs to Type objects for the respective agent.
+            Any contained objects that inherit from BaseRange will be sampled from and
+            automatically applied to the agent.
         metrics: Optional set of metrics to record and log.
         results_file: Name of the results file to save to, if None is given no file
             will be saved (default is "results.pkl").
@@ -61,17 +97,41 @@ def rollout(
             rollouts will be saved into the results file.
 
     Returns:
+        - A list of RolloutConfig objects describing the exact configuration of each rollout.
         - A list of dictionaries containing recorded metrics for each rollout.
-        - A list of EpisodeTrajectory's.
+        - A list of EpisodeTrajectory objects.
 
-    NOTE: It is the users responsibility to ensure the PYTHONHASHSEED environment variable
-    is set before starting the Python interpreter to run this code. Not setting this may
-    lead to reproducibility issues.
+    NOTE: It is the users responsibility to invoke training via the provided ``phantom``
+    command or ensure the PYTHONHASHSEED environment variable is set before starting the
+    Python interpreter to run this code. Not setting this may lead to reproducibility
+    issues.
     """
     show_pythonhashseed_warning()
 
     metrics = metrics or {}
     env_config = env_config or {}
+    env_supertype = env_supertype or None
+    agent_supertypes = agent_supertypes or {}
+
+    if contains_type(env_config, BaseSampler):
+        raise Exception(
+            "env_config should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(env_config, BaseRange):
+        raise Exception(
+            "env_config should not contain instances of classes inheriting from BaseRange"
+        )
+
+    if contains_type(env_supertype, BaseSampler):
+        raise Exception(
+            "env_supertype should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(agent_supertypes, BaseSampler):
+        raise Exception(
+            "agent_supertypes should not contain instances of classes inheriting from BaseSampler"
+        )
 
     if directory is not None:
         directory = Path(directory)
@@ -100,24 +160,60 @@ def rollout(
 
     num_workers = max(num_workers, 1)
 
-    rollouts_per_worker = int(math.ceil(num_rollouts / num_workers))
+    # We find all instances of objects that inherit from BaseRange in the env supertype
+    # and agent supertypes. We keep a track of where in this structure they came from
+    # so we can easily replace the values at a later stage.
+    # Each Range object can have multiple paths as it can exist at multiple points within
+    # the data structure. Eg. shared across multiple agents.
+    ranges = collect_instances_of_type_with_paths(
+        BaseRange, (env_supertype, agent_supertypes)
+    )
 
-    seeds = list(range(num_rollouts))
+    # This 'variations' list is where we build up every combination of the expanded values
+    # from the list of Ranges.
+    variations = [deepcopy((env_supertype, agent_supertypes))]
+
+    # For each iteration of this outer loop we expand another Range object.
+    for range_obj, paths in reversed(ranges):
+        variations2 = []
+        for value in range_obj.values():
+            for variation in variations:
+                variation = deepcopy(variation)
+                for path in paths:
+                    update_val(variation, path, value)
+                variations2.append(variation)
+
+        variations = variations2
+
+    # Apply the number of repeats requested to each 'variation'.
+    rollouts = [
+        RolloutConfig(
+            i * num_repeats + j,
+            env_config,
+            env_supertype,
+            agent_supertypes,
+        )
+        for i, (env_supertype, agent_supertypes) in enumerate(variations)
+        for j in range(num_repeats)
+    ]
+
+    # Distribute the rollouts evenly amongst the number of workers.
+    rollouts_per_worker = int(math.ceil(len(rollouts) / num_workers))
 
     worker_payloads = [
         ParallelFunctionArgs(
-            seeds[i : i + rollouts_per_worker],
             directory,
             checkpoint,
-            env_config,
             metrics,
             algorithm,
+            rollouts[i : i + rollouts_per_worker],
         )
-        for i in range(0, len(seeds), rollouts_per_worker)
+        for i in range(0, len(rollouts), rollouts_per_worker)
     ]
 
-    logger.info(f"Starting {num_rollouts} rollout(s) using {num_workers} worker(s)")
+    logger.info(f"Starting {len(rollouts)} rollout(s) using {num_workers} worker(s)")
 
+    # Start the rollouts
     try:
         ray.init(include_dashboard=False)
 
@@ -138,6 +234,7 @@ def rollout(
     else:
         ray.shutdown()
 
+    # Collect the results
     metrics_results, trajectories = zip(*results)
 
     results = {}
@@ -148,6 +245,7 @@ def rollout(
     if save_trajectories:
         results["trajectories"] = trajectories
 
+    # Optionally save the results
     if results_file is not None and results != {}:
         results_file = Path(directory, results_file)
 
@@ -155,7 +253,7 @@ def rollout(
 
         logger.info(f"Saved rollout results to '{results_file}'")
 
-    return metrics_results, trajectories
+    return rollouts, metrics_results, trajectories
 
 
 @dataclass
@@ -164,12 +262,11 @@ class ParallelFunctionArgs:
     Internal dataclass
     """
 
-    seeds: List[int]
     directory: Path
     checkpoint: int
-    env_config: Mapping[str, Any]
     metrics: Optional[Mapping[str, Metric]]
     algorithm: str
+    configs: List[RolloutConfig]
 
 
 def _parallel_fn(
@@ -192,22 +289,33 @@ def _parallel_fn(
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
     config["num_workers"] = 0
-    config["env_config"] = args.env_config
+    config["env_config"] = args.configs[0].env_config
 
     # Register custom environment with Ray
-    register_env(env_class.env_name, lambda config: env_class(**config))
+    register_env(
+        env_class.env_name, lambda config: env_class(**args.configs[0].env_config)
+    )
 
     trainer = get_trainer_class(args.algorithm)(env=env_class.env_name, config=config)
     trainer.restore(str(checkpoint_path))
 
     results = []
 
-    for seed in args.seeds:
+    for rollout_config in args.configs:
         # Create environment instance from config from results directory
-        env = env_class(**config["env_config"])
+        env = env_class(**rollout_config.env_config)
+
+        for agent_id, supertype in rollout_config.agent_supertypes.items():
+            env.agents[agent_id].supertype = supertype
+
+        if rollout_config.env_supertype is not None:
+            env.env_type = rollout_config.env_supertype
+
+            if "__ENV" in env.network.actor_ids:
+                env.network.actors["__ENV"].env_type = env.env_type
 
         # Setting seed needs to come after trainer setup
-        np.random.seed(seed)
+        np.random.seed(rollout_config.seed)
 
         logger = Logger(args.metrics)
 

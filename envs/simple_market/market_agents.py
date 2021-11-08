@@ -25,7 +25,7 @@ class Order:
 
 # Buyer type = buyer's intrinsic value for the good
 @dataclass(frozen=True)
-class Value(ph.AgentType):
+class Value(ph.BaseType):
     value: float
 
 

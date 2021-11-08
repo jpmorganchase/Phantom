@@ -1,5 +1,4 @@
-from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from abc import ABC
 from typing import Any, AnyStr, Dict, Mapping, Optional, Type, TypeVar, Union
 
 import mercury as me
@@ -10,128 +9,7 @@ from .decoders import Decoder
 from .encoders import Encoder
 from .packet import Packet, Mutation
 from .rewards import RewardFunction
-
-
-ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
-
-
-@dataclass
-class AgentType(ABC):
-    """
-    Abstract base class representing Agent Types.
-    """
-
-    def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
-        """
-        Converts the parameters of the AgentType into a dict for use in observation
-        spaces.
-        """
-
-        def _to_compatible_type(field: str, obj: Any) -> ObsSpaceCompatibleTypes:
-            if isinstance(obj, dict):
-                return {
-                    key: _to_compatible_type(key, value) for key, value in obj.items()
-                }
-            elif isinstance(obj, (float, int)):
-                return np.array([obj])
-            elif isinstance(obj, list):
-                return [
-                    _to_compatible_type(f"{field}[{i}]", value)
-                    for i, value in enumerate(obj)
-                ]
-            elif isinstance(obj, tuple):
-                return tuple(
-                    _to_compatible_type(f"{field}[{i}]", value)
-                    for i, value in enumerate(obj)
-                )
-            elif isinstance(obj, np.ndarray):
-                return obj
-            else:
-                raise ValueError(
-                    f"Can't encode field '{field}' with type '{type(obj)}' into obs space compatible type"
-                )
-
-        return {
-            name: _to_compatible_type(name, value)
-            for name, value in asdict(self).items()
-        }
-
-    def to_obs_space(self, low=-np.inf, high=np.inf) -> gym.spaces.Space:
-        """
-        Converts the parameters of the AgentType into a `gym.spaces.Space` representing
-        the space.
-
-        All elements of the space span the same range given by the `low` and `high`
-        arguments.
-
-        Arguments:
-            low: Optional 'low' bound for the space (default is -∞)
-            high: Optional 'high' bound for the space (default is ∞)
-        """
-
-        def _to_obs_space(field: str, obj: Any) -> gym.spaces.Space:
-            if isinstance(obj, dict):
-                return gym.spaces.Dict(
-                    {key: _to_obs_space(key, value) for key, value in obj.items()}
-                )
-            elif isinstance(obj, float):
-                return gym.spaces.Box(low, high, (1,), np.float32)
-            elif isinstance(obj, int):
-                return gym.spaces.Box(low, high, (1,), np.float32)
-            elif isinstance(obj, (list, tuple)):
-                return gym.spaces.Tuple(
-                    [
-                        _to_obs_space(f"{field}[{i}]", value)
-                        for i, value in enumerate(obj)
-                    ]
-                )
-            elif isinstance(obj, np.ndarray):
-                return gym.spaces.Box(low, high, obj.shape, np.float32)
-            else:
-                raise ValueError(
-                    f"Can't encode field '{field}' with type '{type(obj)}' into gym.spaces.Space"
-                )
-
-        return gym.spaces.Dict(
-            {
-                field: _to_obs_space(field, value)
-                for field, value in asdict(self).items()
-            }
-        )
-
-
-A = TypeVar("A", bound=AgentType)
-
-
-class Supertype(ABC):
-    @abstractmethod
-    def sample(self) -> A:
-        """
-        Base method for sampling a Type from a Supertype.
-
-        Must be implemented by supertypes that inherit from this class.
-        """
-        raise NotImplementedError
-
-
-class NullType(AgentType):
-    """
-    An implementation of AgentType that holds no values.
-    """
-
-    pass
-
-
-class NullSupertype(Supertype):
-    """
-    An implementation of Supertype that returns a type that holds no values.
-    """
-
-    def sample(self) -> NullType:
-        """
-        Returns a NullType that holds no values.
-        """
-        return NullType()
+from .type import BaseType
 
 
 Action = TypeVar("Action")
@@ -159,7 +37,6 @@ class Agent(me.actors.SimpleSyncActor):
         reward_function: Optional[RewardFunction] = None,
         policy_type: Optional[Union[str, Type]] = None,
         policy_config: Optional[Mapping] = None,
-        supertype: Optional[Supertype] = None,
     ) -> None:
         super().__init__(agent_id)
 
@@ -169,11 +46,7 @@ class Agent(me.actors.SimpleSyncActor):
         self.policy_type: Optional[Union[str, Type]] = policy_type
         self.policy_config: Optional[Mapping] = policy_config
 
-        self.supertype: Supertype = (
-            supertype if supertype is not None else NullSupertype()
-        )
-
-        self.reset()
+        self.supertype: Optional[BaseType] = None
 
     def handle_mutation(self, ctx: me.Network.Context, mutation: Mutation) -> None:
         """Handle a single mutation of the agent's internal state.
@@ -288,7 +161,8 @@ class Agent(me.actors.SimpleSyncActor):
 
         Can be extended by subclasses to provide additional functionality.
         """
-        self.type = self.supertype.sample()
+        if self.supertype is not None:
+            self.type = self.supertype.sample()
 
         super().reset()
 

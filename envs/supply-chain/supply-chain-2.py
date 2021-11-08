@@ -7,6 +7,8 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
+from phantom.utils.ranges import UniformRange
+from phantom.utils.samplers import UniformSampler
 
 
 coloredlogs.install(
@@ -98,26 +100,13 @@ class ShopRewardFunction(ph.RewardFunction):
 
 
 @dataclass
-class ShopAgentType(ph.AgentType):
+class ShopAgentType(ph.BaseType):
     missed_sales_weight: float
 
 
-class ShopAgentSupertype(ph.Supertype):
-    def __init__(self):
-        self.missed_sales_weight_low = 0.5
-        self.missed_sales_weight_high = 3.0
-
-    def sample(self) -> ShopAgentType:
-        return ShopAgentType(
-            missed_sales_weight=np.random.uniform(
-                self.missed_sales_weight_low, self.missed_sales_weight_high
-            )
-        )
-
-
 class ShopAgent(ph.Agent):
-    def __init__(self, agent_id: str, warehouse_id: str, supertype: ph.Supertype):
-        super().__init__(agent_id, supertype=supertype)
+    def __init__(self, agent_id: str, warehouse_id: str):
+        super().__init__(agent_id)
 
         # We store the ID of the warehouse so we can send stock requests to it.
         self.warehouse_id: str = warehouse_id
@@ -201,28 +190,24 @@ class ShopAgent(ph.Agent):
         )
 
 
-shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
+SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
 
 
 class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v2"
 
-    def __init__(self, n_customers: int = 5, seed: int = 0):
+    def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
         warehouse_id = "WAREHOUSE"
 
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
-        shop_agents = [
-            ShopAgent(sid, warehouse_id, ShopAgentSupertype()) for sid in shop_ids
-        ]
+        shop_agents = [ShopAgent(id, warehouse_id) for id in SHOP_IDS]
 
         warehouse_actor = WarehouseActor(warehouse_id)
 
-        customer_agents = [
-            CustomerAgent(cid, shop_ids=shop_ids) for cid in customer_ids
-        ]
+        customer_agents = [CustomerAgent(id, shop_ids=SHOP_IDS) for id in customer_ids]
 
         actors = [warehouse_actor] + shop_agents + customer_agents
 
@@ -230,17 +215,16 @@ class SupplyChainEnv(ph.PhantomEnv):
         network = me.Network(me.resolvers.UnorderedResolver(), actors)
 
         # Connect the shops to the warehouse
-        network.add_connections_between(shop_ids, [warehouse_id])
+        network.add_connections_between(SHOP_IDS, [warehouse_id])
 
         # Connect the shop to the customers
-        network.add_connections_between(shop_ids, customer_ids)
+        network.add_connections_between(SHOP_IDS, customer_ids)
 
         clock = ph.Clock(0, NUM_EPISODE_STEPS, 1)
 
         super().__init__(
             network=network,
             clock=clock,
-            seed=seed,
         )
 
 
@@ -270,39 +254,45 @@ class MissedSalesMetric(ph.logging.Metric[float]):
 
 metrics = {}
 
-metrics.update(
-    {f"stock/SHOP{i+1}": StockMetric(f"SHOP{i+1}") for i in range(NUM_SHOPS)}
-)
+metrics.update({f"stock/{id}": StockMetric(id) for id in SHOP_IDS})
 
-metrics.update(
-    {f"sales/SHOP{i+1}": SalesMetric(f"SHOP{i+1}") for i in range(NUM_SHOPS)}
-)
+metrics.update({f"sales/{id}": SalesMetric(id) for id in SHOP_IDS})
 
-metrics.update(
-    {
-        f"missed_sales/SHOP{i+1}": MissedSalesMetric(f"SHOP{i+1}")
-        for i in range(NUM_SHOPS)
-    }
-)
+metrics.update({f"missed_sales/{id}": MissedSalesMetric(id) for id in SHOP_IDS})
 
 
-if sys.argv[1].lower() == "train":
+if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
+    weight = UniformSampler(low=0.5, high=3.0)
+
     ph.train(
         experiment_name="supply-chain-2",
         algorithm="PPO",
-        num_workers=4,
-        num_episodes=100,
+        num_workers=10,
+        num_episodes=10000,
         env=SupplyChainEnv,
-        env_config={"n_customers": NUM_CUSTOMERS},
+        env_config=dict(
+            n_customers=NUM_CUSTOMERS,
+        ),
+        agent_supertypes={
+            id: ShopAgentType(missed_sales_weight=weight) for id in SHOP_IDS
+        },
         metrics=metrics,
-        policy_grouping={"shared_SHOP_policy": shop_ids},
+        policy_grouping={"shared_SHOP_policy": SHOP_IDS},
     )
 
 elif sys.argv[1].lower() == "rollout":
+    weight = UniformRange(start=0.5, end=3.0, step=0.5)
+
     ph.rollout(
         directory="/home/ubuntu/phantom_results/supply-chain-2/LATEST",
         algorithm="PPO",
         num_workers=1,
-        num_rollouts=10,
-        env_config={"n_customers": NUM_CUSTOMERS},
+        num_repeats=10,
+        env_config=dict(
+            n_customers=NUM_CUSTOMERS,
+        ),
+        agent_supertypes={
+            id: ShopAgentType(missed_sales_weight=weight) for id in SHOP_IDS
+        },
+        results_file=None,
     )

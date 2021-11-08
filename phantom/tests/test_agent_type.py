@@ -9,7 +9,7 @@ import gym.spaces
 
 def test_agent_type_utilities():
     @dataclass
-    class Type(ph.AgentType):
+    class Type(ph.BaseType):
         a: int
         b: float
         c: List[int]
@@ -71,7 +71,7 @@ def test_agent_type_utilities():
 
     # String is not currently a supported type
     @dataclass
-    class Type(ph.AgentType):
+    class Type(ph.BaseType):
         s: str = "s"
 
     t = Type()

@@ -309,14 +309,14 @@ with a range of reward functions that all slightly modify the weight of the
 ``missed_sales`` factor. Doing this manually would be cumbersome. Instead we can use the
 Phantom supertypes feature.
 
-For the ``ShopAgent`` we define a ``AgentType`` object that defines the type of the
+For the ``ShopAgent`` we define a ``BaseType`` object that defines the type of the
 agent. In our case this only contains the ``missed_sales_weight`` parameter we want to
 vary.
 
 .. code-block:: python
 
     @dataclass
-    class ShopAgentType(ph.AgentType):
+    class ShopAgentType(ph.BaseType):
         missed_sales_weight: float
 
 Then we define a ``Supertype`` object that has a ``sample`` method that produces an
