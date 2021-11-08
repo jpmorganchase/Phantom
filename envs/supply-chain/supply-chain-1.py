@@ -1,8 +1,16 @@
+import sys
+
+import coloredlogs
 import gym
 import mercury as me
 import numpy as np
 import phantom as ph
 
+
+coloredlogs.install(
+    level="INFO",
+    fmt="(pid=%(process)d) %(levelname)s %(name)s %(message)s",
+)
 
 NUM_EPISODE_STEPS = 100
 
@@ -154,19 +162,21 @@ class SupplyChainEnv(ph.PhantomEnv):
         super().__init__(network=network, n_steps=NUM_EPISODE_STEPS, seed=seed)
 
 
-training_params = ph.TrainingParams(
-    experiment_name="supply-chain-1",
-    algorithm="PPO",
-    num_workers=4,
-    num_episodes=100,
-    env=SupplyChainEnv,
-    env_config={"n_customers": 5},
-)
+if sys.argv[1].lower() == "train":
+    ph.train(
+        experiment_name="supply-chain-1",
+        algorithm="PPO",
+        num_workers=4,
+        num_episodes=100,
+        env=SupplyChainEnv,
+        env_config={"n_customers": 5},
+    )
 
-rollout_params = ph.RolloutParams(
-    directory="/home/ubuntu/phantom_results/supply-chain-1/LATEST",
-    algorithm="PPO",
-    num_workers=1,
-    num_rollouts=2,
-    env_config={"n_customers": 5},
-)
+elif sys.argv[1].lower() == "rollout":
+    ph.rollout(
+        directory="/home/ubuntu/phantom_results/supply-chain-1/LATEST",
+        algorithm="PPO",
+        num_workers=1,
+        num_rollouts=10,
+        env_config={"n_customers": 5},
+    )

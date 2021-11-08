@@ -156,7 +156,7 @@ def test_odd_even():
 
 
 def test_odd_event_with_ray():
-    training_params = ph.TrainingParams(
+    ph.train(
         experiment_name="unit-testing",
         algorithm="PPO",
         num_workers=0,
@@ -165,5 +165,3 @@ def test_odd_event_with_ray():
         env_config={},
         discard_results=True,
     )
-
-    ph.utils.training.train_from_params_object(training_params)

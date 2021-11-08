@@ -14,7 +14,6 @@ User Guide
     user/tutorial2
     user/design
     user/designpatterns
-    user/commands
 
 
 Developer API

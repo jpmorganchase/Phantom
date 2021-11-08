@@ -109,7 +109,7 @@ def test_one_state():
 
 
 def test_one_state_with_ray():
-    training_params = ph.TrainingParams(
+    ph.train(
         experiment_name="unit-testing",
         algorithm="PPO",
         num_workers=0,
@@ -118,5 +118,3 @@ def test_one_state_with_ray():
         env_config={},
         discard_results=True,
     )
-
-    ph.utils.training.train_from_params_object(training_params)

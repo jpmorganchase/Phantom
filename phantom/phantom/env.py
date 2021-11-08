@@ -1,11 +1,9 @@
-import os
 from typing import (
     Any,
     AnyStr,
     Collection,
     Dict,
     Iterable,
-    List,
     Mapping,
     NamedTuple,
     Optional,
@@ -14,19 +12,10 @@ from typing import (
 import mercury as me
 from gym.utils import seeding
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
-from termcolor import colored
 
 from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
-
-if "PYTHONHASHSEED" not in os.environ:
-    warning_string = "=============================================================\n"
-    warning_string += "WARNING: The $PYTHONHASHSEED environment variable is not set!\n"
-    warning_string += "Reproducibility may not be possible whilst this is not set.\n"
-    warning_string += "============================================================="
-
-    print(colored(warning_string, "yellow"))
 
 
 class EnvironmentActor(me.actors.SyncActor):
