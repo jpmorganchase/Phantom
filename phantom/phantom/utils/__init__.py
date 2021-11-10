@@ -92,6 +92,9 @@ def contains_type(value: Any, type_: Type) -> bool:
     # Test object itself
     if isinstance(value, type_):
         return True
+    # Special handling of strings
+    if isinstance(value, str):
+        return False
     # Test dataclasses
     elif hasattr(value, "__dataclass_fields__"):
         for field in value.__dataclass_fields__:
@@ -124,6 +127,9 @@ def collect_instances_of_type(
     # Test object itself
     if isinstance(obj, type_) and obj not in collection:
         collection.append(obj)
+    # Special handling of strings
+    elif isinstance(obj, str):
+        pass
     # Test sub-objects in mappings, eg. dicts
     elif isinstance(obj, collections.abc.Mapping):
         for val in obj.values():
