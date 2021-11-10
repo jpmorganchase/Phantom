@@ -22,7 +22,7 @@ class BaseRange(ABC, Generic[T]):
 
 class UniformRange(BaseRange[float]):
     """
-    Returns an array of values even distributed between a start and end value.
+    Returns an array of values spaced by a step between a start and end value.
     """
 
     def __init__(
@@ -37,3 +37,22 @@ class UniformRange(BaseRange[float]):
 
     def values(self) -> np.ndarray:
         return np.arange(self.start, self.end, self.step)
+
+
+class LinspaceRange(BaseRange[float]):
+    """
+    Returns an array of n values evenly distributed between a start and end value.
+    """
+
+    def __init__(
+        self,
+        start: float,
+        end: float,
+        n: int,
+    ) -> None:
+        self.n = n
+        self.start = start
+        self.end = end
+
+    def values(self) -> np.ndarray:
+        return np.linspace(self.start, self.end, self.n)
