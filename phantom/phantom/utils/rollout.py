@@ -177,9 +177,6 @@ def rollout(
     else:
         logger.info(f"Using checkpoint: {checkpoint}")
 
-    print(directory)
-    return
-
     num_workers = max(num_workers, 1)
 
     # We find all instances of objects that inherit from BaseRange in the env supertype
