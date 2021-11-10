@@ -54,6 +54,13 @@ class RolloutConfig:
     agent_supertypes: Dict[me.ID, BaseType]
 
 
+@dataclass
+class Rollout:
+    config: RolloutConfig
+    metrics: Dict[str, np.ndarray]
+    trajectory: Optional[EpisodeTrajectory]
+
+
 def rollout(
     directory: Union[str, Path],
     algorithm: str,
@@ -66,7 +73,7 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
-) -> Tuple[List[RolloutConfig], List[Dict[str, np.ndarray]], List[EpisodeTrajectory]]:
+) -> List[Rollout]:
     """
     Performs rollouts for a previously trained Phantom experiment.
 
@@ -205,7 +212,7 @@ def rollout(
         variations = variations2
 
     # Apply the number of repeats requested to each 'variation'.
-    rollouts = [
+    rollout_configs = [
         RolloutConfig(
             i * num_repeats + j,
             env_config,
@@ -217,21 +224,21 @@ def rollout(
     ]
 
     # Distribute the rollouts evenly amongst the number of workers.
-    rollouts_per_worker = int(math.ceil(len(rollouts) / max(num_workers, 1)))
+    rollouts_per_worker = int(math.ceil(len(rollout_configs) / max(num_workers, 1)))
 
     logger.info(
-        f"Starting {len(rollouts)} rollout(s) using {num_workers} worker process(es)"
+        f"Starting {len(rollout_configs)} rollout(s) using {num_workers} worker process(es)"
     )
 
     # Start the rollouts
     if num_workers == 0:
         # If num_workers is 0, run all the rollouts in this thread.
-        results = _parallel_fn(
+        results: List[Rollout] = _parallel_fn(
             directory,
             checkpoint,
             metrics,
             algorithm,
-            rollouts,
+            rollout_configs,
             None,
         )
 
@@ -247,10 +254,10 @@ def rollout(
                 checkpoint,
                 metrics,
                 algorithm,
-                rollouts[i : i + rollouts_per_worker],
+                rollout_configs[i : i + rollouts_per_worker],
                 result_queue,
             )
-            for i in range(0, len(rollouts), rollouts_per_worker)
+            for i in range(0, len(rollout_configs), rollouts_per_worker)
         ]
 
         workers = [
@@ -262,11 +269,11 @@ def rollout(
 
         results = []
 
-        with tqdm(total=len(rollouts)) as pbar:
+        with tqdm(total=len(rollout_configs)) as pbar:
             for item in iter(result_queue.get, None):
                 results.append(item)
                 pbar.update()
-                if len(results) == len(rollouts):
+                if len(results) == len(rollout_configs):
                     break
 
         print()
@@ -274,26 +281,28 @@ def rollout(
         for worker in workers:
             worker.join()
 
-    # Collect the results
-    metrics_results, trajectories = zip(*results)
-
-    results = {}
-
-    if metrics != {}:
-        results["metrics"] = metrics_results
-
-    if save_trajectories:
-        results["trajectories"] = trajectories
-
     # Optionally save the results
-    if results_file is not None and results != {}:
+    if results_file is not None:
+        logger.info(f"Generating results file")
+
+        results_to_save = [
+            Rollout(
+                rollout.config,
+                rollout.metrics,
+                rollout.trajectory
+                if save_trajectories
+                else None,
+            )
+            for rollout in results
+        ]
+
         results_file = Path(directory, results_file)
 
-        cloudpickle.dump(results, open(results_file, "wb"))
+        cloudpickle.dump(results_to_save, open(results_file, "wb"))
 
         logger.info(f"Saved rollout results to '{results_file}'")
 
-    return rollouts, metrics_results, trajectories
+    return results
 
 
 def _parallel_fn(
@@ -303,7 +312,7 @@ def _parallel_fn(
     algorithm: str,
     configs: List[RolloutConfig],
     result_queue: Optional[mp.Queue] = None,
-) -> Optional[List[Tuple[Dict[str, np.ndarray], EpisodeTrajectory]]]:
+) -> Optional[List[Rollout]]:
     checkpoint_path = Path(
         directory,
         f"checkpoint_{str(checkpoint).zfill(6)}",
@@ -392,12 +401,14 @@ def _parallel_fn(
             actions,
         )
 
+        result = Rollout(rollout_config, metrics, trajectory)
+
         # If in multiprocess mode, add the results to the queue, otherwise store locally
         # until all rollouts for this function call are complete.
         if result_queue is None:
-            results.append((metrics, trajectory))
+            results.append(result)
         else:
-            result_queue.put((metrics, trajectory))
+            result_queue.put(result)
 
     ray.shutdown()
 
