@@ -142,7 +142,7 @@ def rollout(
 
         if not parent_dir.exists():
             parent_dir = Path(phantom_dir, parent_dir)
-            
+
             if not parent_dir.exists():
                 logger.error(f"Base results directory '{parent_dir}' does not exist")
                 return
@@ -154,10 +154,10 @@ def rollout(
         logger.info(f"Found experiment results: '{directory.stem}'")
     else:
         directory = Path(os.path.expanduser(directory))
-        
+
         if not directory.exists():
             directory = Path(phantom_dir, directory)
-            
+
             if not directory.exists():
                 logger.error(f"Results directory '{directory}' does not exist")
                 return
