@@ -1,9 +1,9 @@
 import logging
 import math
+import multiprocessing as mp
 import os
 from copy import deepcopy
 from dataclasses import dataclass
-from itertools import chain
 from pathlib import Path
 from typing import *
 
@@ -13,6 +13,8 @@ import numpy as np
 import ray
 from ray.rllib.agents.registry import get_trainer_class
 from ray.tune.registry import register_env
+from tqdm import tqdm
+
 
 from ..logging import Logger, Metric
 from ..type import BaseType
@@ -177,8 +179,6 @@ def rollout(
     else:
         logger.info(f"Using checkpoint: {checkpoint}")
 
-    num_workers = max(num_workers, 1)
-
     # We find all instances of objects that inherit from BaseRange in the env supertype
     # and agent supertypes. We keep a track of where in this structure they came from
     # so we can easily replace the values at a later stage.
@@ -217,41 +217,62 @@ def rollout(
     ]
 
     # Distribute the rollouts evenly amongst the number of workers.
-    rollouts_per_worker = int(math.ceil(len(rollouts) / num_workers))
+    rollouts_per_worker = int(math.ceil(len(rollouts) / max(num_workers, 1)))
 
-    worker_payloads = [
-        ParallelFunctionArgs(
+    logger.info(
+        f"Starting {len(rollouts)} rollout(s) using {num_workers} worker process(es)"
+    )
+
+    # Start the rollouts
+    if num_workers == 0:
+        # If num_workers is 0, run all the rollouts in this thread.
+        results = _parallel_fn(
             directory,
             checkpoint,
             metrics,
             algorithm,
-            rollouts[i : i + rollouts_per_worker],
-        )
-        for i in range(0, len(rollouts), rollouts_per_worker)
-    ]
-
-    logger.info(f"Starting {len(rollouts)} rollout(s) using {num_workers} worker(s)")
-
-    # Start the rollouts
-    try:
-        ray.init(include_dashboard=False)
-
-        results = list(
-            chain.from_iterable(
-                ray.util.iter.from_items(
-                    worker_payloads, num_shards=max(num_workers, 1)
-                )
-                .for_each(_parallel_fn)
-                .gather_sync()
-            )
+            rollouts,
+            None,
         )
 
-    except Exception as e:
-        # ensure that Ray is properly shutdown in the instance of any error occuring
-        ray.shutdown()
-        raise e
     else:
-        ray.shutdown()
+        # Otherwise, manually create threads and give a list of rollouts to each thread.
+        # multiprocessing.Pool is not used to allow the use a progressbar that shows the
+        # overall state across all threads.
+        result_queue = mp.Manager().Queue()
+
+        worker_payloads = [
+            (
+                directory,
+                checkpoint,
+                metrics,
+                algorithm,
+                rollouts[i : i + rollouts_per_worker],
+                result_queue,
+            )
+            for i in range(0, len(rollouts), rollouts_per_worker)
+        ]
+
+        workers = [
+            mp.Process(target=_parallel_fn, args=worker_payloads[i])
+            for i in range(num_workers)
+        ]
+        for worker in workers:
+            worker.start()
+
+        results = []
+
+        with tqdm(total=len(rollouts)) as pbar:
+            for item in iter(result_queue.get, None):
+                results.append(item)
+                pbar.update()
+                if len(results) == len(rollouts):
+                    break
+
+        print()
+
+        for worker in workers:
+            worker.join()
 
     # Collect the results
     metrics_results, trajectories = zip(*results)
@@ -275,52 +296,46 @@ def rollout(
     return rollouts, metrics_results, trajectories
 
 
-@dataclass
-class ParallelFunctionArgs:
-    """
-    Internal dataclass
-    """
-
-    directory: Path
-    checkpoint: int
-    metrics: Optional[Mapping[str, Metric]]
-    algorithm: str
-    configs: List[RolloutConfig]
-
-
 def _parallel_fn(
-    args: ParallelFunctionArgs,
-) -> List[Tuple[Dict[str, np.ndarray], EpisodeTrajectory]]:
+    directory: Path,
+    checkpoint: int,
+    tracked_metrics: Optional[Mapping[str, Metric]],
+    algorithm: str,
+    configs: List[RolloutConfig],
+    result_queue: Optional[mp.Queue] = None,
+) -> Optional[List[Tuple[Dict[str, np.ndarray], EpisodeTrajectory]]]:
     checkpoint_path = Path(
-        args.directory,
-        f"checkpoint_{str(args.checkpoint).zfill(6)}",
-        f"checkpoint-{args.checkpoint}",
+        directory,
+        f"checkpoint_{str(checkpoint).zfill(6)}",
+        f"checkpoint-{checkpoint}",
     )
 
+    ray.init(local_mode=True, include_dashboard=False)
+
     # Load config from results directory.
-    with open(Path(args.directory, "params.pkl"), "rb") as f:
+    with open(Path(directory, "params.pkl"), "rb") as f:
         config = cloudpickle.load(f)
 
     # Load env class from results directory.
-    with open(Path(args.directory, "env.pkl"), "rb") as f:
+    with open(Path(directory, "env.pkl"), "rb") as f:
         env_class = cloudpickle.load(f)
 
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
     config["num_workers"] = 0
-    config["env_config"] = args.configs[0].env_config
+    config["env_config"] = configs[0].env_config
 
     # Register custom environment with Ray
-    register_env(
-        env_class.env_name, lambda config: env_class(**args.configs[0].env_config)
-    )
+    register_env(env_class.env_name, lambda config: env_class(**configs[0].env_config))
 
-    trainer = get_trainer_class(args.algorithm)(env=env_class.env_name, config=config)
+    trainer = get_trainer_class(algorithm)(env=env_class.env_name, config=config)
     trainer.restore(str(checkpoint_path))
 
     results = []
 
-    for rollout_config in args.configs:
+    iter_obj = tqdm(configs) if result_queue is None else configs
+
+    for rollout_config in iter_obj:
         # Create environment instance from config from results directory
         env = env_class(**rollout_config.env_config)
 
@@ -336,7 +351,7 @@ def _parallel_fn(
         # Setting seed needs to come after trainer setup
         np.random.seed(rollout_config.seed)
 
-        logger = Logger(args.metrics)
+        logger = Logger(tracked_metrics)
 
         observation = env.reset()
 
@@ -377,6 +392,14 @@ def _parallel_fn(
             actions,
         )
 
-        results.append((metrics, trajectory))
+        # If in multiprocess mode, add the results to the queue, otherwise store locally
+        # until all rollouts for this function call are complete.
+        if result_queue is None:
+            results.append((metrics, trajectory))
+        else:
+            result_queue.put((metrics, trajectory))
 
-    return results
+    ray.shutdown()
+
+    if result_queue is None:
+        return results
