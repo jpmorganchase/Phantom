@@ -1,6 +1,6 @@
-import collections.abc
 import logging
 import math
+import os
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
@@ -133,16 +133,35 @@ def rollout(
             "agent_supertypes should not contain instances of classes inheriting from BaseSampler"
         )
 
-    if directory is not None:
-        directory = Path(directory)
+    phantom_dir = os.path.expanduser("~/phantom-results")
+
+    directory = Path(directory)
 
     if directory.stem == "LATEST":
-        logger.info(f"Trying to find latest experiment results in '{directory.parent}'")
+        parent_dir = Path(os.path.expanduser(directory.parent))
 
-        directory = find_most_recent_results_dir(directory.parent)
+        if not parent_dir.exists():
+            parent_dir = Path(phantom_dir, parent_dir)
+            
+            if not parent_dir.exists():
+                logger.error(f"Base results directory '{parent_dir}' does not exist")
+                return
+
+        logger.info(f"Trying to find latest experiment results in '{parent_dir}'")
+
+        directory = find_most_recent_results_dir(parent_dir)
 
         logger.info(f"Found experiment results: '{directory.stem}'")
     else:
+        directory = Path(os.path.expanduser(directory))
+        
+        if not directory.exists():
+            directory = Path(phantom_dir, directory)
+            
+            if not directory.exists():
+                logger.error(f"Results directory '{directory}' does not exist")
+                return
+
         logger.info(f"Using results directory: '{directory}'")
 
     if checkpoint is None:
@@ -157,6 +176,9 @@ def rollout(
         logger.info(f"Using most recent checkpoint: {checkpoint}")
     else:
         logger.info(f"Using checkpoint: {checkpoint}")
+
+    print(directory)
+    return
 
     num_workers = max(num_workers, 1)
 

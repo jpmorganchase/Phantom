@@ -55,7 +55,7 @@ def train(
     metrics: Optional[Mapping[str, Metric]] = None,
     callbacks: Optional[Iterable[DefaultCallbacks]] = None,
     discard_results: bool = False,
-    results_dir: Union[str, Path] = "~/phantom_results",
+    results_dir: Union[str, Path] = "~/phantom-results",
     copy_files_to_results_dir: Optional[Iterable[Union[str, Path]]] = None,
     local_mode: bool = False,
     print_info: bool = True,
@@ -89,7 +89,7 @@ def train(
         callbacks: Optional Ray Callbacks for custom metrics.
             (https://docs.ray.io/en/master/rllib-training.html#callbacks-and-custom-metrics)
         discard_results: If True, all results are discarded(useful for unit testing & development).
-        results_dir: Directory where training results will be saved (defaults to "~/phantom_results").
+        results_dir: Directory where training results will be saved (defaults to "~/phantom-results").
         copy_files_to_results_dir: Any files given here will be copied to a
             "copied_files" sub-directory in the experiment results directory. Paths
             should be given relative to the main experiment entry point script.

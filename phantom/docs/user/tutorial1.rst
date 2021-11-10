@@ -489,7 +489,7 @@ In a new terminal we can monitor the progress of the experiment live with Tensor
 
 .. code-block:: bash
 
-    tensorboard --logdir ~/phantom_results/supply-chain
+    tensorboard --logdir ~/phantom-results/supply-chain
 
 Note the last element of the path matches the name we gave to our experiment in the
 ``TrainingParams`` object.
