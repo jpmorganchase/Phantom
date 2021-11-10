@@ -73,6 +73,7 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
+    result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
 ) -> List[Rollout]:
     """
     Performs rollouts for a previously trained Phantom experiment.
@@ -104,6 +105,10 @@ def rollout(
             will be saved (default is "results.pkl").
         save_trajectories: If True the full set of epsiode trajectories for the
             rollouts will be saved into the results file.
+        result_mapping_fn: If given, results from each rollout will be passed to this
+            function, with the return values from the function aggregated and saved.
+            This can be useful when wanting to cut down on the size of rollout results
+            file when only a specific subset of fields are needed in further analysis.
 
     Returns:
         - A list of RolloutConfig objects describing the exact configuration of each rollout.
@@ -239,6 +244,7 @@ def rollout(
             metrics,
             algorithm,
             rollout_configs,
+            result_mapping_fn,
             None,
         )
 
@@ -255,6 +261,7 @@ def rollout(
                 metrics,
                 algorithm,
                 rollout_configs[i : i + rollouts_per_worker],
+                result_mapping_fn,
                 result_queue,
             )
             for i in range(0, len(rollout_configs), rollouts_per_worker)
@@ -285,16 +292,17 @@ def rollout(
     if results_file is not None:
         logger.info(f"Generating results file")
 
-        results_to_save = [
-            Rollout(
-                rollout.config,
-                rollout.metrics,
-                rollout.trajectory
-                if save_trajectories
-                else None,
-            )
-            for rollout in results
-        ]
+        if result_mapping_fn is None:
+            results_to_save = [
+                Rollout(
+                    rollout.config,
+                    rollout.metrics,
+                    rollout.trajectory if save_trajectories else None,
+                )
+                for rollout in results
+            ]
+        else:
+            results_to_save = results
 
         results_file = Path(directory, results_file)
 
@@ -311,6 +319,7 @@ def _parallel_fn(
     tracked_metrics: Optional[Mapping[str, Metric]],
     algorithm: str,
     configs: List[RolloutConfig],
+    result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     result_queue: Optional[mp.Queue] = None,
 ) -> Optional[List[Rollout]]:
     checkpoint_path = Path(
@@ -402,6 +411,9 @@ def _parallel_fn(
         )
 
         result = Rollout(rollout_config, metrics, trajectory)
+
+        if result_mapping_fn is not None:
+            result = result_mapping_fn(result)
 
         # If in multiprocess mode, add the results to the queue, otherwise store locally
         # until all rollouts for this function call are complete.
