@@ -1,13 +1,39 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 import numpy as np
 import phantom as ph
 import pytest
 import gym.spaces
+from phantom.utils.samplers import BaseSampler
 
 
-def test_agent_type_utilities():
+class StaticSampler(BaseSampler[float]):
+    def __init__(
+        self,
+        value: float,
+    ) -> None:
+        self.value = value
+
+    def sample(self) -> float:
+        return self.value
+
+
+
+def test_base_type_sample():
+    @dataclass
+    class Type(ph.BaseType):
+        a: float
+        b: str
+
+    t1 = Type(1.0, "string")
+    assert t1.sample() == Type(1.0, "string")
+
+    t2 = Type(StaticSampler(1.0), "string")
+    assert t2.sample() == Type(1.0, "string")
+
+
+def test_base_type_utilities():
     @dataclass
     class Type(ph.BaseType):
         a: int
