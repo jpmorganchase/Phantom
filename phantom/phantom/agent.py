@@ -37,6 +37,7 @@ class Agent(me.actors.SimpleSyncActor):
         reward_function: Optional[RewardFunction] = None,
         policy_type: Optional[Union[str, Type]] = None,
         policy_config: Optional[Mapping] = None,
+        supertype: Optional[BaseType] = None,
     ) -> None:
         super().__init__(agent_id)
 
@@ -46,7 +47,7 @@ class Agent(me.actors.SimpleSyncActor):
         self.policy_type: Optional[Union[str, Type]] = policy_type
         self.policy_config: Optional[Mapping] = policy_config
 
-        self.supertype: Optional[BaseType] = None
+        self.supertype: Optional[BaseType] = supertype
 
     def handle_mutation(self, ctx: me.Network.Context, mutation: Mutation) -> None:
         """Handle a single mutation of the agent's internal state.
