@@ -284,7 +284,7 @@ elif sys.argv[1].lower() == "rollout":
     weight = UniformRange(start=0.5, end=3.0, step=0.5)
 
     ph.rollout(
-        directory="/home/ubuntu/phantom-results/supply-chain-2/LATEST",
+        directory="supply-chain-2/LATEST",
         algorithm="PPO",
         num_workers=1,
         num_repeats=10,
