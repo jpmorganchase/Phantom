@@ -33,6 +33,19 @@ def test_base_type_sample():
     assert t2.sample() == Type(1.0, "string")
 
 
+def test_base_type_is_supertype():
+    @dataclass
+    class Type(ph.BaseType):
+        a: float
+        b: str
+
+    t1 = Type(1.0, "string")
+    assert t1.is_supertype() == False
+
+    t2 = Type(StaticSampler(1.0), "string")
+    assert t2.is_supertype() == True
+
+
 def test_base_type_utilities():
     @dataclass
     class Type(ph.BaseType):

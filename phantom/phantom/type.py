@@ -1,7 +1,7 @@
-from abc import abstractmethod, ABC
+from abc import ABC
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, Dict, Union
 
 import numpy as np
 import gym.spaces
@@ -28,6 +28,19 @@ class BaseType(ABC):
                 setattr(agent_type, field_name, field_value.value)
 
         return agent_type
+
+    def is_supertype(self) -> bool:
+        """
+        Checks if this type instance is a supertype by looking for any contained values
+        that are subclasses of BaseSampler.
+        """
+        for field_name in self.__dataclass_fields__:
+            field_value = getattr(self, field_name)
+
+            if isinstance(field_value, BaseSampler):
+                return True
+
+        return False
 
     def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
         """
