@@ -8,6 +8,7 @@ from .metrics import Metric
 if TYPE_CHECKING:
     from ..env import PhantomEnv
 
+
 class Logger:
     """
     A class for logging metrics extracted from an instance of

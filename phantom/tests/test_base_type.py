@@ -19,7 +19,6 @@ class StaticSampler(BaseSampler[float]):
         return self.value
 
 
-
 def test_base_type_sample():
     @dataclass
     class Type(ph.BaseType):
