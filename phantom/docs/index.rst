@@ -2,10 +2,8 @@ Phantom
 =======
 
 
-User Guide
-----------
-
 .. toctree::
+    :caption: User Guide
     :maxdepth: 2
 
     user/installation
@@ -16,10 +14,8 @@ User Guide
     user/designpatterns
 
 
-Developer API
--------------
-
 .. toctree::
+    :caption: API Reference
     :maxdepth: 2
 
     api/agents
