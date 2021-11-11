@@ -1,11 +1,12 @@
 from collections import defaultdict as _defaultdict
-from typing import Dict, Mapping, Optional
+from typing import Dict, Mapping, Optional, TYPE_CHECKING
 
 from mercury import ID
 
-from ..env import PhantomEnv
 from .metrics import Metric
 
+if TYPE_CHECKING:
+    from ..env import PhantomEnv
 
 class Logger:
     """
@@ -76,7 +77,7 @@ class Logger:
 
         return old
 
-    def log(self, env: PhantomEnv) -> None:
+    def log(self, env: "PhantomEnv") -> None:
         """
         Extract and log metrics from the :class:`phantom.PhantomEnv` instance.
 
