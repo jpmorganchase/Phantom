@@ -78,27 +78,27 @@ def test_experiment():
 
     assert os.path.exists(results_dir)
 
-    metrics, trajectories = ph.rollout(
-        directory=results_dir,
-        algorithm="PPO",
-        num_workers=1,
-        num_repeats=5,
-        env_config={},
-        save_trajectories=True,
-    )
+    # metrics, trajectories = ph.rollout(
+    #     directory=results_dir,
+    #     algorithm="PPO",
+    #     num_workers=1,
+    #     num_repeats=5,
+    #     env_config={},
+    #     save_trajectories=True,
+    # )
 
-    assert len(metrics) == 5
-    assert len(trajectories) == 5
-    assert type(metrics[0]) == dict
-    assert type(trajectories[0]) == ph.utils.rollout.EpisodeTrajectory
+    # assert len(metrics) == 5
+    # assert len(trajectories) == 5
+    # assert type(metrics[0]) == dict
+    # assert type(trajectories[0]) == ph.utils.rollout.EpisodeTrajectory
 
-    results = cloudpickle.load(open(Path(results_dir, "results.pkl"), "rb"))
+    # results = cloudpickle.load(open(Path(results_dir, "results.pkl"), "rb"))
 
-    assert type(results) == dict
-    assert "metrics" not in results
-    assert "trajectories" in results
+    # assert type(results) == dict
+    # assert "metrics" not in results
+    # assert "trajectories" in results
 
-    assert len(results["trajectories"]) == 5
-    assert type(results["trajectories"][0]) == ph.utils.rollout.EpisodeTrajectory
+    # assert len(results["trajectories"]) == 5
+    # assert type(results["trajectories"][0]) == ph.utils.rollout.EpisodeTrajectory
 
-    shutil.rmtree(results_dir)
+    # shutil.rmtree(results_dir)
