@@ -100,8 +100,8 @@ class ShopRewardFunction(ph.RewardFunction):
 
 
 @dataclass
-class ShopAgentType(ph.BaseType):
-    missed_sales_weight: float
+class ShopAgentSupertype(ph.BaseSupertype):
+    missed_sales_weight: ph.SupertypeField[float]
 
 
 class ShopAgent(ph.Agent):
@@ -267,14 +267,14 @@ if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
         experiment_name="supply-chain-2",
         algorithm="PPO",
-        num_workers=10,
-        num_episodes=10000,
+        num_workers=1,
+        num_episodes=10,
         env=SupplyChainEnv,
         env_config=dict(
             n_customers=NUM_CUSTOMERS,
         ),
         agent_supertypes={
-            id: ShopAgentType(missed_sales_weight=weight) for id in SHOP_IDS
+            id: ShopAgentSupertype(missed_sales_weight=weight) for id in SHOP_IDS
         },
         metrics=metrics,
         policy_grouping={"shared_SHOP_policy": SHOP_IDS},
@@ -292,7 +292,7 @@ elif sys.argv[1].lower() == "rollout":
             n_customers=NUM_CUSTOMERS,
         ),
         agent_supertypes={
-            id: ShopAgentType(missed_sales_weight=weight) for id in SHOP_IDS
+            id: ShopAgentSupertype(missed_sales_weight=weight) for id in SHOP_IDS
         },
         results_file=None,
     )

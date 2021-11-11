@@ -25,7 +25,7 @@ from ..agent import ZeroIntelligenceAgent
 from ..env import PhantomEnv
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
-from ..type import BaseType
+from ..supertype import BaseSupertype
 from .ranges import BaseRange
 from .samplers import BaseSampler
 from . import (
@@ -48,8 +48,8 @@ def train(
     checkpoint_freq: Optional[int] = None,
     alg_config: Optional[Mapping[str, Any]] = None,
     env_config: Optional[Mapping[str, Any]] = None,
-    env_supertype: Optional[Mapping[str, Any]] = None,
-    agent_supertypes: Optional[Mapping[me.ID, BaseType]] = None,
+    env_supertype: Optional[BaseSupertype] = None,
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
     policy_grouping: Optional[Mapping[str, List[str]]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     callbacks: Optional[Iterable[DefaultCallbacks]] = None,
@@ -110,7 +110,6 @@ def train(
 
     alg_config = alg_config or {}
     env_config = env_config or {}
-    env_supertype = env_supertype or None
     agent_supertypes = agent_supertypes or {}
     policy_grouping = policy_grouping or {}
     metrics = metrics or {}
@@ -271,8 +270,8 @@ def create_rllib_config_dict(
     env: PhantomEnv,
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
-    env_supertype: Optional[Mapping[str, Any]],
-    agent_supertypes: Mapping[me.ID, BaseType],
+    env_supertype: Optional[BaseSupertype],
+    agent_supertypes: Mapping[me.ID, BaseSupertype],
     samplers: List[BaseSampler],
     policy_grouping: Mapping[str, Any],
     callbacks: Iterable[DefaultCallbacks],

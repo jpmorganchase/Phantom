@@ -1,77 +1,90 @@
 from abc import ABC
-from copy import deepcopy
-from dataclasses import asdict, dataclass
-from typing import Any, Dict, Union
+from dataclasses import asdict, dataclass, make_dataclass
+from typing import Any, Dict, TypeVar, Union
 
 import numpy as np
 import gym.spaces
 
+from .utils.ranges import BaseRange
 from .utils.samplers import BaseSampler
 
 
 ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 
+T = TypeVar("T")
+SupertypeField = Union[T, BaseSampler[T], BaseRange[T]]
+
 
 @dataclass
-class BaseType(ABC):
+class BaseSupertype(ABC):
     """
-    Abstract base class representing types for agents and environments. This class acts
-    as both the type and supertype. When acting as a 'type' all field values on the
-    class must contain objects with the type specified by the class. When acting as a
-    'supertype' one or more fields must consist of objects that inherit from the
-    ``BaseSampler`` class (when training) or ``BaseRange`` (when performing rollouts).
+    Abstract base class representing Supertypes for agents and environments. For type
+    system correctness the fields of any subclass should be of type SupertypeField[T]
+    where T is the type of the field of the underlying Type.
 
-    Usage as a 'type':
+    NOTE:
+        'type' is used in the context of the Python type-system.
+        'Type' is used in the context of an RL agent/environment.
 
-        >>> ExampleType(BaseType):
-        >>>     x: float
-        >>>     y: float
-        >>>
-        >>> t = ExampleType(1.0, 2.0)
+    Example usage:
 
-    Usage as a 'supertype':
+        >>> from phantom import BaseSupertype, SupertypeField
 
-        >>> t = ExampleType(StaticSampler(3.0), 4.0)
-        >>> sampled_t = t.sample()
-        >>> assert sampled_t == ExampleType(3.0, 4.0)
+        >>> ExampleSupertype(BaseSupertype):
+        >>>     x: SupertypeField[float]
+        >>>     y: SupertypeField[float]
 
-    Types provided to the ``train`` method containing values that inherit from
+        >>> s = ExampleSupertype(1.0, 2.0)
+
+        >>> t = t.sample()
+
+    Supertypes provided to the ``train`` method containing values that inherit from
     ``BaseSampler`` will be automatically sampled at the start of each episode.
 
-    Types provided to the ``rollout`` method containing values that inherit from
+    Supertypes provided to the ``rollout`` method containing values that inherit from
     ``BaseRange`` will be used to construct a multidimensional space containing all
     possible combinations of the ``BaseRange`` values to perform rollouts with.
     """
 
     def sample(self) -> "BaseType":
         """
-        Produces a copy of the class instance in which all field values that inherit
-        from ``BaseSampler`` are replaced with values sampled from the respective
-        sampler.
+        Constructs a new dataclass type with the same fields as this parent supertype
+        class. All field values that inherit from ``BaseSampler`` are replaced with
+        values sampled from the respective sampler.
         """
 
-        agent_type = deepcopy(self)
+        new_type = make_dataclass(
+            self.__class__.__name__ + "_Type",
+            [
+                (
+                    name,
+                    # If len(value.type.__args__) == 3 then this type is likely a
+                    # SupertypeField union. We can use the first member which is the
+                    # generic type as the field type for the new dataclass.
+                    value.type.__args__[0] if len(value.type.__args__) == 3 else value,
+                )
+                for name, value in self.__dataclass_fields__.items()
+            ],
+        )
 
-        for field_name in self.__dataclass_fields__:
-            field_value = getattr(agent_type, field_name)
+        return new_type(
+            **{
+                name: getattr(self, name).value
+                if isinstance(getattr(self, name), BaseSampler)
+                else getattr(self, name)
+                for name in self.__dataclass_fields__
+            }
+        )
 
-            if isinstance(field_value, BaseSampler):
-                setattr(agent_type, field_name, field_value.value)
 
-        return agent_type
-
-    def is_supertype(self) -> bool:
-        """
-        Checks if this type instance is a supertype by looking for any contained values
-        that are subclasses of BaseSampler.
-        """
-        for field_name in self.__dataclass_fields__:
-            field_value = getattr(self, field_name)
-
-            if isinstance(field_value, BaseSampler):
-                return True
-
-        return False
+@dataclass
+class BaseType(ABC):
+    """
+    Abstract base class representing a Type for an agent or an environment. When using
+    the phantom train/rollout functions it should not be necessary to subclass this
+    type. The sample method on the BaseSupertype class is used to dynamically create
+    subclasses of this class.
+    """
 
     def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
         """

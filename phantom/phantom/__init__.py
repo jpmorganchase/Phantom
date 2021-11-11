@@ -3,8 +3,8 @@ from . import decoders, encoders, fsm_env, logging, rewards, utils
 
 from .packet import Mutation, Packet
 
+from .supertype import BaseSupertype, BaseType, SupertypeField
 from .tracker import Tracker
-from .type import BaseType
 from .agent import Agent, ZeroIntelligenceAgent
 
 from .clock import Clock

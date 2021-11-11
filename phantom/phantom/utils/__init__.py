@@ -152,11 +152,11 @@ ObjPath = List[Union[Tuple[bool, str], int]]
 
 
 def collect_instances_of_type_with_paths(
-    type_: Type[T],
+    type_: Type[CollectedType],
     obj: Any,
-    collection: Optional[List[Tuple[T, List[ObjPath]]]] = None,
+    collection: Optional[List[Tuple[CollectedType, List[ObjPath]]]] = None,
     current_path: Optional[ObjPath] = None,
-) -> List[Tuple[T, List[ObjPath]]]:
+) -> List[Tuple[CollectedType, List[ObjPath]]]:
     collection = collection or []
     current_path = current_path or []
 

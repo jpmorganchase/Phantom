@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 
 from ..logging import Logger, Metric
-from ..type import BaseType
+from ..supertype import BaseSupertype
 from .ranges import BaseRange
 from .samplers import BaseSampler
 from . import (
@@ -50,8 +50,8 @@ class EpisodeTrajectory:
 class RolloutConfig:
     seed: int
     env_config: Mapping[str, Any]
-    env_supertype: Optional[BaseType]
-    agent_supertypes: Dict[me.ID, BaseType]
+    env_supertype: Optional[BaseSupertype]
+    agent_supertypes: Dict[me.ID, BaseSupertype]
 
 
 @dataclass
@@ -69,7 +69,7 @@ def rollout(
     checkpoint: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
     env_supertype: Optional[Mapping[str, Any]] = None,
-    agent_supertypes: Optional[Mapping[me.ID, BaseType]] = None,
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,

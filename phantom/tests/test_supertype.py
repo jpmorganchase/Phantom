@@ -5,6 +5,7 @@ import numpy as np
 import phantom as ph
 import pytest
 import gym.spaces
+from phantom.supertype import SupertypeField
 from phantom.utils.samplers import BaseSampler
 
 
@@ -19,30 +20,28 @@ class StaticSampler(BaseSampler[float]):
         return self.value
 
 
-def test_base_type_sample():
+def test_base_supertype_sample():
     @dataclass
-    class Type(ph.BaseType):
-        a: float
-        b: str
+    class TestSupertype(ph.BaseSupertype):
+        a: SupertypeField[float]
+        b: SupertypeField[str]
 
-    t1 = Type(1.0, "string")
-    assert t1.sample() == Type(1.0, "string")
+    s1 = TestSupertype(1.0, "string")
+    t1 = s1.sample()
 
-    t2 = Type(StaticSampler(1.0), "string")
-    assert t2.sample() == Type(1.0, "string")
+    assert t1.__class__.__name__ == "TestSupertype_Type"
+    assert t1.__dict__ == {
+        "a": 1.0,
+        "b": "string",
+    }
 
+    s2 = TestSupertype(StaticSampler(1.0), "string")
+    t2 = s2.sample()
 
-def test_base_type_is_supertype():
-    @dataclass
-    class Type(ph.BaseType):
-        a: float
-        b: str
-
-    t1 = Type(1.0, "string")
-    assert t1.is_supertype() == False
-
-    t2 = Type(StaticSampler(1.0), "string")
-    assert t2.is_supertype() == True
+    assert t2.__dict__ == {
+        "a": 1.0,
+        "b": "string",
+    }
 
 
 def test_base_type_utilities():
