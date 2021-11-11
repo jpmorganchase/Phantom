@@ -1,5 +1,4 @@
 import __main__
-import collections.abc
 import logging
 import os
 import shutil
@@ -17,14 +16,14 @@ from ray import tune
 # Enable with Ray 1.7.0:
 # from ray.rllib.policy.policy import PolicySpec
 
-from ray.rllib.agents.callbacks import DefaultCallbacks
+from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
 from ..agent import ZeroIntelligenceAgent
 from ..env import PhantomEnv
-from ..logging import Metric, MetricsLoggerCallbacks, MultiCallbacks
+from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..type import BaseType
 from .ranges import BaseRange
