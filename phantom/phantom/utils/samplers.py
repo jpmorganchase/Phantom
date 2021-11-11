@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Iterable, Optional, Tuple, TypeVar
+from typing import Generic, Iterable, Optional, Tuple, TypeVar
 
 import numpy as np
 
@@ -16,7 +16,7 @@ class BaseSampler(ABC, Generic[T]):
     """
 
     @abstractmethod
-    def sample(self) -> Any:
+    def sample(self) -> T:
         raise NotImplementedError
 
 
