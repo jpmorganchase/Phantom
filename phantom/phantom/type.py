@@ -15,10 +15,41 @@ ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 @dataclass
 class BaseType(ABC):
     """
-    Abstract base class representing Agent Types.
+    Abstract base class representing types for agents and environments. This class acts
+    as both the type and supertype. When acting as a 'type' all field values on the
+    class must contain objects with the type specified by the class. When acting as a
+    'supertype' one or more fields must consist of objects that inherit from the
+    ``BaseSampler`` class (when training) or ``BaseRange`` (when performing rollouts).
+
+    Usage as a 'type':
+
+        >>> ExampleType(BaseType):
+        >>>     x: float
+        >>>     y: float
+        >>>
+        >>> t = ExampleType(1.0, 2.0)
+
+    Usage as a 'supertype':
+
+        >>> t = ExampleType(StaticSampler(3.0), 4.0)
+        >>> sampled_t = t.sample()
+        >>> assert sampled_t == ExampleType(3.0, 4.0)
+
+    Types provided to the ``train`` method containing values that inherit from
+    ``BaseSampler`` will be automatically sampled at the start of each episode.
+
+    Types provided to the ``rollout`` method containing values that inherit from
+    ``BaseRange`` will be used to construct a multidimensional space containing all
+    possible combinations of the ``BaseRange`` values to perform rollouts with.
     """
 
     def sample(self) -> "BaseType":
+        """
+        Produces a copy of the class instance in which all field values that inherit
+        from ``BaseSampler`` are replaced with values sampled from the respective
+        sampler.
+        """
+
         agent_type = deepcopy(self)
 
         for field_name in self.__dataclass_fields__:

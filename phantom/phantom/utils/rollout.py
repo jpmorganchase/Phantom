@@ -88,7 +88,11 @@ def rollout(
     will be repeated twice, each time with a different random seed.
 
     Attributes:
-        directory: Phantom results directory containing trained policies.
+        directory: Phantom results directory containing trained policies. If the default
+            phantom results location is used (~/phantom-results), this part of the path
+            can be ommited. If LATEST is given as the last element of the path, the
+            parent directory will be scanned for the most recent run and this will be
+            used.
         algorithm: RLlib algorithm to use.
         num_workers: Number of Ray rollout workers to initialise.
         num_repeats: Number of rollout repeats to perform, distributed over all workers.
@@ -111,9 +115,9 @@ def rollout(
             file when only a specific subset of fields are needed in further analysis.
 
     Returns:
-        - A list of RolloutConfig objects describing the exact configuration of each rollout.
-        - A list of dictionaries containing recorded metrics for each rollout.
-        - A list of EpisodeTrajectory objects.
+        - If result_mapping_fn is None: A list of Rollout objects.
+        - If result_mapping_fn is not None: A list of the outputs from the
+            result_mapping_fn function.
 
     NOTE: It is the users responsibility to invoke training via the provided ``phantom``
     command or ensure the PYTHONHASHSEED environment variable is set before starting the
