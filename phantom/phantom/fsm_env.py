@@ -104,7 +104,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         policy_grouping: A mapping between custom policy name and list of agents
             sharing the policy (optional).
         seed: A random number generator seed to use (optional).
-        stages: List of FSM stages. FSM stages can be defined via this list or 
+        stages: List of FSM stages. FSM stages can be defined via this list or
             alternatively via the :class:`FSMStage` decorator.
     """
 
