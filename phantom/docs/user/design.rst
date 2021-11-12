@@ -54,16 +54,3 @@ Step Cycle
 .. figure:: /img/step-flow.svg
    :width: 50%
    :figclass: align-center
-
-
-Actors & Agents
----------------
-
-SimpleSyncActor
-^^^^^^^^^^^^^^^
-
-Agent
-^^^^^
-
-ZeroIntelligenceAgent
-^^^^^^^^^^^^^^^^^^^^^

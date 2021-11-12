@@ -12,6 +12,7 @@ Phantom
     user/tutorial2
     user/design
     user/designpatterns
+    user/supertypes
 
 
 .. toctree::
@@ -25,7 +26,7 @@ Phantom
     api/env
     api/fsm_env
     api/logging
-    api/phantomparams
     api/rewards
     api/supertypes
     api/tracker
+    api/utils

@@ -26,24 +26,38 @@ class BaseSupertype(ABC):
         'type' is used in the context of the Python type-system.
         'Type' is used in the context of an RL agent/environment.
 
-    Example usage:
+    Example usage::
 
-        >>> from phantom import BaseSupertype, SupertypeField
+        from phantom import BaseSupertype, SupertypeField
 
-        >>> ExampleSupertype(BaseSupertype):
-        >>>     x: SupertypeField[float]
-        >>>     y: SupertypeField[float]
+        ExampleSupertype(BaseSupertype):
+            x: SupertypeField[float]
+            y: SupertypeField[float]
 
-        >>> s = ExampleSupertype(1.0, 2.0)
+        s = ExampleSupertype(1.0, 2.0)
 
-        >>> t = t.sample()
+        t = s.sample()
 
     Supertypes provided to the ``train`` method containing values that inherit from
-    ``BaseSampler`` will be automatically sampled at the start of each episode.
+    ``BaseSampler`` will be automatically sampled at the start of each episode.::
+
+        s = ExampleSupertype(
+            x=UniformSampler(0.0, 1.0)
+            y=NormalSampler(0.0, 2.0)
+        )
+        
+        t = s.sample()
 
     Supertypes provided to the ``rollout`` method containing values that inherit from
     ``BaseRange`` will be used to construct a multidimensional space containing all
-    possible combinations of the ``BaseRange`` values to perform rollouts with.
+    possible combinations of the ``BaseRange`` values to perform rollouts with.::
+
+        s = ExampleSupertype(
+            x=UniformRange(0.0, 1.0, 0.1)
+            y=LinspaceRange(0.0, 0.5, 11)
+        )
+        
+        t = s.sample()
     """
 
     def sample(self) -> "BaseType":

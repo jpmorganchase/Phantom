@@ -25,7 +25,7 @@ copyright = "{}, AI Research, JP Morgan. Some icons used freely from Font Awesom
     year
 )
 author = "AI Research Group"
-description = "TODO"
+description = "A Multi-agent reinforcement-learning simulator framework."
 
 
 # -- General configuration ---------------------------------------------------
@@ -76,7 +76,7 @@ html_theme_options = {
     "show_powered_by": False,
 }
 
-html_sidebars = {"**": ["about.html", "localtoc.html", "searchbox.html"]}
+# html_sidebars = {"**": ["about.html", "localtoc.html", "searchbox.html"]}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

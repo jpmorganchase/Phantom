@@ -253,11 +253,8 @@ class MissedSalesMetric(ph.logging.Metric[float]):
 
 
 metrics = {}
-
 metrics.update({f"stock/{id}": StockMetric(id) for id in SHOP_IDS})
-
 metrics.update({f"sales/{id}": SalesMetric(id) for id in SHOP_IDS})
-
 metrics.update({f"missed_sales/{id}": MissedSalesMetric(id) for id in SHOP_IDS})
 
 

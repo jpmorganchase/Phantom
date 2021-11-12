@@ -87,7 +87,7 @@ def rollout(
     If num_repeats is also given, say with a value of 2, then each of the 50 rollouts
     will be repeated twice, each time with a different random seed.
 
-    Attributes:
+    Arguments:
         directory: Phantom results directory containing trained policies. If the default
             phantom results location is used (~/phantom-results), this part of the path
             can be ommited. If LATEST is given as the last element of the path, the
@@ -119,10 +119,10 @@ def rollout(
         - If result_mapping_fn is not None: A list of the outputs from the
             result_mapping_fn function.
 
-    NOTE: It is the users responsibility to invoke training via the provided ``phantom``
-    command or ensure the PYTHONHASHSEED environment variable is set before starting the
-    Python interpreter to run this code. Not setting this may lead to reproducibility
-    issues.
+    NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
+    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
+    the Python interpreter to run this code. Not setting this may lead to
+    reproducibility issues.
     """
     show_pythonhashseed_warning()
 

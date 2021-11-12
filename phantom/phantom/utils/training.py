@@ -87,8 +87,10 @@ def train(
         metrics: Optional set of metrics to record and log.
         callbacks: Optional Ray Callbacks for custom metrics.
             (https://docs.ray.io/en/master/rllib-training.html#callbacks-and-custom-metrics)
-        discard_results: If True, all results are discarded(useful for unit testing & development).
-        results_dir: Directory where training results will be saved (defaults to "~/phantom-results").
+        discard_results: If True, all results are discarded (useful for unit testing &
+            development).
+        results_dir: Directory where training results will be saved (defaults to
+            "~/phantom-results").
         copy_files_to_results_dir: Any files given here will be copied to a
             "copied_files" sub-directory in the experiment results directory. Paths
             should be given relative to the main experiment entry point script.
@@ -102,9 +104,9 @@ def train(
         was successful.
 
     NOTE: It is the users responsibility to invoke training via the provided ``phantom``
-    command or ensure the PYTHONHASHSEED environment variable is set before starting the
-    Python interpreter to run this code. Not setting this may lead to reproducibility
-    issues.
+    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
+    the Python interpreter to run this code. Not setting this may lead to
+    reproducibility issues.
     """
     show_pythonhashseed_warning()
 
