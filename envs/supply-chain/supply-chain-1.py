@@ -18,25 +18,42 @@ SHOP_MAX_STOCK = 100_000
 SHOP_MAX_STOCK_REQUEST = 1000
 
 
-class CustomerAgent(ph.ZeroIntelligenceAgent):
+class CustomerPolicy(ph.FixedPolicy):
+    def compute_action(self, obs):
+        return np.random.poisson(5)
+
+
+class CustomerAgent(ph.Agent):
     def __init__(self, agent_id: str, shop_id: str):
-        super().__init__(agent_id)
+        super().__init__(agent_id, policy_class=CustomerPolicy)
 
         # We need to store the shop's ID so we can send order requests to it.
         self.shop_id: str = shop_id
-
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # At the start of each step we generate an order with a random size to
-        # send to the shop.
-        order_size = np.random.poisson(5)
-
-        # We perform this action by sending a stock request message to the warehouse.
-        return ph.packet.Packet(messages={self.shop_id: [order_size]})
 
     def handle_message(self, ctx: me.Network.Context, msg: me.Message):
         # The customer will receive it's order from the shop but we do not need
         # to take any actions on it.
         yield from ()
+
+    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        # At the start of each step we generate an order with a random size to
+        # send to the shop.
+        order_size = action[0]
+
+        # We perform this action by sending a stock request message to the warehouse.
+        return ph.packet.Packet(messages={self.shop_id: [order_size]})
+
+    def compute_reward(self, ctx: me.Network.Context) -> float:
+        return 0.0
+
+    def encode_obs(self, ctx: me.Network.Context):
+        return np.zeros((1,))
+
+    def get_observation_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+    def get_action_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
