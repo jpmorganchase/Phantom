@@ -79,14 +79,14 @@ def test_one_state():
     assert env.reset() == {"agent": 1}
 
     assert env.current_stage == States.UNIT
-    assert env.agents["agent"].compute_reward_count == 1
+    assert env.agents["agent"].compute_reward_count == 0
     assert env.agents["agent"].encode_obs_count == 1
     assert env.agents["agent"].decode_action_count == 0
 
     step = env.step({"agent": 0})
 
     assert env.current_stage == States.UNIT
-    assert env.agents["agent"].compute_reward_count == 2
+    assert env.agents["agent"].compute_reward_count == 1
     assert env.agents["agent"].encode_obs_count == 2
     assert env.agents["agent"].decode_action_count == 1
 
@@ -98,7 +98,7 @@ def test_one_state():
     step = env.step({"agent": 0})
 
     assert env.current_stage == States.UNIT
-    assert env.agents["agent"].compute_reward_count == 3
+    assert env.agents["agent"].compute_reward_count == 2
     assert env.agents["agent"].encode_obs_count == 3
     assert env.agents["agent"].decode_action_count == 2
 
