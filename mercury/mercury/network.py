@@ -246,7 +246,7 @@ class Network:
             return self.views[actor_id]
 
         def __contains__(self, actor_id: ID) -> bool:
-            return self._subnet.graph.__contains__(actor_id)
+            return actor_id in self.views
 
     def __init__(self, resolver: Resolver, actors: _t.List[Actor] = list()) -> None:
         self.resolver = resolver
@@ -546,7 +546,7 @@ class StochasticNetwork(Network):
             if n == 2:
                 u, v = _t.cast(_t.Tuple[ID, ID], connection)
 
-                self.add_connection(u, v, 1.0, **attrs)
+                self.add_connection(u, v, **attrs)
 
             elif n == 3:
                 u, v, r = _t.cast(_t.Tuple[ID, ID, float], connection)
@@ -575,6 +575,7 @@ class StochasticNetwork(Network):
         for u, v, rate, attrs in self._base_connections:
             if _np.random.random() < rate:
                 self.graph.add_edge(u, v, *attrs)
+                self.graph.add_edge(v, u, *attrs)
 
     def reset(self) -> None:
         self.resample_connectivity()
