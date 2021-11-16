@@ -23,7 +23,7 @@ check:  ## Check the types
 	$(MYPY) --config-file ${MYPY_CONF} ${MODULE}
 
 format:  ## Format the code
-	$(BLACK) -l 80 ${MODULE}
+	$(BLACK) ${MODULE} tests
 
 dev:  ## Build the package in develop mode
 	$(PYTHON) setup.py develop --user -O2
