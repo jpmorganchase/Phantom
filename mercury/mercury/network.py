@@ -559,15 +559,22 @@ class StochasticNetwork(Network):
                 )
 
     def add_connections_between(
-        self, us: _t.Iterable[ID], vs: _t.Iterable[ID], **attrs: _t.Any
+        self,
+        us: _t.Iterable[ID],
+        vs: _t.Iterable[ID],
+        rate: float = 1.0,
+        **attrs: _t.Any,
     ) -> None:
         """Connect all actors in :code:`us` to all actors in :code:`vs`.
 
         Arguments:
             us: Collection of nodes.
             vs: Collection of nodes.
+            rate: The connectivity given to all connections.
         """
-        self.add_connections_from(product(us, vs), **attrs)
+
+        for u, v in product(us, vs):
+            self.add_connection(u, v, rate, **attrs)
 
     def resample_connectivity(self) -> None:
         self.graph = graphs.DiGraph()
