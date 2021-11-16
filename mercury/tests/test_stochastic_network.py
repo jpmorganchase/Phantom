@@ -40,6 +40,7 @@ def test_stochastic_network_3():
 
     assert not net.graph.has_edge("A", "B")
 
+
 def test_stochastic_network_4():
     net = StochasticNetwork(UnorderedResolver(), [Actor("A"), Actor("B")])
 
