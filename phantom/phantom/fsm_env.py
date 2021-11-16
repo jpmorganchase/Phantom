@@ -30,9 +30,9 @@ class FSMState:
     Attributes:
         state_id: The name of this state.
         next_states: The states that this state can transition to.
-        acting_agents: If provided, only the given agents will make an observation at
-            the end of this step and take an action at the start of the next step. If
-            not provided, all agents will make observations and take actions.
+        acting_agents: If provided, only the given agents will make observations at the 
+            end of the previous step and take actions in that steps. If not provided, all 
+            agents will make observations and take actions.
         rewarded_agents: If provided, only the given agents will calculate and return a
             reward at the end of the step for this state. If not provided, all agents
             will calculate and return a reward.
@@ -203,7 +203,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if acting_agents is None or aid in acting_agents:
                 observations[aid] = agent.encode_obs(ctx)
 
-            self._rewards[aid] = agent.compute_reward(ctx)
+            self._rewards[aid] = None
 
         return observations
 
@@ -228,22 +228,20 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
             self.network.send_from(aid, packet.messages)
 
-        old_state = self.current_state
-
         handler = self._states[self.current_state].handler
 
         if hasattr(handler, "__self__"):
             # If the FSMState is defined with the state definitions the handler will be
             # a bound method of the env class.
-            self.current_state = self._states[self.current_state].handler()
+            next_state = self._states[self.current_state].handler()
         else:
             # If the FSMState is defined as a decorator the handler will be an unbound
             # function.
-            self.current_state = self._states[self.current_state].handler(self)
+            next_state = self._states[self.current_state].handler(self)
 
-        if self.current_state not in self._states[old_state].next_states:
+        if next_state not in self._states[self.current_state].next_states:
             raise FSMRuntimeError(
-                f"FiniteStateMachineEnv attempted invalid transition from '{old_state}' to {self.current_state}"
+                f"FiniteStateMachineEnv attempted invalid transition from '{self.current_state}' to {next_state}"
             )
 
         # Apply mutations:
@@ -259,7 +257,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         terminals: Dict[me.ID, bool] = {"__all__": False}
         infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        acting_agents = self._states[self.current_state].acting_agents
+        next_acting_agents = self._states[next_state].acting_agents
         rewarded_agents = self._states[self.current_state].rewarded_agents
 
         for aid, agent in self.agents.items():
@@ -270,7 +268,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if terminals[aid]:
                 self._dones.add(aid)
 
-            if acting_agents is None or aid in acting_agents:
+            if next_acting_agents is None or aid in next_acting_agents:
                 observations[aid] = agent.encode_obs(ctx)
                 infos[aid] = agent.collect_infos(ctx)
 
@@ -280,6 +278,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._observations.update(observations)
         self._rewards.update(rewards)
         self._infos.update(infos)
+
+        self.current_state = next_state
 
         if self.current_state is None or self.is_done():
             # This is the terminal state, return most recent observations, rewards and
