@@ -1,6 +1,6 @@
 import mercury as me
 from phantom.fsm_env import (
-    FSMState,
+    FSMStage,
     FiniteStateMachineEnv,
 )
 
@@ -17,12 +17,12 @@ def test_decorator_style():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state="A",
+                initial_stage="A",
             )
 
-        @FSMState(
-            state_id="A",
-            next_states=["A"],
+        @FSMStage(
+            stage_id="A",
+            next_stages=["A"],
         )
         def handle(self):
             return "A"
@@ -42,11 +42,11 @@ def test_state_definition_list_style():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state="A",
-                state_definitions=[
-                    FSMState(
-                        state_id="A",
-                        next_states=["A"],
+                initial_stage="A",
+                stages=[
+                    FSMStage(
+                        stage_id="A",
+                        next_stages=["A"],
                         handler=self.handle,
                     )
                 ],
