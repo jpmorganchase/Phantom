@@ -33,8 +33,8 @@ class FSMStage:
     Attributes:
         stage_id: The name of this stage.
         next_stages: The stages that this stage can transition to.
-        acting_agents: If provided, only the given agents will make observations at the 
-            end of the previous step and take actions in that steps. If not provided, all 
+        acting_agents: If provided, only the given agents will make observations at the
+            end of the previous step and take actions in that steps. If not provided, all
             agents will make observations and take actions.
         rewarded_agents: If provided, only the given agents will calculate and return a
             reward at the end of the step for this stage. If not provided, all agents
