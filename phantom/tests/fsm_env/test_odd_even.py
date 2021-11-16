@@ -12,7 +12,7 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
-from phantom.fsm_env import FSMState, FiniteStateMachineEnv
+from phantom.fsm_env import FSMStage, FiniteStateMachineEnv
 
 
 class MinimalAgent(ph.agent.Agent):
@@ -66,12 +66,12 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
         super().__init__(
             network=network,
             n_steps=3,
-            initial_state=States.ODD,
+            initial_stage=States.ODD,
         )
 
-    @FSMState(
-        state_id=States.ODD,
-        next_states=[States.EVEN],
+    @FSMStage(
+        stage_id=States.ODD,
+        next_stages=[States.EVEN],
         acting_agents=["odd_agent"],
         rewarded_agents=["odd_agent"],
     )
@@ -82,9 +82,9 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
 
         return States.EVEN
 
-    @FSMState(
-        state_id=States.EVEN,
-        next_states=[States.ODD],
+    @FSMStage(
+        stage_id=States.EVEN,
+        next_stages=[States.ODD],
         acting_agents=["even_agent"],
         rewarded_agents=["even_agent"],
     )
@@ -101,7 +101,7 @@ def test_odd_even():
 
     assert env.reset() == {"odd_agent": 1}
 
-    assert env.current_state == States.ODD
+    assert env.current_stage == States.ODD
     assert env.agents["odd_agent"].compute_reward_count == 0
     assert env.agents["even_agent"].compute_reward_count == 0
     assert env.agents["odd_agent"].encode_obs_count == 1
@@ -111,7 +111,7 @@ def test_odd_even():
 
     step = env.step({"odd_agent": 0})
 
-    assert env.current_state == States.EVEN
+    assert env.current_stage == States.EVEN
     assert step.observations == {"even_agent": 0}
     assert step.rewards == {"even_agent": None}
     assert step.terminals == {"__all__": False, "even_agent": False, "odd_agent": False}
@@ -126,7 +126,7 @@ def test_odd_even():
 
     step = env.step({"even_agent": 0})
 
-    assert env.current_state == States.ODD
+    assert env.current_stage == States.ODD
     assert step.observations == {"odd_agent": 1}
     assert step.rewards == {"odd_agent": 0}
     assert step.terminals == {"__all__": False, "even_agent": False, "odd_agent": False}
@@ -141,7 +141,7 @@ def test_odd_even():
 
     step = env.step({"odd_agent": 0})
 
-    assert env.current_state == States.EVEN
+    assert env.current_stage == States.EVEN
     assert step.observations == {"even_agent": 0, "odd_agent": 1}
     assert step.rewards == {"even_agent": 0, "odd_agent": 0}
     assert step.terminals == {"__all__": True, "even_agent": False, "odd_agent": False}

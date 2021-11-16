@@ -12,7 +12,7 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
-from phantom.fsm_env import FSMState, FiniteStateMachineEnv
+from phantom.fsm_env import FSMStage, FiniteStateMachineEnv
 
 
 class MinimalAgent(ph.agent.Agent):
@@ -61,10 +61,10 @@ class OneStateFSMEnv(FiniteStateMachineEnv):
         super().__init__(
             network=network,
             n_steps=2,
-            initial_state=States.UNIT,
+            initial_stage=States.UNIT,
         )
 
-    @FSMState(state_id=States.UNIT, next_states=[States.UNIT])
+    @FSMStage(stage_id=States.UNIT, next_stages=[States.UNIT])
     def handle(self):
         assert self.network.resolver._cq == {"agent": {"agent": ["message"]}}
 
@@ -78,14 +78,14 @@ def test_one_state():
 
     assert env.reset() == {"agent": 1}
 
-    assert env.current_state == States.UNIT
+    assert env.current_stage == States.UNIT
     assert env.agents["agent"].compute_reward_count == 0
     assert env.agents["agent"].encode_obs_count == 1
     assert env.agents["agent"].decode_action_count == 0
 
     step = env.step({"agent": 0})
 
-    assert env.current_state == States.UNIT
+    assert env.current_stage == States.UNIT
     assert env.agents["agent"].compute_reward_count == 1
     assert env.agents["agent"].encode_obs_count == 2
     assert env.agents["agent"].decode_action_count == 1
@@ -97,7 +97,7 @@ def test_one_state():
 
     step = env.step({"agent": 0})
 
-    assert env.current_state == States.UNIT
+    assert env.current_stage == States.UNIT
     assert env.agents["agent"].compute_reward_count == 2
     assert env.agents["agent"].encode_obs_count == 3
     assert env.agents["agent"].decode_action_count == 2

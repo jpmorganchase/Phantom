@@ -4,7 +4,7 @@ from enum import Enum
 import mercury as me
 import pytest
 from phantom.fsm_env import (
-    FSMState,
+    FSMStage,
     FiniteStateMachineEnv,
     FSMRuntimeError,
     FSMValidationError,
@@ -18,9 +18,9 @@ class States(Enum):
     B = 2
 
 
-def test_no_states_registered():
+def test_no_stages_registered():
     """
-    All FSM envs must have at least one state registered using the FSMState decorator.
+    All FSM envs must have at least one state registered using the FSMStage decorator.
     """
 
     class Env(FiniteStateMachineEnv):
@@ -32,14 +32,14 @@ def test_no_states_registered():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state=None,
+                initial_stage=None,
             )
 
     with pytest.raises(FSMValidationError):
         Env()
 
 
-def test_duplicate_states():
+def test_duplicate_stages():
     """
     All FSM envs must not have more than one state registered with the same ID.
     """
@@ -53,19 +53,19 @@ def test_duplicate_states():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state=States.A,
+                initial_stage=States.A,
             )
 
-        @FSMState(
-            state_id=States.A,
-            next_states=[States.A],
+        @FSMStage(
+            stage_id=States.A,
+            next_stages=[States.A],
         )
         def handle_1(self):
             pass
 
-        @FSMState(
-            state_id=States.A,
-            next_states=[States.A],
+        @FSMStage(
+            stage_id=States.A,
+            next_stages=[States.A],
         )
         def handle_2(self):
             pass
@@ -74,7 +74,7 @@ def test_duplicate_states():
         Env()
 
 
-def test_invalid_initial_state():
+def test_invalid_initial_stage():
     """
     All FSM envs must have an initial state that is a valid registered state.
     """
@@ -88,12 +88,12 @@ def test_invalid_initial_state():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state=States.B,
+                initial_stage=States.B,
             )
 
-        @FSMState(
-            state_id=States.A,
-            next_states=[States.A],
+        @FSMStage(
+            stage_id=States.A,
+            next_stages=[States.A],
         )
         def handle(self):
             pass
@@ -104,7 +104,7 @@ def test_invalid_initial_state():
 
 def test_invalid_next_state():
     """
-    All next states passed into the FSMState decorator must be valid states.
+    All next states passed into the FSMStage decorator must be valid states.
     """
 
     class Env(FiniteStateMachineEnv):
@@ -116,12 +116,12 @@ def test_invalid_next_state():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state=States.A,
+                initial_stage=States.A,
             )
 
-        @FSMState(
-            state_id=States.A,
-            next_states=[States.B],
+        @FSMStage(
+            stage_id=States.A,
+            next_stages=[States.B],
         )
         def handle_1(self):
             pass
@@ -144,12 +144,12 @@ def test_invalid_next_state_runtime():
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_state=States.A,
+                initial_stage=States.A,
             )
 
-        @FSMState(
-            state_id=States.A,
-            next_states=[States.A],
+        @FSMStage(
+            stage_id=States.A,
+            next_stages=[States.A],
         )
         def handle_1(self):
             return States.B

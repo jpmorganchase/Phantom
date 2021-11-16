@@ -18,42 +18,45 @@ from .env import EnvironmentActor, PhantomEnv
 from .packet import Mutation
 
 
-StateID = Hashable
-StateHandler = Callable[[], StateID]
+StageID = Hashable
+StageHandler = Callable[[], StageID]
 
 
-class FSMState:
+class FSMStage:
     """
     Decorator used in the :class:`FiniteStateMachineEnv` to declare the finite state
-    machine structure and assign handler functions to states.
+    machine structure and assign handler functions to stages.
+
+    A 'stage' corresponds to a state in the finite state machine, however to avoid any
+    confusion with Environment states we refer to them as stages.
 
     Attributes:
-        state_id: The name of this state.
-        next_states: The states that this state can transition to.
+        stage_id: The name of this stage.
+        next_stages: The stages that this stage can transition to.
         acting_agents: If provided, only the given agents will make observations at the 
             end of the previous step and take actions in that steps. If not provided, all 
             agents will make observations and take actions.
         rewarded_agents: If provided, only the given agents will calculate and return a
-            reward at the end of the step for this state. If not provided, all agents
+            reward at the end of the step for this stage. If not provided, all agents
             will calculate and return a reward.
-        handler: Environment class method to be called when the FSM enters this state.
+        handler: Environment class method to be called when the FSM enters this stage.
     """
 
     def __init__(
         self,
-        state_id: StateID,
-        next_states: Optional[Iterable[StateID]] = None,
+        stage_id: StageID,
+        next_stages: Optional[Iterable[StageID]] = None,
         acting_agents: Optional[Iterable[me.ID]] = None,
         rewarded_agents: Optional[Iterable[me.ID]] = None,
-        handler: Optional[StateHandler] = None,
+        handler: Optional[StageHandler] = None,
     ) -> None:
-        self.state_id = state_id
-        self.next_states = next_states
+        self.stage_id = stage_id
+        self.next_stages = next_stages
         self.acting_agents = acting_agents
         self.rewarded_agents = rewarded_agents
-        self.handler: Optional[StateHandler] = handler
+        self.handler: Optional[StageHandler] = handler
 
-    def __call__(self, fn: Callable[..., Optional[StateID]]):
+    def __call__(self, fn: Callable[..., Optional[StageID]]):
         setattr(fn, "_decorator", self)
         self.handler = fn
 
@@ -69,7 +72,7 @@ class FSMValidationError(Exception):
 
 class FSMRuntimeError(Exception):
     """
-    Error raised when validating FSM state changes when running an episode using the
+    Error raised when validating FSM stage changes when running an episode using the
     :class:`FiniteStateMachineEnv`.
     """
 
@@ -81,16 +84,17 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
     This class should not be used directly and instead should be subclassed.
 
-    Use the :class:`FSMState` decorator on handler methods within subclasses of this
-    class to register states to the FSM.
+    Use the :class:`FSMStage` decorator on handler methods within subclasses of this
+    class to register stages to the FSM.
 
-    State IDs can be anything type that is hashable, eg. strings, ints, enums.
+    A 'stage' corresponds to a state in the finite state machine, however to avoid any
+    confusion with Environment states we refer to them as stages.
+
+    Stage IDs can be anything type that is hashable, eg. strings, ints, enums.
 
     Attributes:
-        initial_state: The initial starting state of the FSM. When the reset() method is
-            called the environment is initialised into this state.
-        state_definitions: List of FSM states (optional). FSM states can be defined via
-            this list of alternatively via the :class:`FSMState` decorator.
+        initial_stage: The initial starting stage of the FSM. When the reset() method is
+            called the environment is initialised into this stage.
         network: A Mercury Network class or derived class describing the connections
             between agents and actors in the environment.
         clock: A Phantom Clock defining the episode length and episode step size.
@@ -100,12 +104,14 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         policy_grouping: A mapping between custom policy name and list of agents
             sharing the policy (optional).
         seed: A random number generator seed to use (optional).
+        stages: List of FSM stages. FSM stages can be defined via this list or
+            alternatively via the :class:`FSMStage` decorator.
     """
 
     def __init__(
         self,
         # fsm env specific:
-        initial_state: StateID,
+        initial_stage: StageID,
         # from phantom env:
         network: me.Network,
         clock: Optional[Clock] = None,
@@ -113,57 +119,57 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         environment_actor: Optional[EnvironmentActor] = None,
         seed: Optional[int] = None,
         # fsm env specific:
-        state_definitions: Optional[Iterable[FSMState]] = None,
+        stages: Optional[Iterable[FSMStage]] = None,
     ) -> None:
         super().__init__(network, clock, n_steps, environment_actor, seed)
 
-        self.initial_state: StateID = initial_state
+        self.initial_stage: StageID = initial_stage
 
         self._rewards: Dict[me.ID, float] = {}
         self._observations: Dict[me.ID, np.ndarray] = {}
         self._dones: Set[me.ID] = set()
         self._infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        self._states: Dict[StateID, FSMState] = {}
-        self.current_state: Optional[StateID] = None
+        self._stages: Dict[StageID, FSMStage] = {}
+        self.current_stage: Optional[StageID] = None
 
-        # Register states via optional class initialiser list
-        if state_definitions is not None:
-            for state in state_definitions:
-                if state.state_id not in self._states:
-                    self._states[state.state_id] = state
+        # Register stages via optional class initialiser list
+        if stages is not None:
+            for stage in stages:
+                if stage.stage_id not in self._stages:
+                    self._stages[stage.stage_id] = stage
 
-        # Register states via FSMState decorator
+        # Register stages via FSMStage decorator
         for attr in dir(self):
             attr = getattr(self, attr)
             if callable(attr):
                 fn = attr
                 if hasattr(fn, "_decorator"):
-                    if fn._decorator.state_id in self._states:
+                    if fn._decorator.stage_id in self._stages:
                         raise FSMValidationError(
-                            f"Found multiple states with ID '{fn._decorator.state_id}'"
+                            f"Found multiple stages with ID '{fn._decorator.stage_id}'"
                         )
 
-                    self._states[fn._decorator.state_id] = fn._decorator
+                    self._stages[fn._decorator.stage_id] = fn._decorator
 
-        # Check there is at least one state
-        if len(self._states) == 0:
+        # Check there is at least one stage
+        if len(self._stages) == 0:
             raise FSMValidationError(
-                "No registered states. Please use the 'FSMState' decorator or the state_definitions init parameter"
+                "No registered stages. Please use the 'FSMStage' decorator or the stage_definitions init parameter"
             )
 
-        # Check initial state is valid
-        if self.initial_state not in self._states:
+        # Check initial stage is valid
+        if self.initial_stage not in self._stages:
             raise FSMValidationError(
-                f"Initial state '{self.initial_state}' is not a valid state"
+                f"Initial stage '{self.initial_stage}' is not a valid stage"
             )
 
-        # Check all 'next states' are valid
-        for state in self._states.values():
-            for next_state in state.next_states:
-                if next_state not in self._states:
+        # Check all 'next stages' are valid
+        for stage in self._stages.values():
+            for next_stage in stage.next_stages:
+                if next_stage not in self._stages:
                     raise FSMValidationError(
-                        f"Next state '{next_state}' given in state '{state.state_id}' is not a valid state"
+                        f"Next stage '{next_stage}' given in stage '{stage.stage_id}' is not a valid stage"
                     )
 
     def reset(self) -> Dict[me.ID, Any]:
@@ -183,7 +189,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._dones = set()
         self._infos = {}
 
-        self.current_state = self.initial_state
+        self.current_stage = self.initial_stage
 
         # Set clock back to time step 0
         self.clock.reset()
@@ -195,7 +201,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         # Generate initial observations.
         observations: Dict[me.ID, Any] = {}
 
-        acting_agents = self._states[self.initial_state].acting_agents
+        acting_agents = self._stages[self.initial_stage].acting_agents
 
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
@@ -228,20 +234,19 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
             self.network.send_from(aid, packet.messages)
 
-        handler = self._states[self.current_state].handler
-
+        handler = self._stages[self.current_stage].handler
         if hasattr(handler, "__self__"):
-            # If the FSMState is defined with the state definitions the handler will be
+            # If the FSMStage is defined with the stage definitions the handler will be
             # a bound method of the env class.
-            next_state = self._states[self.current_state].handler()
+            next_stage = handler()
         else:
-            # If the FSMState is defined as a decorator the handler will be an unbound
+            # If the FSMStage is defined as a decorator the handler will be an unbound
             # function.
-            next_state = self._states[self.current_state].handler(self)
+            next_stage = handler(self)
 
-        if next_state not in self._states[self.current_state].next_states:
+        if next_stage not in self._stages[self.current_stage].next_stages:
             raise FSMRuntimeError(
-                f"FiniteStateMachineEnv attempted invalid transition from '{self.current_state}' to {next_state}"
+                f"FiniteStateMachineEnv attempted invalid transition from '{self.current_stage}' to {next_stage}"
             )
 
         # Apply mutations:
@@ -257,8 +262,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         terminals: Dict[me.ID, bool] = {"__all__": False}
         infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        next_acting_agents = self._states[next_state].acting_agents
-        rewarded_agents = self._states[self.current_state].rewarded_agents
+        next_acting_agents = self._stages[next_stage].acting_agents
+        rewarded_agents = self._stages[self.current_stage].rewarded_agents
 
         for aid, agent in self.agents.items():
             ctx = self.network.context_for(aid)
@@ -279,10 +284,10 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._rewards.update(rewards)
         self._infos.update(infos)
 
-        self.current_state = next_state
+        self.current_stage = next_stage
 
-        if self.current_state is None or self.is_done():
-            # This is the terminal state, return most recent observations, rewards and
+        if self.current_stage is None or self.is_done():
+            # This is the terminal stage, return most recent observations, rewards and
             # infos from all agents.
             terminals = {"__all__": True}
 
