@@ -19,10 +19,10 @@ from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
-from ..agent import ZeroIntelligenceAgent
 from ..env import PhantomEnv
 from ..logging import Metric, MetricsLoggerCallbacks, MultiCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
+from ..policy import FixedPolicy
 from . import find_most_recent_results_dir, show_pythonhashseed_warning
 
 
@@ -88,7 +88,7 @@ def train(
 
     env_config = env_config or {}
     alg_config = alg_config or {}
-    policy_grouping = policy_grouping or {}
+    policy_grouping = policy_grouping
     metrics = metrics or {}
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
@@ -223,13 +223,13 @@ def create_rllib_config_dict(
             if aid not in mapping:
                 # Enable with Ray 1.7.0:
                 # custom_policies[aid] = PolicySpec(
-                #     policy_class=agent.policy_type,
+                #     policy_class=agent.policy_class,
                 #     observation_space=agent.get_observation_space(),
                 #     action_space=agent.get_action_space(),
                 #     config=agent.policy_config or dict(),
                 # )
                 custom_policies[aid] = (
-                    agent.policy_type,
+                    agent.policy_class,
                     agent.get_observation_space(),
                     agent.get_action_space(),
                     agent.policy_config or dict(),
@@ -237,8 +237,9 @@ def create_rllib_config_dict(
 
                 mapping[aid] = aid
 
-                if agent.policy_type is None and not isinstance(
-                    agent, ZeroIntelligenceAgent
+                if (
+                    agent.policy_class is None
+                    or FixedPolicy not in agent.policy_class.__mro__
                 ):
                     custom_policies_to_train.append(aid)
 
@@ -253,13 +254,13 @@ def create_rllib_config_dict(
         ma_config["policies"] = {
             # Enable with Ray 1.7.0:
             # aid: PolicySpec(
-            #     policy_class=agent.policy_type,
+            #     policy_class=agent.policy_class,
             #     observation_space=agent.get_observation_space(),
             #     action_space=agent.get_action_space(),
             #     config=agent.policy_config or dict(),
             # )
             aid: (
-                agent.policy_type,
+                agent.policy_class,
                 agent.get_observation_space(),
                 agent.get_action_space(),
                 agent.policy_config or dict(),
@@ -275,9 +276,11 @@ def create_rllib_config_dict(
         ma_config["policies_to_train"] = [
             agent_id
             for agent_id, policy_spec in ma_config["policies"].items()
-            if policy_spec[0] is None
-            and not isinstance(env.agents[agent_id], ZeroIntelligenceAgent)
+            if policy_spec[0] is None or FixedPolicy not in policy_spec[0].__mro__
         ]
+
+    if len(ma_config["policies_to_train"]) == 0:
+        raise Exception("Must have at least one trained policy to perform training.")
 
     config = {}
 

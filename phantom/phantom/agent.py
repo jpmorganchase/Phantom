@@ -5,6 +5,7 @@ from typing import Any, AnyStr, Dict, Mapping, Optional, Type, TypeVar, Union
 import mercury as me
 import numpy as np
 import gym.spaces
+from ray import rllib
 
 from .decoders import Decoder
 from .encoders import Encoder
@@ -146,7 +147,7 @@ class Agent(me.actors.SimpleSyncActor):
         obs_encoder: The observation encoder of the agent (optional).
         action_decoder: The action decoder of the agent (optional).
         reward_function: The reward function of the agent (optional).
-        policy_type: The policy type of the agent (optional).
+        policy_class: The policy type of the agent (optional).
         policy_config: The policy config of the agent (optional).
         supertype: The supertype of the agent (optional).
     """
@@ -157,7 +158,7 @@ class Agent(me.actors.SimpleSyncActor):
         obs_encoder: Optional[Encoder] = None,
         action_decoder: Optional[Decoder] = None,
         reward_function: Optional[RewardFunction] = None,
-        policy_type: Optional[Union[str, Type]] = None,
+        policy_class: Union[str, rllib.Policy, None] = None,
         policy_config: Optional[Mapping] = None,
         supertype: Optional[Supertype] = None,
     ) -> None:
@@ -166,7 +167,7 @@ class Agent(me.actors.SimpleSyncActor):
         self.obs_encoder: Optional[Encoder] = obs_encoder
         self.action_decoder: Optional[Decoder] = action_decoder
         self.reward_function: Optional[RewardFunction] = reward_function
-        self.policy_type: Optional[Union[str, Type]] = policy_type
+        self.policy_class: Union[str, rllib.Policy, None] = policy_class
         self.policy_config: Optional[Mapping] = policy_config
 
         self.supertype: Supertype = (
@@ -313,30 +314,3 @@ class Agent(me.actors.SimpleSyncActor):
             )
 
         return self.action_decoder.action_space
-
-
-class ZeroIntelligenceAgent(Agent, ABC):
-    """
-    Boilerplate for building agents that take actions but do not learn a policy,
-    do not make observations and do not compute a reward.
-
-    This class should be subclassed and the `decode_action` method implemented.
-    """
-
-    def __init__(self, agent_id: me.ID) -> None:
-        super().__init__(agent_id)
-
-    def compute_reward(self, ctx: me.Network.Context) -> float:
-        return 0.0
-
-    def encode_obs(self, ctx: me.Network.Context):
-        return np.zeros((1,))
-
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        raise NotImplementedError
-
-    def get_observation_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
-
-    def get_action_space(self):
-        return gym.spaces.Discrete(1)
