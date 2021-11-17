@@ -19,7 +19,8 @@ SHOP_MAX_STOCK_REQUEST = 1000
 
 
 class CustomerPolicy(ph.FixedPolicy):
-    def compute_action(self, obs):
+    # The size of the order made for each customer is determined by this fixed policy.
+    def compute_action(self, obs) -> int:
         return np.random.poisson(5)
 
 
@@ -36,8 +37,8 @@ class CustomerAgent(ph.Agent):
         yield from ()
 
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # At the start of each step we generate an order with a random size to
-        # send to the shop.
+        # At the start of each step we generate an order with a random size (determined)
+        # by the policy) to send to the shop.
         order_size = action[0]
 
         # We perform this action by sending a stock request message to the warehouse.
