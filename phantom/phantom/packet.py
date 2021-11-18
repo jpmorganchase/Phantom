@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Iterable, Mapping
 
-from mercury import Payload, ID
+import mercury as me
 
 
 class Mutation:
@@ -31,4 +31,4 @@ class Packet:
     """
 
     mutations: Iterable[Mutation] = field(default_factory=list)
-    messages: Mapping[ID, Payload] = field(default_factory=dict)
+    messages: Mapping[me.ID, me.PayloadType] = field(default_factory=dict)

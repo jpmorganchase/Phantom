@@ -51,13 +51,13 @@ class RolloutConfig:
     seed: int
     env_config: Mapping[str, Any]
     env_supertype: Optional[BaseSupertype]
-    agent_supertypes: Dict[me.ID, BaseSupertype]
+    agent_supertypes: Mapping[me.ID, BaseSupertype]
 
 
 @dataclass
 class Rollout:
     config: RolloutConfig
-    metrics: Dict[str, np.ndarray]
+    metrics: Dict[me.ID, np.ndarray]
     trajectory: Optional[EpisodeTrajectory]
 
 
@@ -68,7 +68,7 @@ def rollout(
     num_repeats: int = 1,
     checkpoint: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
-    env_supertype: Optional[Mapping[str, Any]] = None,
+    env_supertype: Optional[BaseSupertype] = None,
     agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
@@ -132,22 +132,22 @@ def rollout(
     agent_supertypes = agent_supertypes or {}
 
     if contains_type(env_config, BaseSampler):
-        raise Exception(
+        raise TypeError(
             "env_config should not contain instances of classes inheriting from BaseSampler"
         )
 
     if contains_type(env_config, BaseRange):
-        raise Exception(
+        raise TypeError(
             "env_config should not contain instances of classes inheriting from BaseRange"
         )
 
     if contains_type(env_supertype, BaseSampler):
-        raise Exception(
+        raise TypeError(
             "env_supertype should not contain instances of classes inheriting from BaseSampler"
         )
 
     if contains_type(agent_supertypes, BaseSampler):
-        raise Exception(
+        raise TypeError(
             "agent_supertypes should not contain instances of classes inheriting from BaseSampler"
         )
 
@@ -162,8 +162,9 @@ def rollout(
             parent_dir = Path(phantom_dir, parent_dir)
 
             if not parent_dir.exists():
-                logger.error(f"Base results directory '{parent_dir}' does not exist")
-                return
+                raise FileNotFoundError(
+                    f"Base results directory '{parent_dir}' does not exist"
+                )
 
         logger.info(f"Trying to find latest experiment results in '{parent_dir}'")
 
@@ -177,8 +178,9 @@ def rollout(
             directory = Path(phantom_dir, directory)
 
             if not directory.exists():
-                logger.error(f"Results directory '{directory}' does not exist")
-                return
+                raise FileNotFoundError(
+                    f"Results directory '{directory}' does not exist"
+                )
 
         logger.info(f"Using results directory: '{directory}'")
 
@@ -186,8 +188,7 @@ def rollout(
         checkpoint_dirs = sorted(Path(directory).glob("checkpoint_*"))
 
         if len(checkpoint_dirs) == 0:
-            logger.error(f"No checkpoints found in directory '{directory}'")
-            return
+            raise FileNotFoundError(f"No checkpoints found in directory '{directory}'")
 
         checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
 
@@ -325,7 +326,7 @@ def _parallel_fn(
     configs: List[RolloutConfig],
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     result_queue: Optional[mp.Queue] = None,
-) -> Optional[List[Rollout]]:
+) -> List[Rollout]:
     checkpoint_path = Path(
         directory,
         f"checkpoint_{str(checkpoint).zfill(6)}",
@@ -428,5 +429,5 @@ def _parallel_fn(
 
     ray.shutdown()
 
-    if result_queue is None:
-        return results
+    # If using multi-processing this will be an empty list
+    return results

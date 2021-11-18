@@ -16,6 +16,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
+from .supertype import BaseSupertype
 
 
 class EnvironmentActor(me.actors.SyncActor):
@@ -35,6 +36,8 @@ class EnvironmentActor(me.actors.SyncActor):
 
     def __init__(self):
         super().__init__(self.ID)
+
+        self.env_type: Optional[BaseSupertype] = None
 
 
 class PhantomEnv(MultiAgentEnv):

@@ -15,6 +15,9 @@ class BaseSampler(ABC, Generic[T]):
     the samplers and Types generated from the Supertypes.
     """
 
+    def __init__(self):
+        self.value: Optional[T] = None
+
     @abstractmethod
     def sample(self) -> T:
         raise NotImplementedError
@@ -36,6 +39,8 @@ class UniformSampler(BaseSampler[float]):
         self.high = high
         self.clip_low = clip_low
         self.clip_high = clip_high
+
+        super().__init__()
 
     def sample(self) -> float:
         value = np.random.uniform(self.low, self.high)
@@ -65,6 +70,8 @@ class UniformArraySampler(BaseSampler[np.ndarray]):
         self.clip_low = clip_low
         self.clip_high = clip_high
 
+        super().__init__()
+
     def sample(self) -> np.ndarray:
         value = np.random.uniform(self.low, self.high, self.shape)
 
@@ -90,6 +97,8 @@ class NormalSampler(BaseSampler[float]):
         self.sigma = sigma
         self.clip_low = clip_low
         self.clip_high = clip_high
+
+        super().__init__()
 
     def sample(self) -> float:
         value = np.random.normal(self.mu, self.sigma)
@@ -118,6 +127,8 @@ class NormalArraySampler(BaseSampler[np.ndarray]):
         self.shape = shape
         self.clip_low = clip_low
         self.clip_high = clip_high
+
+        super().__init__()
 
     def sample(self) -> np.ndarray:
         value = np.random.normal(self.mu, self.sigma, self.shape)

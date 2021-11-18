@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import types
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import gym
@@ -16,12 +16,13 @@ from ray import tune
 # Enable with Ray 1.7.0:
 # from ray.rllib.policy.policy import PolicySpec
 
+from ray import rllib
 from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
-from ..env import PhantomEnv
+from ..env import EnvironmentActor, PhantomEnv
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..supertype import BaseSupertype
@@ -114,7 +115,7 @@ def train(
     alg_config = alg_config or {}
     env_config = env_config or {}
     agent_supertypes = agent_supertypes or {}
-    policy_grouping = policy_grouping
+    policy_grouping = policy_grouping or {}
 
     metrics = metrics or {}
     callbacks = callbacks or []
@@ -141,9 +142,9 @@ def train(
         )
 
     local_files_to_copy = []
-    local_dir = Path(__main__.__file__).parent
+    local_dir = None if discard_results else Path(__main__.__file__).parent
 
-    if discard_results == False and len(copy_files_to_results_dir) > 0:
+    if local_dir is not None and discard_results is False:
         # Check that files in the copy_files_to_results_dir list exist
         for file in copy_files_to_results_dir:
             path = Path(local_dir, file)
@@ -271,7 +272,7 @@ def train(
 
 
 def create_rllib_config_dict(
-    env: PhantomEnv,
+    env_class: Type[PhantomEnv],
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
     env_supertype: Optional[BaseSupertype],
@@ -295,9 +296,9 @@ def create_rllib_config_dict(
     # environment and if this fails we try and create an environment with only
     # the default parameters.
     try:
-        env = env(**env_config)
+        env = env_class(**env_config)
     except:
-        env = env()
+        env = env_class()
 
     for agent_id, supertype in agent_supertypes.items():
         env.agents[agent_id].supertype = supertype
@@ -307,14 +308,18 @@ def create_rllib_config_dict(
         env.env_type = env_supertype.sample()
 
         if "__ENV" in env.network.actor_ids:
-            env.network.actors["__ENV"].env_type = env.env_type
+            env_actor = env.network.actors["__ENV"]
+            assert isinstance(env_actor, EnvironmentActor)
+            env_actor.env_type = env.env_type
 
     env.reset()
 
-    ma_config = {}
+    ma_config: Dict[str, Any] = {}
 
     if policy_grouping is not None:
-        custom_policies = {}
+        custom_policies: Dict[
+            me.ID, Tuple[Optional[Type[rllib.Policy]], Any, Any, Mapping[Any, Any]]
+        ] = {}
         custom_policies_to_train = []
         mapping = {}
 
@@ -356,6 +361,9 @@ def create_rllib_config_dict(
 
                 mapping[aid] = aid
 
+                # To find out if policy_class is an subclass of FixedPolicy normally
+                # would use isinstance() but since policy_class is a class and not an
+                # instance this doesn't work.
                 if (
                     agent.policy_class is None
                     or FixedPolicy not in agent.policy_class.__mro__
@@ -401,7 +409,7 @@ def create_rllib_config_dict(
     if len(ma_config["policies_to_train"]) == 0:
         raise Exception("Must have at least one trained policy to perform training.")
 
-    config = {}
+    config: Dict[str, Any] = {}
 
     config["env"] = env.env_name
     config["env_config"] = env_config
@@ -419,9 +427,6 @@ def create_rllib_config_dict(
     config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
     if callbacks is not None:
-        callbacks = callbacks
-        if not isinstance(callbacks, (list, tuple)):
-            callbacks = [callbacks]
         config["callbacks"] = MultiCallbacks(callbacks)
 
     if metrics:
@@ -444,7 +449,7 @@ def print_experiment_info(
     num_workers: int,
     num_episodes: int,
     algorithm: str,
-    checkpoint_freq: int,
+    checkpoint_freq: Optional[int],
 ) -> None:
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):

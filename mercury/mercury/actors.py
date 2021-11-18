@@ -137,7 +137,7 @@ class SimpleSyncActor(SyncActor):
             yield from bound_handler(ctx, message)
 
 
-def handler(payload_type: _m.Payload) -> _t.Callable[[Handler], Handler]:
+def handler(payload_type: _m.PayloadType) -> _t.Callable[[Handler], Handler]:
     def decorator(fn: Handler) -> Handler:
         setattr(fn, "payload_type", payload_type)
 
