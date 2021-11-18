@@ -102,8 +102,8 @@ def test_odd_even():
     assert env.reset() == {"odd_agent": 1}
 
     assert env.current_stage == States.ODD
-    assert env.agents["odd_agent"].compute_reward_count == 1
-    assert env.agents["even_agent"].compute_reward_count == 1
+    assert env.agents["odd_agent"].compute_reward_count == 0
+    assert env.agents["even_agent"].compute_reward_count == 0
     assert env.agents["odd_agent"].encode_obs_count == 1
     assert env.agents["even_agent"].encode_obs_count == 0
     assert env.agents["odd_agent"].decode_action_count == 0
@@ -113,12 +113,12 @@ def test_odd_even():
 
     assert env.current_stage == States.EVEN
     assert step.observations == {"even_agent": 0}
-    assert step.rewards == {"even_agent": 0}
+    assert step.rewards == {"even_agent": None}
     assert step.terminals == {"__all__": False, "even_agent": False, "odd_agent": False}
     assert step.infos == {"even_agent": {}}
 
     assert env.agents["odd_agent"].compute_reward_count == 1
-    assert env.agents["even_agent"].compute_reward_count == 2
+    assert env.agents["even_agent"].compute_reward_count == 0
     assert env.agents["odd_agent"].encode_obs_count == 1
     assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["odd_agent"].decode_action_count == 1
@@ -132,8 +132,8 @@ def test_odd_even():
     assert step.terminals == {"__all__": False, "even_agent": False, "odd_agent": False}
     assert step.infos == {"odd_agent": {}}
 
-    assert env.agents["odd_agent"].compute_reward_count == 2
-    assert env.agents["even_agent"].compute_reward_count == 2
+    assert env.agents["odd_agent"].compute_reward_count == 1
+    assert env.agents["even_agent"].compute_reward_count == 1
     assert env.agents["odd_agent"].encode_obs_count == 2
     assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["odd_agent"].decode_action_count == 1
@@ -148,7 +148,7 @@ def test_odd_even():
     assert step.infos == {"even_agent": {}, "odd_agent": {}}
 
     assert env.agents["odd_agent"].compute_reward_count == 2
-    assert env.agents["even_agent"].compute_reward_count == 3
+    assert env.agents["even_agent"].compute_reward_count == 1
     assert env.agents["odd_agent"].encode_obs_count == 2
     assert env.agents["even_agent"].encode_obs_count == 2
     assert env.agents["odd_agent"].decode_action_count == 2

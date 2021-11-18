@@ -45,7 +45,7 @@ class BaseSupertype(ABC):
             x=UniformSampler(0.0, 1.0)
             y=NormalSampler(0.0, 2.0)
         )
-        
+
         t = s.sample()
 
     Supertypes provided to the ``rollout`` method containing values that inherit from
@@ -56,7 +56,7 @@ class BaseSupertype(ABC):
             x=UniformRange(0.0, 1.0, 0.1)
             y=LinspaceRange(0.0, 0.5, 11)
         )
-        
+
         t = s.sample()
     """
 

@@ -33,9 +33,9 @@ class FSMStage:
     Attributes:
         stage_id: The name of this stage.
         next_stages: The stages that this stage can transition to.
-        acting_agents: If provided, only the given agents will make an observation at
-            the end of this step and take an action at the start of the next step. If
-            not provided, all agents will make observations and take actions.
+        acting_agents: If provided, only the given agents will make observations at the
+            end of the previous step and take actions in that steps. If not provided, all
+            agents will make observations and take actions.
         rewarded_agents: If provided, only the given agents will calculate and return a
             reward at the end of the step for this stage. If not provided, all agents
             will calculate and return a reward.
@@ -208,7 +208,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if acting_agents is None or aid in acting_agents:
                 observations[aid] = agent.encode_obs(ctx)
 
-            self._rewards[aid] = agent.compute_reward(ctx)
+            self._rewards[aid] = None
 
         return observations
 
@@ -233,22 +233,19 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
             self.network.send_from(aid, packet.messages)
 
-        old_stage = self.current_stage
-
         handler = self._stages[self.current_stage].handler
-
         if hasattr(handler, "__self__"):
             # If the FSMStage is defined with the stage definitions the handler will be
             # a bound method of the env class.
-            self.current_stage = self._stages[self.current_stage].handler()
+            next_stage = handler()
         else:
             # If the FSMStage is defined as a decorator the handler will be an unbound
             # function.
-            self.current_stage = self._stages[self.current_stage].handler(self)
+            next_stage = handler(self)
 
-        if self.current_stage not in self._stages[old_stage].next_stages:
+        if next_stage not in self._stages[self.current_stage].next_stages:
             raise FSMRuntimeError(
-                f"FiniteStateMachineEnv attempted invalid transition from '{old_stage}' to {self.current_stage}"
+                f"FiniteStateMachineEnv attempted invalid transition from '{self.current_stage}' to {next_stage}"
             )
 
         # Apply mutations:
@@ -264,7 +261,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         terminals: Dict[me.ID, bool] = {"__all__": False}
         infos: Dict[me.ID, Dict[str, Any]] = {}
 
-        acting_agents = self._stages[self.current_stage].acting_agents
+        next_acting_agents = self._stages[next_stage].acting_agents
         rewarded_agents = self._stages[self.current_stage].rewarded_agents
 
         for aid, agent in self.agents.items():
@@ -275,7 +272,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if terminals[aid]:
                 self._dones.add(aid)
 
-            if acting_agents is None or aid in acting_agents:
+            if next_acting_agents is None or aid in next_acting_agents:
                 observations[aid] = agent.encode_obs(ctx)
                 infos[aid] = agent.collect_infos(ctx)
 
@@ -285,6 +282,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._observations.update(observations)
         self._rewards.update(rewards)
         self._infos.update(infos)
+
+        self.current_stage = next_stage
 
         if self.current_stage is None or self.is_done():
             # This is the terminal stage, return most recent observations, rewards and

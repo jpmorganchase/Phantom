@@ -1,16 +1,14 @@
-from .env import EnvironmentActor, PhantomEnv
 from . import decoders, encoders, fsm_env, logging, rewards, utils
 
-from .packet import Mutation, Packet
-
-from .supertype import BaseSupertype, BaseType, SupertypeField
-from .tracker import Tracker
-from .agent import Agent, ZeroIntelligenceAgent
-
+from .agent import Agent
 from .clock import Clock
+from .env import EnvironmentActor, PhantomEnv
 from .logging import Logger
 from .logging.metrics import Metric
+from .packet import Mutation, Packet
+from .policy import FixedPolicy
 from .rewards import RewardFunction
+from .supertype import BaseSupertype, BaseType, SupertypeField
 from .tracker import Tracker
 from .utils.rollout import rollout
 from .utils.training import train

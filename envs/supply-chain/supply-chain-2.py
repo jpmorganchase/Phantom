@@ -52,27 +52,56 @@ class StockResponse:
     size: int
 
 
-class CustomerAgent(ph.ZeroIntelligenceAgent):
+class CustomerPolicy(ph.FixedPolicy):
+    # The size of the order made and the choice of shop to make the order to for each
+    # customer is determined by this fixed policy.
+    def __init__(self, obs_space, action_space, config):
+        super().__init__(obs_space, action_space, config)
+
+        self.n_shops = config["n_shops"]
+
+    def compute_action(self, obs) -> np.ndarray:
+        return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
+
+
+class CustomerAgent(ph.Agent):
     def __init__(self, agent_id: str, shop_ids: List[str]):
-        super().__init__(agent_id)
+        super().__init__(
+            agent_id,
+            policy_class=CustomerPolicy,
+            # The CustomerPolicy needs to know how many shops there are so it can return
+            # a valid choice.
+            policy_config=dict(n_shops=len(shop_ids)),
+        )
 
         # We need to store the shop IDs so we can send order requests to them.
         self.shop_ids: List[str] = shop_ids
-
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # At the start of each step we generate an order with a random size to
-        # send to a random shop.
-        order_size = np.random.poisson(5)
-
-        shop_id = np.random.choice(self.shop_ids)
-
-        # We perform this action by sending a stock request message to the warehouse.
-        return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
 
     def handle_message(self, ctx: me.Network.Context, msg: me.Message):
         # The customer will receive it's order from the shop but we do not need
         # to take any actions on it.
         yield from ()
+
+    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        # At the start of each step we generate an order with a random size to
+        # send to a random shop.
+        order_size = action[0]
+        shop_id = self.shop_ids[int(action[1])]
+
+        # We perform this action by sending a stock request message to the warehouse.
+        return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
+
+    def compute_reward(self, ctx: me.Network.Context) -> float:
+        return 0.0
+
+    def encode_obs(self, ctx: me.Network.Context):
+        return np.zeros((1,))
+
+    def get_observation_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+    def get_action_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
