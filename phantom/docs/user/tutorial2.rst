@@ -123,29 +123,56 @@ look like the following:
 To do this we make several modifications to the code:
 
 * We modify the ``CustomerAgent`` to accept a list of shop IDs rather than a single
-  shop ID. We also change the ``decode_action`` method to pick a shop at random and
-  place an order at that shop each step.
+  shop ID. The policy will be expanded to also decide which shop to allocate orders to.
+  The action space of the policy will now be of size 2: the order size and shop index.
 
 .. code-block:: python
 
-    class CustomerAgent(ph.ZeroIntelligenceAgent):
-        def __init__(self, agent_id: str, shop_ids: List[str]):
-            super().__init__(agent_id)
+    def __init__(self, agent_id: str, shop_ids: List[str]):
+        super().__init__(
+            agent_id,
+            policy_class=CustomerPolicy,
+            # The CustomerPolicy needs to know how many shops there are so it can return
+            # a valid choice.
+            policy_config=dict(n_shops=len(shop_ids)),
+        )
 
-            # We need to store the shop IDs so we can send order requests to them.
-            self.shop_ids: List[str] = shop_ids
+        # We need to store the shop IDs so we can send order requests to them.
+        self.shop_ids: List[str] = shop_ids
 
-        def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-            # At the start of each step we generate an order with a random size to
-            # send to a random shop.
-            order_size = np.random.poisson(5)
+* We change the ``decode_action`` method to pick a shop at random and place an order at
+  that shop each step.
 
-            shop_id = np.random.choice(self.shop_ids)
+.. code-block:: python
 
-            # We perform this action by sending a stock request message to the warehouse.
-            return ph.packet.Packet(messages={shop_id: [order_size]})
+    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        # At the start of each step we generate an order with a random size to
+        # send to a random shop.
+        order_size = action[0]
+        shop_id = self.shop_ids[int(action[1])]
+
+        # We perform this action by sending a stock request message to the warehouse.
+        return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
 
         ...
+
+
+* We modify the ``CustomerPolicy`` class to accept the list of shop ID's now given to it
+  from the ``CustomerAgent`` and make a random selection on which shop to choose:
+
+.. code-block:: python
+
+    class CustomerPolicy(ph.FixedPolicy):
+        # The size of the order made and the choice of shop to make the order to for each
+        # customer is determined by this fixed policy.
+        def __init__(self, obs_space, action_space, config):
+            super().__init__(obs_space, action_space, config)
+
+            self.n_shops = config["n_shops"]
+
+        def compute_action(self, obs) -> np.ndarray:
+            return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
+
 
 * We modify the environment to create multiple shop agents like we did previously with
   the customer agents. We make sure all customers are connected to all shops.

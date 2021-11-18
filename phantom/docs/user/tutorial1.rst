@@ -148,19 +148,28 @@ Customer Agent
 
 The implementation of the customer agent class takes more work as it stores state and
 takes actions. For any agent to be able to interact with the RLlib framework we need to
-define methods to decode actions, encode observations, compute reward functions. As our
-customer agent does not learn a policy we can inherit from Phantom's
-``ZeroIntelligenceAgent``. This provides default implementations for these methods so we
-don't have to.
+define methods to decode actions, encode observations, compute reward functions. Our
+customer agent takes actions according to a pre-defined policy - it does not actively
+learn - and so we can use a ``FixedPolicy`` derived class to define this simple policy:
 
 .. code-block:: python
 
-    class CustomerAgent(ph.ZeroIntelligenceAgent):
+    class CustomerPolicy(ph.FixedPolicy):
+        # The size of the order made for each customer is determined by this fixed policy.
+        def compute_action(self, obs) -> int:
+            return np.random.poisson(5)
+
+Next we define the customer agent class. We make sure to set the policy to be our
+custom fixed policy.
+
+.. code-block:: python
+
+    class CustomerAgent(ph.Agent):
         def __init__(self, agent_id: str, shop_id: str):
-            super().__init__(agent_id)
+            super().__init__(agent_id, policy_class=CustomerPolicy)
 
             # We need to store the shop's ID so we can send order requests to it.
-            self.shop_id = shop_id
+            self.shop_id: str = shop_id
 
 We take the ID of the shop as an initialisation parameter and store it as local state.
 It is recommended to always handle IDs this way rather than hard-coding them.
@@ -200,6 +209,25 @@ empty iterator using the ``yield from ()`` syntactic sugar.
             # The customer will receive it's order from the shop but we do not need
             # to take any actions on it.
             yield from ()
+    #
+
+As our customer agent does not learn we do not need to construct a reward function but
+we do need to still return a value to satisfy RLlib:
+
+.. code-block:: python
+
+        def compute_reward(self, ctx: me.Network.Context) -> float:
+            return 0.0
+
+        def encode_obs(self, ctx: me.Network.Context):
+            return np.zeros((1,))
+
+        def get_observation_space(self):
+            return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+        def get_action_space(self):
+            return gym.spaces.Box(-np.inf, np.inf, (1,))
+
     #
 
 
