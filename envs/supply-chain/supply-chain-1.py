@@ -131,10 +131,10 @@ class ShopAgent(ph.Agent):
         return ph.packet.Packet(messages={self.warehouse_id: [stock_to_request]})
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
-        # We reward for making sales.
+        # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
-        # We impose a larger penalty for missing orders than for holding onto stock.
-        # return self.sales - self.stock - 2 * self.missed_sales
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return 5 * self.step_sales - self.step_missed_sales - self.stock
 
     def reset(self):
@@ -155,7 +155,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v1"
 
-    def __init__(self, n_customers: int = 5, seed: int = 0):
+    def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
         shop_id = "SHOP"
         warehouse_id = "WAREHOUSE"
@@ -177,7 +177,7 @@ class SupplyChainEnv(ph.PhantomEnv):
         # Connect the shop to the customers
         network.add_connections_between([shop_id], customer_ids)
 
-        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS, seed=seed)
+        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
 
 
 if sys.argv[1].lower() == "train":

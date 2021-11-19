@@ -119,6 +119,10 @@ class ShopRewardFunction(ph.RewardFunction):
         self.missed_sales_weight = missed_sales_weight
 
     def reward(self, ctx: me.Network.Context) -> float:
+        # We reward the agent for making sales.
+        # We penalise the agent for holding onto stock and for missing orders.
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return (
             5 * ctx.actor.step_sales
             - self.missed_sales_weight * ctx.actor.step_missed_sales
@@ -237,7 +241,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v2"
 
-    def __init__(self, n_customers: int = 5, seed: int = 0):
+    def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
         warehouse_id = "WAREHOUSE"
 
@@ -266,11 +270,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
         clock = ph.Clock(0, NUM_EPISODE_STEPS, 1)
 
-        super().__init__(
-            network=network,
-            clock=clock,
-            seed=seed,
-        )
+        super().__init__(network=network, clock=clock)
 
 
 class StockMetric(ph.logging.Metric[float]):
