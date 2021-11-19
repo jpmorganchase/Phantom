@@ -150,6 +150,3 @@ class DataEntry(Encoder[np.ndarray]):
             return np.array([v])
 
         return v
-
-
-
