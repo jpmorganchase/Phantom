@@ -59,4 +59,4 @@ class FixedPolicy(rllib.Policy, ABC):
         timestep: Optional[int] = None,
         **kwargs
     ) -> Tuple[TensorType, List[TensorType], Dict[str, TensorType]]:
-        return ([self.compute_action(obs) for obs in obs_batch], [], {})
+        return (np.array([self.compute_action(obs) for obs in obs_batch]), [], {})
