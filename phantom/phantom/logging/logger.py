@@ -1,10 +1,12 @@
 from collections import defaultdict as _defaultdict
-from typing import Dict, Mapping, Optional
+from typing import Dict, Mapping, Optional, TYPE_CHECKING
 
-import phantom as ph
+import mercury as me
 
-from mercury import ID
-from phantom.logging.metrics import Metric
+from .metrics import Metric
+
+if TYPE_CHECKING:
+    from ..env import PhantomEnv
 
 
 class Logger:
@@ -31,11 +33,11 @@ class Logger:
         >>> logger.log(env)
     """
 
-    def __init__(self, metrics: Optional[Mapping[ID, Metric]] = None):
-        self.metrics: Dict[ID, Metric] = dict(metrics or {})
+    def __init__(self, metrics: Optional[Mapping[me.ID, Metric]] = None):
+        self.metrics: Dict[me.ID, Metric] = dict(metrics or {})
         self.logs: _defaultdict = _defaultdict(list)
 
-    def add_metric(self, metric_id: ID, metric: Metric) -> "Logger":
+    def add_metric(self, metric_id: me.ID, metric: Metric) -> "Logger":
         """
         Add a new metric into the logger, raising an error if a metric already
         has the given :code:`metric_id`.
@@ -51,7 +53,7 @@ class Logger:
 
         return self
 
-    def remove_metric(self, metric_id: ID) -> Optional[Metric]:
+    def remove_metric(self, metric_id: me.ID) -> Optional[Metric]:
         """
         Remove a (maybe) pre-existing metric in the logger, returning the
         instance if it was present.
@@ -61,7 +63,7 @@ class Logger:
         """
         return self.metrics.pop(metric_id, None)
 
-    def replace_metric(self, metric_id: ID, metric: Metric) -> Optional[Metric]:
+    def replace_metric(self, metric_id: me.ID, metric: Metric) -> Optional[Metric]:
         """
         Replace a (maybe) pre-existing metric in the logger, returning the
         previous instance if it was present.
@@ -76,7 +78,7 @@ class Logger:
 
         return old
 
-    def log(self, env: ph.env.PhantomEnv) -> None:
+    def log(self, env: "PhantomEnv") -> None:
         """
         Extract and log metrics from the :class:`phantom.PhantomEnv` instance.
 
@@ -93,13 +95,13 @@ class Logger:
         for metric_id in self.metrics:
             del self.logs[metric_id][:]
 
-    def to_dict(self) -> Dict[ID, Metric]:
+    def to_dict(self) -> Dict[me.ID, Metric]:
         """
         Returns a dictionary of all logged values.
         """
         return dict(self.logs)
 
-    def to_reduced_dict(self) -> Dict[ID, Metric]:
+    def to_reduced_dict(self) -> Dict[me.ID, Metric]:
         """
         Returns a dictionary of all logged values.
         """

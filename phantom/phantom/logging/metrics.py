@@ -4,9 +4,10 @@ Module containing classes used to extract metrics from a
 and tracking performance and behaviour.
 """
 from abc import abstractmethod, ABC
-from typing import Generic, List, TypeVar
+from typing import Generic, List, TypeVar, TYPE_CHECKING
 
-from ..env import PhantomEnv
+if TYPE_CHECKING:
+    from ..env import PhantomEnv
 
 
 MetricValue = TypeVar("MetricValue")
@@ -18,7 +19,7 @@ class Metric(Generic[MetricValue], ABC):
     """
 
     @abstractmethod
-    def extract(self, env: PhantomEnv) -> MetricValue:
+    def extract(self, env: "PhantomEnv") -> MetricValue:
         """
         Extract and return the current metric value from `env`.
 

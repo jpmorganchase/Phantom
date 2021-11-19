@@ -158,17 +158,17 @@ class Agent(me.actors.SimpleSyncActor):
         obs_encoder: Optional[Encoder] = None,
         action_decoder: Optional[Decoder] = None,
         reward_function: Optional[RewardFunction] = None,
-        policy_class: Union[str, rllib.Policy, None] = None,
+        policy_class: Optional[Type[rllib.Policy]] = None,
         policy_config: Optional[Mapping] = None,
         supertype: Optional[Supertype] = None,
     ) -> None:
         super().__init__(agent_id)
 
-        self.obs_encoder: Optional[Encoder] = obs_encoder
-        self.action_decoder: Optional[Decoder] = action_decoder
-        self.reward_function: Optional[RewardFunction] = reward_function
-        self.policy_class: Union[str, rllib.Policy, None] = policy_class
-        self.policy_config: Optional[Mapping] = policy_config
+        self.obs_encoder = obs_encoder
+        self.action_decoder = action_decoder
+        self.reward_function = reward_function
+        self.policy_class = policy_class
+        self.policy_config = policy_config
 
         self.supertype: Supertype = (
             supertype if supertype is not None else NullSupertype()

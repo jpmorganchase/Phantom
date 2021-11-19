@@ -4,23 +4,25 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import gym
+import mercury as me
 import ray
 from ray import tune
+from ray import rllib
 
 # Enable with Ray 1.7.0:
 # from ray.rllib.policy.policy import PolicySpec
 
-from ray.rllib.agents.callbacks import DefaultCallbacks
+from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
 from ..env import PhantomEnv
-from ..logging import Metric, MetricsLoggerCallbacks, MultiCallbacks
+from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..policy import FixedPolicy
 from . import find_most_recent_results_dir, show_pythonhashseed_warning
@@ -80,15 +82,16 @@ def train(
         The results directory of the experiment if results are saved and the experiment
         was successful.
 
-    NOTE: It is the users responsibility to ensure the PYTHONHASHSEED environment variable
-    is set before starting the Python interpreter to run this code. Not setting this may
-    lead to reproducibility issues.
+    NOTE: It is the users responsibility to invoke training via the provided ``phantom``
+    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
+    the Python interpreter to run this code. Not setting this may lead to
+    reproducibility issues.
     """
     show_pythonhashseed_warning()
 
     env_config = env_config or {}
     alg_config = alg_config or {}
-    policy_grouping = policy_grouping
+    policy_grouping = policy_grouping or {}
     metrics = metrics or {}
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
@@ -167,7 +170,7 @@ def train(
 
 
 def create_rllib_config_dict(
-    env: PhantomEnv,
+    env_class: Type[PhantomEnv],
     env_config: Mapping[str, Any],
     alg_config: Mapping[str, Any],
     policy_grouping: Mapping[str, Any],
@@ -188,14 +191,22 @@ def create_rllib_config_dict(
     # environment and if this fails we try and create an environment with only
     # the default parameters.
     try:
-        env = env(**env_config)
+        env = env_class(**env_config)
     except:
-        env = env()
+        env = env_class()
 
-    ma_config = {}
+    ma_config: Dict[str, Any] = {}
 
     if policy_grouping is not None:
-        custom_policies = {}
+        custom_policies: Dict[
+            me.ID,
+            Tuple[
+                Optional[Type[rllib.Policy]],
+                gym.spaces.Space,
+                gym.spaces.Space,
+                Mapping[Any, Any],
+            ],
+        ] = {}
         custom_policies_to_train = []
         mapping = {}
 
@@ -237,6 +248,9 @@ def create_rllib_config_dict(
 
                 mapping[aid] = aid
 
+                # To find out if policy_class is an subclass of FixedPolicy normally
+                # would use isinstance() but since policy_class is a class and not an
+                # instance this doesn't work.
                 if (
                     agent.policy_class is None
                     or FixedPolicy not in agent.policy_class.__mro__
@@ -282,7 +296,7 @@ def create_rllib_config_dict(
     if len(ma_config["policies_to_train"]) == 0:
         raise Exception("Must have at least one trained policy to perform training.")
 
-    config = {}
+    config: Dict[str, Any] = {}
 
     config["env"] = env.env_name
     config["env_config"] = env_config
@@ -300,9 +314,6 @@ def create_rllib_config_dict(
     config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
     if callbacks is not None:
-        callbacks = callbacks
-        if not isinstance(callbacks, (list, tuple)):
-            callbacks = [callbacks]
         config["callbacks"] = MultiCallbacks(callbacks)
 
     if metrics:
@@ -325,7 +336,7 @@ def print_experiment_info(
     num_workers: int,
     num_episodes: int,
     algorithm: str,
-    checkpoint_freq: int,
+    checkpoint_freq: Optional[int],
 ) -> None:
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):

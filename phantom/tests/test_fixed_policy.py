@@ -7,7 +7,7 @@ import pytest
 
 class CustomPolicy(ph.FixedPolicy):
     def compute_action(self, obs):
-        return 1
+        return np.array([1])
 
 
 class MinimalAgent(ph.agent.Agent):
@@ -28,7 +28,7 @@ class MinimalAgent(ph.agent.Agent):
 
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray) -> ph.Packet:
         if self.policy_class is not None:
-            assert action == 1
+            assert action == np.array([1])
         return ph.Packet()
 
 
