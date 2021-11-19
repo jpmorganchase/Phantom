@@ -43,5 +43,3 @@ Provided Implementations
 .. autoclass:: phantom.encoders.DataEntry
    :inherited-members:
 
-.. autoclass:: phantom.encoders.ElapsedTime
-   :inherited-members:
