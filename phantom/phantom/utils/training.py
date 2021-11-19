@@ -142,7 +142,12 @@ def train(
         )
 
     local_files_to_copy = []
-    local_dir = None if discard_results else Path(__main__.__file__).parent
+
+    # When running from ipython notebooks the '__main__.__file__' object does not exist
+    if hasattr(__main__, "__file__") and not discard_results:
+        local_dir = Path(__main__.__file__).parent
+    else:
+        local_dir = None
 
     if local_dir is not None and discard_results is False:
         # Check that files in the copy_files_to_results_dir list exist
