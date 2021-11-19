@@ -64,9 +64,10 @@ def rollout(
         - A list of dictionaries containing recorded metrics for each rollout.
         - A list of EpisodeTrajectory's.
 
-    NOTE: It is the users responsibility to ensure the PYTHONHASHSEED environment variable
-    is set before starting the Python interpreter to run this code. Not setting this may
-    lead to reproducibility issues.
+    NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
+    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
+    the Python interpreter to run this code. Not setting this may lead to
+    reproducibility issues.
     """
     show_pythonhashseed_warning()
 

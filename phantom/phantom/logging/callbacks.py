@@ -8,7 +8,7 @@ from typing import Any, Dict, Mapping
 import mercury as me
 import numpy as np
 import phantom as ph
-from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
+from ray.rllib.agents.callbacks import DefaultCallbacks
 from ray.tune.logger import TBXLoggerCallback
 from ray.tune.result import TIMESTEPS_TOTAL, TRAINING_ITERATION
 from ray.tune.trial import Trial

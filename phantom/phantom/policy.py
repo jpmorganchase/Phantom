@@ -2,7 +2,6 @@ from abc import abstractmethod, ABC
 from typing import Dict, List, Optional, Mapping, Tuple, Union
 
 import gym
-import numpy as np
 from ray import rllib
 from ray.rllib.evaluation import MultiAgentEpisode
 from ray.rllib.utils.typing import TensorStructType, TensorType

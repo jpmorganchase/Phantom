@@ -121,7 +121,7 @@ class SimpleSyncActor(SyncActor):
                 self.register_handler(fn.payload_type, fn)
 
     def register_handler(
-        self, payload_type: _t.Type[_m.Payload], handler: Handler
+        self, payload_type: _t.Type[_m.PayloadType], handler: Handler
     ) -> None:
         self.__handlers[payload_type].append(handler)
 
@@ -137,7 +137,7 @@ class SimpleSyncActor(SyncActor):
             yield from bound_handler(ctx, message)
 
 
-def handler(payload_type: _m.Payload) -> _t.Callable[[Handler], Handler]:
+def handler(payload_type: _t.Type[_m.PayloadType]) -> _t.Callable[[Handler], Handler]:
     def decorator(fn: Handler) -> Handler:
         setattr(fn, "payload_type", payload_type)
 

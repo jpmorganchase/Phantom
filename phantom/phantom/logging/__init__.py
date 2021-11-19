@@ -1,3 +1,3 @@
-from .callbacks import MultiCallbacks, MetricsLoggerCallbacks
+from .callbacks import MetricsLoggerCallbacks
 from .logger import Logger
 from .metrics import Metric
