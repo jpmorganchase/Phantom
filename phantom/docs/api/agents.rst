@@ -30,7 +30,3 @@ If the ``decode_action()`` method is provided with a custom implementation, the
 
 .. autoclass:: phantom.agent.Agent
    :inherited-members:
-
-
-.. autoclass:: phantom.agent.ZeroIntelligenceAgent
-   :inherited-members:

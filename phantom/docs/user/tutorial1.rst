@@ -4,11 +4,9 @@ Tutorial - Part 1
 =================
 
 This tutorial will walk you through the steps of designing and running a simple Phantom
-experiment. It is based on the included ``supply-chain-2.py`` example that can be found
-in the ``phantom-environments`` repository.
+experiment. It is based on the included ``supply-chain-1.py`` example that can be found
+in the ``envs`` directory in the Phantom repo.
 
-..
-    TODO: add link to phantom-environments repository
 
 Experiment Goals
 ----------------
@@ -97,9 +95,6 @@ Phantom uses the ``Mercury`` library for handling the network of agents and acto
 the message passing between them and `Ray + RLlib <https://docs.ray.io/en/master/index.html>`_
 for running and scaling the RL training.
 
-..
-    TODO: add link to mercury repository
-
 As this experiment is simple we can easily define it entirely within one file. For more
 complex, larger experiments it is recommended to split the code into multiple files,
 making use of the modularity of Phantom.
@@ -117,7 +112,7 @@ Warehouse Actor
 
 The warehouse is the simplest to implement as it does not take actions and does not
 store state. We inherit from Mercury's ``SimpleSyncActor`` class. The ``SimpleSyncActor``
-is simply an actor that handles the message it receives in a synchronous order.
+is an actor that handles the message it receives in a synchronous order.
 
 .. code-block:: python
 
@@ -153,19 +148,28 @@ Customer Agent
 
 The implementation of the customer agent class takes more work as it stores state and
 takes actions. For any agent to be able to interact with the RLlib framework we need to
-define methods to decode actions, encode observations, compute reward functions. As our
-customer agent does not learn a policy we can inherit from Phantom's
-``ZeroIntelligenceAgent``. This provides default implementations for these methods so we
-don't have to.
+define methods to decode actions, encode observations, compute reward functions. Our
+customer agent takes actions according to a pre-defined policy - it does not actively
+learn - and so we can use a ``FixedPolicy`` derived class to define this simple policy:
 
 .. code-block:: python
 
-    class CustomerAgent(ph.ZeroIntelligenceAgent):
+    class CustomerPolicy(ph.FixedPolicy):
+        # The size of the order made for each customer is determined by this fixed policy.
+        def compute_action(self, obs) -> np.ndarray:
+            return np.random.poisson(5, size=(1,))
+
+Next we define the customer agent class. We make sure to set the policy to be our
+custom fixed policy.
+
+.. code-block:: python
+
+    class CustomerAgent(ph.Agent):
         def __init__(self, agent_id: str, shop_id: str):
-            super().__init__(agent_id)
+            super().__init__(agent_id, policy_class=CustomerPolicy)
 
             # We need to store the shop's ID so we can send order requests to it.
-            self.shop_id = shop_id
+            self.shop_id: str = shop_id
 
 We take the ID of the shop as an initialisation parameter and store it as local state.
 It is recommended to always handle IDs this way rather than hard-coding them.
@@ -205,6 +209,25 @@ empty iterator using the ``yield from ()`` syntactic sugar.
             # The customer will receive it's order from the shop but we do not need
             # to take any actions on it.
             yield from ()
+    #
+
+As our customer agent does not learn we do not need to construct a reward function but
+we do need to still return a value to satisfy RLlib:
+
+.. code-block:: python
+
+        def compute_reward(self, ctx: me.Network.Context) -> float:
+            return 0.0
+
+        def encode_obs(self, ctx: me.Network.Context):
+            return np.zeros((1,))
+
+        def get_observation_space(self):
+            return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+        def get_action_space(self):
+            return gym.spaces.Box(-np.inf, np.inf, (1,))
+
     #
 
 
@@ -257,8 +280,8 @@ called directly before messages are sent across the network in each step.
         self.step_missed_sales = 0
     #
 
-The ``handle_message`` method can be split into two parts: handling messages received
-from the warehouse and handling messages received from the customer.
+The ``handle_message`` method is logically split into two parts: handling messages
+received from the warehouse and handling messages received from the customer.
 
 .. code-block:: python
 
@@ -301,10 +324,10 @@ method:
         return np.array([self.stock])
     #
 
-Likewise we define a ``decode_action`` method for taking the action from the policy and
-translating it into messages to send in the environment. Here the action taken is
-making requests to the warehouse for more stock. As with the customer action, we place
-the messages we want to send in a ``Packet`` container.
+We define a ``decode_action`` method for taking the action from the policy and
+translating it into messages to send in the environment. Here the action taken is making
+requests to the warehouse for more stock. We place the messages we want to send in a
+``Packet`` container.
 
 .. code-block:: python
 
@@ -323,17 +346,17 @@ the agents current state in the environment and send it to the policy so it can 
 .. code-block:: python
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
-        # We reward for making sales.
+        # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
-        # We impose a larger penalty for missing orders than for holding onto stock.
-        # return self.sales - self.stock - 2 * self.missed_sales
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return 5 * self.step_sales - self.step_missed_sales - self.stock
     #
 
 Each episode can be thought of as a completely independent trial for the environment.
-However creating a new environment with a new network and new actors and agents would be
-wasteful. Instead we can reset our objects back to an initial state. This is done with
-the ``reset`` method:
+However creating a new environment each time with a new network, actors and agents could
+potentially slow our simulations down a lot. Instead we can reset our objects back to an
+initial state. This is done with the ``reset`` method:
 
 .. code-block:: python
 
@@ -384,7 +407,7 @@ the number of episode steps.
 
         env_name: str = "supply-chain-v1"
 
-        def __init__(self, n_customers: int = 5, seed: int = 0):
+        def __init__(self, n_customers: int = 5):
 
 The recommended design pattern when creating your environment is to define all the actor
 and agent IDs up-front and not use hard-coded values:
@@ -425,47 +448,44 @@ network. We then use the IDs to create the connections between our agents:
             network.add_connections_between([shop_id], customer_ids)
         #
 
-Finally we make sure to initialise the parent ``PhantomEnv`` class, passing in the
-network, the number of episode steps and an optional seed value:
+Finally we make sure to initialise the parent ``PhantomEnv`` class:
 
 .. code-block:: python
 
-            super().__init__(network=network, n_steps=NUM_EPISODE_STEPS, seed=seed)
+            super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
         #
 
 
-Experiment Parameters
-^^^^^^^^^^^^^^^^^^^^^
+Training the Agents
+^^^^^^^^^^^^^^^^^^^
 
 .. figure:: /img/icons/sliders.svg
    :width: 15%
    :figclass: align-center
 
+Training the agents is done by making use of one of RLlib's many reinforcement learning
+algorithms. Phantom provides a wrapper around RLlib that hides much of the complexity.
 
-Every Phantom experiment using the standard design as described above must provide in
-the configuration script an instance of the ``PhantomParams`` class under a variable
-named ``phantom_params``.
+Training in Phantom is initiated by calling the ``ph.train`` function, passing in the
+parameters of the experiment. Any items given in the ``env_config`` dictionary will be
+passed to the initialisation method of the environment.
 
-In this we define key parameters of our experiment. The experiment name is important as
-this determines where the experiment results will be stored. Any items given in the
-``env_config`` dictionary will be passed into the initialisation method of the
-environment.
+The experiment name is important as this determines where the experiment results will be
+stored. By default experiment results are stored in a directory named `phantom-results`
+in the current user's home directory. 
 
-There are more fields available in ``PhantomParams`` than what is shown here. See
-:ref:`api_phantomparams` for full documentation.
+There are more fields available in ``ph.train`` function than what is shown here. See
+:ref:`api_utils` for full documentation.
 
 .. code-block:: python
 
-    phantom_params = ph.PhantomParams(
+    ph.train(
         experiment_name="supply-chain",
         algorithm="PPO",
         num_workers=2,
         num_episodes=10000,
         env=SupplyChainEnv,
-        env_config={
-            "n_customers": 5,
-            "seed": 0,
-        },
+        env_config=dict(n_customers=5),
     )
 
 
@@ -481,9 +501,13 @@ command:
 
 .. code-block:: bash
 
-    phantom-train path/to/config/supply-chain.py
+    phantom path/to/config.supply-chain-1.py
 
 Where we substitute ``path/to/config`` for the correct path.
+
+The ``phantom`` command is a simple wrapper around the default python interpreter but
+makes sure the ``PYHTONHASHSEED`` environment variable is set which can improve
+reproducibility.
 
 In a new terminal we can monitor the progress of the experiment live with TensorBoard:
 
@@ -492,7 +516,7 @@ In a new terminal we can monitor the progress of the experiment live with Tensor
     tensorboard --logdir ~/phantom_results/supply-chain
 
 Note the last element of the path matches the name we gave to our experiment in the
-``PhantomParams`` object.
+``ph.train`` function.
 
 Below is a screenshot of TensorBoard. By default many plots are included providing
 statistics on the experiment. You can also view the experiment progress live as it is
@@ -502,5 +526,5 @@ running in TensorBoard.
    :width: 100%
    :figclass: align-center
 
-The next part of the tutorial describes how to add your own plots to TensorBoard through
-Phantom.
+The next part of the tutorial will describe how to add your own plots to TensorBoard
+through Phantom.

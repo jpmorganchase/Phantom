@@ -1,18 +1,33 @@
-from mercury import actors
-from phantom.env import EnvironmentActor, PhantomEnv
-import pytest
+import gym
 import mercury as me
-import phantom as ph
-import unittest
 import numpy as np
+import phantom as ph
+import pytest
+import unittest
+from phantom.env import EnvironmentActor, PhantomEnv
 
 
-class MockAgent(ph.ZeroIntelligenceAgent):
+class MockAgent(ph.Agent):
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
         return ph.agent.Packet()
 
     def is_done(self, _ctx):
         return self.id == "A"
+
+    def compute_reward(self, ctx: me.Network.Context) -> float:
+        return 0.0
+
+    def encode_obs(self, ctx: me.Network.Context):
+        return np.zeros((1,))
+
+    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        return ph.Packet()
+
+    def get_observation_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+    def get_action_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
 
 
 @pytest.fixture

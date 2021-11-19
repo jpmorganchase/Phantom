@@ -1,11 +1,9 @@
-import os
 from typing import (
     Any,
     AnyStr,
     Collection,
     Dict,
     Iterable,
-    List,
     Mapping,
     NamedTuple,
     Optional,
@@ -14,19 +12,10 @@ from typing import (
 import mercury as me
 from gym.utils import seeding
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
-from termcolor import colored
 
 from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
-
-if "PYTHONHASHSEED" not in os.environ:
-    warning_string = "=============================================================\n"
-    warning_string += "WARNING: The $PYTHONHASHSEED environment variable is not set!\n"
-    warning_string += "Reproducibility may not be possible whilst this is not set.\n"
-    warning_string += "============================================================="
-
-    print(colored(warning_string, "yellow"))
 
 
 class EnvironmentActor(me.actors.SyncActor):
@@ -64,10 +53,9 @@ class PhantomEnv(MultiAgentEnv):
         network: A Mercury Network class or derived class describing the connections
             between agents and actors in the environment.
         clock: A Phantom Clock defining the episode length and episode step size.
+        n_steps: Alternative to providing a Clock instance.
         environment_actor: An optional actor that has access to global environment
             information.
-        policy_grouping: A mapping between custom policy name and list of agents
-            sharing the policy (optional).
         seed: A random number generator seed to use (optional).
     """
 
@@ -87,7 +75,6 @@ class PhantomEnv(MultiAgentEnv):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        policy_grouping: Optional[Mapping[str, List[str]]] = None,
         seed: Optional[int] = None,
     ) -> None:
         if clock is None:
@@ -100,7 +87,6 @@ class PhantomEnv(MultiAgentEnv):
 
         self.network: me.Network = network
         self.clock: Clock = clock
-        self.policy_grouping: Optional[Mapping[str, List[str]]] = policy_grouping
         self.agents: Dict[me.ID, Agent] = {
             aid: actor
             for aid, actor in network.actors.items()

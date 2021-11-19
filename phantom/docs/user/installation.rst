@@ -16,9 +16,7 @@ The main requirements for running Phantom are a modern Python installation
 A list of Python packages required by Phantom is given in the ``requirements.txt``
 file. Mercury should be installed by downloading the source code and installing the
 package manually. The rest of the packages can be installed by running from the
-Phantom project root directory:
-
-.. code-block:: bash
+Phantom project root directory::
 
     python -m pip install -r requirements.txt
 
@@ -26,13 +24,11 @@ Phantom project root directory:
 Get the Source Code
 -------------------
 
-Phantom is actively developed on CodeCommit on the L1 Sandbox, where the code is `available
-<https://us-east-2.console.aws.amazon.com/codesuite/codecommit/repositories/phantom-core/browse>`_
-internally to JP Morgan employees.
+Phantom is actively developed at `GitHub <https://github.com/jpmorganchase/Phantom>`_.
 
 You can clone the public repository using the command::
 
-    $ git clone https://<AWS-CC>/v1/repos/phantom-core phantom
+    $ git clone https://github.com/jpmorganchase/Phantom
 
 Once you have a copy of the source, you can install it however you like using
 setup.py. For convenience, we provide a Makefile with some helpers for

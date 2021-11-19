@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
 from typing import Any, AnyStr, Dict, Mapping, Optional, Type, TypeVar, Union
 
 import mercury as me
 import numpy as np
-from gym.spaces import Box, Discrete, Space
+import gym.spaces
+from ray import rllib
 
 from .decoders import Decoder
 from .encoders import Encoder
@@ -11,8 +13,92 @@ from .packet import Packet, Mutation
 from .rewards import RewardFunction
 
 
+ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
+
+
+@dataclass
 class AgentType(ABC):
-    pass
+    """
+    Abstract base class representing Agent Types.
+    """
+
+    def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
+        """
+        Converts the parameters of the AgentType into a dict for use in observation
+        spaces.
+        """
+
+        def _to_compatible_type(field: str, obj: Any) -> ObsSpaceCompatibleTypes:
+            if isinstance(obj, dict):
+                return {
+                    key: _to_compatible_type(key, value) for key, value in obj.items()
+                }
+            elif isinstance(obj, (float, int)):
+                return np.array([obj])
+            elif isinstance(obj, list):
+                return [
+                    _to_compatible_type(f"{field}[{i}]", value)
+                    for i, value in enumerate(obj)
+                ]
+            elif isinstance(obj, tuple):
+                return tuple(
+                    _to_compatible_type(f"{field}[{i}]", value)
+                    for i, value in enumerate(obj)
+                )
+            elif isinstance(obj, np.ndarray):
+                return obj
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(obj)}' into obs space compatible type"
+                )
+
+        return {
+            name: _to_compatible_type(name, value)
+            for name, value in asdict(self).items()
+        }
+
+    def to_obs_space(self, low=-np.inf, high=np.inf) -> gym.spaces.Space:
+        """
+        Converts the parameters of the AgentType into a `gym.spaces.Space` representing
+        the space.
+
+        All elements of the space span the same range given by the `low` and `high`
+        arguments.
+
+        Arguments:
+            low: Optional 'low' bound for the space (default is -∞)
+            high: Optional 'high' bound for the space (default is ∞)
+        """
+
+        def _to_obs_space(field: str, obj: Any) -> gym.spaces.Space:
+            if isinstance(obj, dict):
+                return gym.spaces.Dict(
+                    {key: _to_obs_space(key, value) for key, value in obj.items()}
+                )
+            elif isinstance(obj, float):
+                return gym.spaces.Box(low, high, (1,), np.float32)
+            elif isinstance(obj, int):
+                return gym.spaces.Box(low, high, (1,), np.float32)
+            elif isinstance(obj, (list, tuple)):
+                return gym.spaces.Tuple(
+                    [
+                        _to_obs_space(f"{field}[{i}]", value)
+                        for i, value in enumerate(obj)
+                    ]
+                )
+            elif isinstance(obj, np.ndarray):
+                return gym.spaces.Box(low, high, obj.shape, np.float32)
+            else:
+                raise ValueError(
+                    f"Can't encode field '{field}' with type '{type(obj)}' into gym.spaces.Space"
+                )
+
+        return gym.spaces.Dict(
+            {
+                field: _to_obs_space(field, value)
+                for field, value in asdict(self).items()
+            }
+        )
 
 
 A = TypeVar("A", bound=AgentType)
@@ -61,7 +147,7 @@ class Agent(me.actors.SimpleSyncActor):
         obs_encoder: The observation encoder of the agent (optional).
         action_decoder: The action decoder of the agent (optional).
         reward_function: The reward function of the agent (optional).
-        policy_type: The policy type of the agent (optional).
+        policy_class: The policy type of the agent (optional).
         policy_config: The policy config of the agent (optional).
         supertype: The supertype of the agent (optional).
     """
@@ -72,7 +158,7 @@ class Agent(me.actors.SimpleSyncActor):
         obs_encoder: Optional[Encoder] = None,
         action_decoder: Optional[Decoder] = None,
         reward_function: Optional[RewardFunction] = None,
-        policy_type: Optional[Union[str, Type]] = None,
+        policy_class: Union[str, rllib.Policy, None] = None,
         policy_config: Optional[Mapping] = None,
         supertype: Optional[Supertype] = None,
     ) -> None:
@@ -81,7 +167,7 @@ class Agent(me.actors.SimpleSyncActor):
         self.obs_encoder: Optional[Encoder] = obs_encoder
         self.action_decoder: Optional[Decoder] = action_decoder
         self.reward_function: Optional[RewardFunction] = reward_function
-        self.policy_type: Optional[Union[str, Type]] = policy_type
+        self.policy_class: Union[str, rllib.Policy, None] = policy_class
         self.policy_config: Optional[Mapping] = policy_config
 
         self.supertype: Supertype = (
@@ -207,7 +293,7 @@ class Agent(me.actors.SimpleSyncActor):
 
         super().reset()
 
-    def get_observation_space(self) -> Space:
+    def get_observation_space(self) -> gym.spaces.Space:
         """
         Returns the gym observation space of this agent.
         """
@@ -218,7 +304,7 @@ class Agent(me.actors.SimpleSyncActor):
 
         return self.obs_encoder.output_space
 
-    def get_action_space(self) -> Space:
+    def get_action_space(self) -> gym.spaces.Space:
         """
         Returns the gym action space of this agent.
         """
@@ -228,30 +314,3 @@ class Agent(me.actors.SimpleSyncActor):
             )
 
         return self.action_decoder.action_space
-
-
-class ZeroIntelligenceAgent(Agent, ABC):
-    """
-    Boilerplate for building agents that take actions but do not learn a policy,
-    do not make observations and do not compute a reward.
-
-    This class should be subclassed and the `decode_action` method implemented.
-    """
-
-    def __init__(self, agent_id: me.ID) -> None:
-        super().__init__(agent_id)
-
-    def compute_reward(self, ctx: me.Network.Context) -> float:
-        return 0.0
-
-    def encode_obs(self, ctx: me.Network.Context):
-        return np.zeros((1,))
-
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        raise NotImplementedError
-
-    def get_observation_space(self):
-        return Box(-np.inf, np.inf, (1,))
-
-    def get_action_space(self):
-        return Discrete(1)

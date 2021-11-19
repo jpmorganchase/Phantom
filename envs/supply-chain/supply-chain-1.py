@@ -1,8 +1,16 @@
+import sys
+
+import coloredlogs
 import gym
 import mercury as me
 import numpy as np
 import phantom as ph
 
+
+coloredlogs.install(
+    level="INFO",
+    fmt="(pid=%(process)d) %(levelname)s %(name)s %(message)s",
+)
 
 NUM_EPISODE_STEPS = 100
 
@@ -10,25 +18,43 @@ SHOP_MAX_STOCK = 100_000
 SHOP_MAX_STOCK_REQUEST = 1000
 
 
-class CustomerAgent(ph.ZeroIntelligenceAgent):
+class CustomerPolicy(ph.FixedPolicy):
+    # The size of the order made for each customer is determined by this fixed policy.
+    def compute_action(self, obs) -> np.ndarray:
+        return np.random.poisson(5, size=(1,))
+
+
+class CustomerAgent(ph.Agent):
     def __init__(self, agent_id: str, shop_id: str):
-        super().__init__(agent_id)
+        super().__init__(agent_id, policy_class=CustomerPolicy)
 
         # We need to store the shop's ID so we can send order requests to it.
         self.shop_id: str = shop_id
-
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # At the start of each step we generate an order with a random size to
-        # send to the shop.
-        order_size = np.random.poisson(5)
-
-        # We perform this action by sending a stock request message to the warehouse.
-        return ph.packet.Packet(messages={self.shop_id: [order_size]})
 
     def handle_message(self, ctx: me.Network.Context, msg: me.Message):
         # The customer will receive it's order from the shop but we do not need
         # to take any actions on it.
         yield from ()
+
+    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        # At the start of each step we generate an order with a random size (determined)
+        # by the policy) to send to the shop.
+        order_size = action[0]
+
+        # We perform this action by sending a stock request message to the warehouse.
+        return ph.packet.Packet(messages={self.shop_id: [order_size]})
+
+    def compute_reward(self, ctx: me.Network.Context) -> float:
+        return 0.0
+
+    def encode_obs(self, ctx: me.Network.Context):
+        return np.zeros((1,))
+
+    def get_observation_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
+
+    def get_action_space(self):
+        return gym.spaces.Box(-np.inf, np.inf, (1,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
@@ -105,10 +131,10 @@ class ShopAgent(ph.Agent):
         return ph.packet.Packet(messages={self.warehouse_id: [stock_to_request]})
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
-        # We reward for making sales.
+        # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
-        # We impose a larger penalty for missing orders than for holding onto stock.
-        # return self.sales - self.stock - 2 * self.missed_sales
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return 5 * self.step_sales - self.step_missed_sales - self.stock
 
     def reset(self):
@@ -129,7 +155,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
     env_name: str = "supply-chain-v1"
 
-    def __init__(self, n_customers: int = 5, seed: int = 0):
+    def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
         shop_id = "SHOP"
         warehouse_id = "WAREHOUSE"
@@ -151,14 +177,24 @@ class SupplyChainEnv(ph.PhantomEnv):
         # Connect the shop to the customers
         network.add_connections_between([shop_id], customer_ids)
 
-        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS, seed=seed)
+        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
 
 
-phantom_params = ph.PhantomParams(
-    experiment_name="supply-chain",
-    algorithm="PPO",
-    num_workers=4,
-    num_episodes=100,
-    env=SupplyChainEnv,
-    env_config={"n_customers": 5, "seed": 0},
-)
+if sys.argv[1].lower() == "train":
+    ph.train(
+        experiment_name="supply-chain-1",
+        algorithm="PPO",
+        num_workers=4,
+        num_episodes=100,
+        env=SupplyChainEnv,
+        env_config={"n_customers": 5},
+    )
+
+elif sys.argv[1].lower() == "rollout":
+    ph.rollout(
+        directory="/home/ubuntu/phantom_results/supply-chain-1/LATEST",
+        algorithm="PPO",
+        num_workers=1,
+        num_rollouts=10,
+        env_config={"n_customers": 5},
+    )

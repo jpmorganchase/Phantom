@@ -1,13 +1,12 @@
 from abc import abstractmethod, abstractproperty, ABC
 from itertools import chain
-from typing import Any, Generic, Iterable, List, Tuple, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, Mapping, Tuple, TypeVar
 
 import numpy as np
-from gym.spaces import Space, Tuple as GymTuple, Box
-
+from gym.spaces import Box, Space, Dict as GymDict, Tuple as GymTuple
 from mercury import Network
 
-from ..packet import Packet
+from .packet import Packet
 
 
 Action = TypeVar("Action")
@@ -109,4 +108,42 @@ class ChainedDecoder(Decoder[Tuple]):
 
     def reset(self):
         for decoder in self.decoders:
+            decoder.reset()
+
+
+class DictDecoder(Decoder[Dict[str, Any]]):
+    """Combines n decoders into a single decoder with a dict action space.
+
+    Attributes:
+        decoders: A mapping of decoder names to decoders.
+    """
+
+    def __init__(self, decoders: Mapping[str, Decoder]):
+        self.decoders: Dict[str, Decoder] = dict(decoders)
+
+    @property
+    def action_space(self) -> Space:
+        return GymDict(
+            {name: decoder.action_space for name, decoder in self.decoders.items()}
+        )
+
+    def decode(self, ctx: Network.Context, action: Dict[str, Any]) -> Packet:
+        packet = Packet()
+
+        for name, decoder in self.decoders.items():
+            new_packet = decoder.decode(ctx, action[name])
+
+            packet.mutations = chain(packet.mutations, new_packet.mutations)
+
+            for aid, ms in new_packet.messages.items():
+                if aid in packet.messages:
+                    packet.messages[aid] = chain(packet.messages[aid], ms)
+
+                else:
+                    packet.messages[aid] = ms
+
+        return packet
+
+    def reset(self):
+        for decoder in self.decoders.values():
             decoder.reset()

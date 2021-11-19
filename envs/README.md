@@ -5,10 +5,10 @@ This directory contains a collection of sample environments for the Phantom fram
 
 ## Simple Market
 
-A simple market environment with buyers whose utility depends on their private value for the good
-and sellers with infinite supply and no inventory cost. The environment has a second version - a "leaky"
-simple market environment where a "leaky buyer" shares the price of a targeted "victim seller" with an adversarial
-seller.
+A simple market environment with buyers whose utility depends on their private value for
+the good and sellers with infinite supply and no inventory cost. The environment has a
+second version - a "leaky" simple market environment where a "leaky buyer" shares the
+price of a targeted "victim seller" with an adversarial seller.
 
 ## Supply Chain
 
@@ -29,6 +29,6 @@ such as shared policies, metrics and supertypes.
 
 ## Digital Ads Market
 
-An environment simulating the Digital Ads Market where a single publisher sells impressions
-to eight advertisers via an ad exchange. The goal is for the publisher to learn the optimal
-bidding strategy maximizing the number of clicks they get on their ads.
+An environment simulating the Digital Ads Market where a single publisher sells
+impressions to eight advertisers via an ad exchange. The goal is for the publisher to
+learn the optimal bidding strategy maximizing the number of clicks they get on their ads.
