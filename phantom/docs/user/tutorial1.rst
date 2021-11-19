@@ -156,8 +156,8 @@ learn - and so we can use a ``FixedPolicy`` derived class to define this simple 
 
     class CustomerPolicy(ph.FixedPolicy):
         # The size of the order made for each customer is determined by this fixed policy.
-        def compute_action(self, obs) -> int:
-            return np.random.poisson(5)
+        def compute_action(self, obs) -> np.ndarray:
+            return np.random.poisson(5, size=(1,))
 
 Next we define the customer agent class. We make sure to set the policy to be our
 custom fixed policy.
@@ -280,8 +280,8 @@ called directly before messages are sent across the network in each step.
         self.step_missed_sales = 0
     #
 
-The ``handle_message`` method can be split into two parts: handling messages received
-from the warehouse and handling messages received from the customer.
+The ``handle_message`` method is logically split into two parts: handling messages
+received from the warehouse and handling messages received from the customer.
 
 .. code-block:: python
 
@@ -324,10 +324,10 @@ method:
         return np.array([self.stock])
     #
 
-Likewise we define a ``decode_action`` method for taking the action from the policy and
-translating it into messages to send in the environment. Here the action taken is
-making requests to the warehouse for more stock. As with the customer action, we place
-the messages we want to send in a ``Packet`` container.
+We define a ``decode_action`` method for taking the action from the policy and
+translating it into messages to send in the environment. Here the action taken is making
+requests to the warehouse for more stock. We place the messages we want to send in a
+``Packet`` container.
 
 .. code-block:: python
 
@@ -346,17 +346,17 @@ the agents current state in the environment and send it to the policy so it can 
 .. code-block:: python
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
-        # We reward for making sales.
+        # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
-        # We impose a larger penalty for missing orders than for holding onto stock.
-        # return self.sales - self.stock - 2 * self.missed_sales
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return 5 * self.step_sales - self.step_missed_sales - self.stock
     #
 
 Each episode can be thought of as a completely independent trial for the environment.
-However creating a new environment with a new network and new actors and agents would be
-wasteful. Instead we can reset our objects back to an initial state. This is done with
-the ``reset`` method:
+However creating a new environment each time with a new network, actors and agents could
+potentially slow our simulations down a lot. Instead we can reset our objects back to an
+initial state. This is done with the ``reset`` method:
 
 .. code-block:: python
 

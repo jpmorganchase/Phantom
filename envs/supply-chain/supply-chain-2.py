@@ -121,6 +121,10 @@ class ShopRewardFunction(ph.RewardFunction):
         self.missed_sales_weight = missed_sales_weight
 
     def reward(self, ctx: me.Network.Context) -> float:
+        # We reward the agent for making sales.
+        # We penalise the agent for holding onto stock and for missing orders.
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return (
             5 * ctx.actor.step_sales
             - self.missed_sales_weight * ctx.actor.step_missed_sales

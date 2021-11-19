@@ -20,8 +20,8 @@ SHOP_MAX_STOCK_REQUEST = 1000
 
 class CustomerPolicy(ph.FixedPolicy):
     # The size of the order made for each customer is determined by this fixed policy.
-    def compute_action(self, obs) -> int:
-        return np.random.poisson(5)
+    def compute_action(self, obs) -> np.ndarray:
+        return np.random.poisson(5, size=(1,))
 
 
 class CustomerAgent(ph.Agent):
@@ -131,10 +131,10 @@ class ShopAgent(ph.Agent):
         return ph.packet.Packet(messages={self.warehouse_id: [stock_to_request]})
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
-        # We reward for making sales.
+        # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
-        # We impose a larger penalty for missing orders than for holding onto stock.
-        # return self.sales - self.stock - 2 * self.missed_sales
+        # We give a bigger reward for making sales than the penalty for missed sales and
+        # unused stock.
         return 5 * self.step_sales - self.step_missed_sales - self.stock
 
     def reset(self):
