@@ -234,6 +234,9 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             self.network.send_from(aid, packet.messages)
 
         handler = self._stages[self.current_stage].handler
+
+        assert handler is not None
+
         if hasattr(handler, "__self__"):
             # If the FSMStage is defined with the stage definitions the handler will be
             # a bound method of the env class.

@@ -31,6 +31,7 @@ Phantom
     api/env
     api/fsm_env
     api/logging
+    api/policy
     api/rewards
     api/supertypes
     api/tracker

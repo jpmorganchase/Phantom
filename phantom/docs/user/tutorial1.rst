@@ -448,8 +448,7 @@ network. We then use the IDs to create the connections between our agents:
             network.add_connections_between([shop_id], customer_ids)
         #
 
-Finally we make sure to initialise the parent ``PhantomEnv`` class, passing in the
-network, the number of episode steps and an optional seed value:
+Finally we make sure to initialise the parent ``PhantomEnv`` class:
 
 .. code-block:: python
 

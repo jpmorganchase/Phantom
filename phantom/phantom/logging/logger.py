@@ -30,7 +30,7 @@ class Logger:
     # TODO: The efficiency of this class could be drastically improved by pre-allocating
     # memory for the lists. Consider replacing lists with numpy arrays.
 
-    def __init__(self, metrics: Optional[Mapping[str, Metric]] = None):
+    def __init__(self, metrics: Optional[Mapping[me.ID, Metric]] = None):
         self.metrics: Dict[me.ID, Metric] = dict(metrics or {})
         self.logs: _defaultdict = _defaultdict(list)
 

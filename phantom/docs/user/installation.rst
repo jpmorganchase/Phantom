@@ -24,7 +24,7 @@ Phantom project root directory::
 Get the Source Code
 -------------------
 
-Phantom is actively developed on `GitHub <https://github.com/jpmorganchase/Phantom>`_.
+Phantom is actively developed at `GitHub <https://github.com/jpmorganchase/Phantom>`_.
 
 You can clone the public repository using the command::
 

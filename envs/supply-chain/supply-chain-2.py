@@ -255,10 +255,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
         clock = ph.Clock(0, NUM_EPISODE_STEPS, 1)
 
-        super().__init__(
-            network=network,
-            clock=clock,
-        )
+        super().__init__(network=network, clock=clock)
 
 
 class StockMetric(ph.logging.Metric[float]):

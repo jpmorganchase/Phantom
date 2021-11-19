@@ -12,6 +12,7 @@ import gym
 import mercury as me
 import ray
 from ray import tune
+from ray import rllib
 
 # Enable with Ray 1.7.0:
 # from ray.rllib.policy.policy import PolicySpec
@@ -278,8 +279,8 @@ def train(
 
 def create_rllib_config_dict(
     env_class: Type[PhantomEnv],
-    alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
+    alg_config: Mapping[str, Any],
     env_supertype: Optional[BaseSupertype],
     agent_supertypes: Mapping[me.ID, BaseSupertype],
     samplers: List[BaseSampler],
@@ -323,7 +324,13 @@ def create_rllib_config_dict(
 
     if policy_grouping is not None:
         custom_policies: Dict[
-            me.ID, Tuple[Optional[Type[rllib.Policy]], Any, Any, Mapping[Any, Any]]
+            me.ID,
+            Tuple[
+                Optional[Type[rllib.Policy]],
+                gym.spaces.Space,
+                gym.spaces.Space,
+                Mapping[Any, Any],
+            ],
         ] = {}
         custom_policies_to_train = []
         mapping = {}

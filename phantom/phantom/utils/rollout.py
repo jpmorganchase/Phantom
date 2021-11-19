@@ -119,6 +119,7 @@ def rollout(
         - If result_mapping_fn is not None: A list of the outputs from the
             result_mapping_fn function.
 
+
     NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
     command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
     the Python interpreter to run this code. Not setting this may lead to

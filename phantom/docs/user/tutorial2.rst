@@ -128,34 +128,34 @@ To do this we make several modifications to the code:
 
 .. code-block:: python
 
-    def __init__(self, agent_id: str, shop_ids: List[str]):
-        super().__init__(
-            agent_id,
-            policy_class=CustomerPolicy,
-            # The CustomerPolicy needs to know how many shops there are so it can return
-            # a valid choice.
-            policy_config=dict(n_shops=len(shop_ids)),
-        )
+    class CustomerAgent(ph.Agent):
+        def __init__(self, agent_id: str, shop_ids: List[str]):
+            super().__init__(
+                agent_id,
+                policy_class=CustomerPolicy,
+                # The CustomerPolicy needs to know how many shops there are so it can
+                return a valid choice.
+                policy_config=dict(n_shops=len(shop_ids)),
+            )
 
-        # We need to store the shop IDs so we can send order requests to them.
-        self.shop_ids: List[str] = shop_ids
+            # We need to store the shop IDs so we can send order requests to them.
+            self.shop_ids: List[str] = shop_ids
 
 * We change the ``decode_action`` method to pick a shop at random and place an order at
   that shop each step.
 
 .. code-block:: python
 
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # At the start of each step we generate an order with a random size to
-        # send to a random shop.
-        order_size = action[0]
-        shop_id = self.shop_ids[int(action[1])]
+        def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+            # At the start of each step we generate an order with a random size to
+            # send to a random shop.
+            order_size = action[0]
+            shop_id = self.shop_ids[int(action[1])]
 
-        # We perform this action by sending a stock request message to the warehouse.
-        return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
+            # We perform this action by sending a stock request message to the warehouse.
+            return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
 
         ...
-
 
 * We modify the ``CustomerPolicy`` class to accept the list of shop ID's now given to it
   from the ``CustomerAgent`` and make a random selection on which shop to choose:
@@ -173,7 +173,10 @@ To do this we make several modifications to the code:
         def compute_action(self, obs) -> np.ndarray:
             return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> develop
 * We modify the environment to create multiple shop agents like we did previously with
   the customer agents. We make sure all customers are connected to all shops.
 
@@ -295,7 +298,7 @@ Next we modify our ``SupplyChainEnv`` to allow the creation of a mix of shop typ
 
         env_name: str = "supply-chain-v2"
 
-        def __init__(self, n_customers: int = 5):
+        def __init__(self, n_customers: int = 5,):
             ...
 
             shop_t1_ids = [f"SHOP_T1_{i+1}" for i in range(NUM_SHOPS_TYPE_1)]
