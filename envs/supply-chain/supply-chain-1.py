@@ -20,8 +20,8 @@ SHOP_MAX_STOCK_REQUEST = 1000
 
 class CustomerPolicy(ph.FixedPolicy):
     # The size of the order made for each customer is determined by this fixed policy.
-    def compute_action(self, obs) -> int:
-        return np.random.poisson(5)
+    def compute_action(self, obs) -> np.ndarray:
+        return np.random.poisson(5, size=(1,))
 
 
 class CustomerAgent(ph.Agent):
