@@ -7,11 +7,8 @@ Part 1 of the tutorial showed how to set up a simple Phantom experiment. This ne
 covers some additional features of Phantom that will help make your experiments even
 better!
 
-The complete finished code for this tutorial can be found in the ``supply-chain-2.py``
-script in the ``phantom-environments`` repository.
-
-..
-    TODO: add link to phantom-environments repository
+The complete finished code for this tutorial can be found in the ``envs`` directory in
+the Phantom repo.
 
 
 Metrics
@@ -50,25 +47,24 @@ get its ``stock`` property.
 Metrics should not make any modification to the environment or any objects within it -
 they should be completely passive.
 
-We then register our metric using the ``metrics`` property on the ``TrainingParams``
-object. The name can be whatever the user wants however it is sensible to include the
-name of the agent and the property that is being measured, eg. ``stock/SHOP``.
+We then register our metric using the ``metrics`` property on the ``ph.train`` function.
+The name can be whatever the user wants however it is sensible to include the name of
+the agent and the property that is being measured, eg. ``stock/SHOP``.
 
 .. code-block:: python
 
-    training_params = ph.TrainingParams(
+    metrics = {
+        "stock/SHOP": StockMetric("SHOP"),
+    }
+
+    ph.train(
         experiment_name="supply-chain",
         algorithm="PPO",
         num_workers=15,
         num_episodes=1000,
         env=SupplyChainEnv,
-        env_config={
-            "n_customers": 5,
-            "seed": 0,
-        },
-        metrics={
-            "stock/SHOP": StockMetric("SHOP"),
-        }
+        env_config=dict(n_customers=5),
+        metrics=metrics,
     )
 
 
@@ -112,11 +108,7 @@ We can do this by creating our own Clock object and then passing it to the
 
             clock = ph.Clock(0, NUM_EPISODE_STEPS, 1)
 
-            super().__init__(
-                network=network,
-                clock=clock,
-                seed=seed,
-            )
+            super().__init__(network=network, clock=clock)
 
 Shared Policies
 ---------------
@@ -131,29 +123,52 @@ look like the following:
 To do this we make several modifications to the code:
 
 * We modify the ``CustomerAgent`` to accept a list of shop IDs rather than a single
-  shop ID. We also change the ``decode_action`` method to pick a shop at random and
-  place an order at that shop each step.
+  shop ID. The policy will be expanded to also decide which shop to allocate orders to.
+  The action space of the policy will now be of size 2: the order size and shop index.
 
 .. code-block:: python
 
-    class CustomerAgent(ph.ZeroIntelligenceAgent):
+    class CustomerAgent(ph.Agent):
         def __init__(self, agent_id: str, shop_ids: List[str]):
-            super().__init__(agent_id)
+            super().__init__(
+                agent_id,
+                policy_class=CustomerPolicy,
+                # The CustomerPolicy needs to know how many shops there are so it can
+                return a valid choice.
+                policy_config=dict(n_shops=len(shop_ids)),
+            )
 
-            # We need to store the shop IDs so we can send order requests to them.
-            self.shop_ids: List[str] = shop_ids
+* We change the ``decode_action`` method to pick a shop at random and place an order at
+  that shop each step.
+
+.. code-block:: python
 
         def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
             # At the start of each step we generate an order with a random size to
             # send to a random shop.
-            order_size = np.random.poisson(5)
-
-            shop_id = np.random.choice(self.shop_ids)
+            order_size = action[0]
+            shop_id = self.shop_ids[int(action[1])]
 
             # We perform this action by sending a stock request message to the warehouse.
-            return ph.packet.Packet(messages={shop_id: [order_size]})
+            return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
 
         ...
+
+* We modify the ``CustomerPolicy`` class to accept the list of shop ID's now given to it
+  from the ``CustomerAgent`` and make a random selection on which shop to choose:
+
+.. code-block:: python
+
+    class CustomerPolicy(ph.FixedPolicy):
+        # The size of the order made and the choice of shop to make the order to for each
+        # customer is determined by this fixed policy.
+        def __init__(self, obs_space, action_space, config):
+            super().__init__(obs_space, action_space, config)
+
+            self.n_shops = config["n_shops"]
+
+        def compute_action(self, obs) -> np.ndarray:
+            return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
 
 * We modify the environment to create multiple shop agents like we did previously with
   the customer agents. We make sure all customers are connected to all shops.
@@ -203,10 +218,9 @@ policy:
             super().__init__(
                 network=network,
                 clock=clock,
-                seed=seed,
-                policy_grouping={
-                    "shared_SHOP_policy": shop_ids,
-                },
+                policy_grouping=dict(
+                    shared_SHOP_policy=shop_ids
+                )
             )
     #
 
@@ -277,11 +291,7 @@ Next we modify our ``SupplyChainEnv`` to allow the creation of a mix of shop typ
 
         env_name: str = "supply-chain-v2"
 
-        def __init__(
-            self,
-            n_customers: int = 5,
-            seed: int = 0,
-        ):
+        def __init__(self, n_customers: int = 5,):
             ...
 
             shop_t1_ids = [f"SHOP_T1_{i+1}" for i in range(NUM_SHOPS_TYPE_1)]
@@ -462,9 +472,3 @@ the type of the message payload we want to handle:
 
 We can define as many of these handlers as we want. See the code example for a full
 implementation of this.
-
-
-Ray Tune Hyperparameters
-------------------------
-
-TODO
