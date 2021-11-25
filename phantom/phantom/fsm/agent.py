@@ -11,7 +11,7 @@ from typing import (
 import mercury as me
 
 from ..agent import Agent
-from .types import StageID
+from .typedefs import StageID
 
 if TYPE_CHECKING:
     from .handlers import StagePolicyHandler

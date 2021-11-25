@@ -19,8 +19,8 @@ from ..clock import Clock
 from ..env import EnvironmentActor, PhantomEnv
 from ..packet import Mutation
 
-from ..types import PolicyID
-from .types import EnvStageHandler, StageID
+from ..typedefs import PolicyID
+from .typedefs import EnvStageHandler, StageID
 
 logger = logging.getLogger(__name__)
 

@@ -23,7 +23,7 @@ from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..policy import FixedPolicy
 from ..policy_wrapper import PolicyWrapper
-from ..types import PolicyID
+from ..typedefs import PolicyID
 from . import find_most_recent_results_dir, show_pythonhashseed_warning
 
 
@@ -195,6 +195,12 @@ def create_rllib_config_dict(
     except:
         env = env_class()
 
+    def is_trained(policy_class=Optional[Type[rllib.Policy]]) -> bool:
+        # To find out if policy_class is an subclass of FixedPolicy normally
+        # would use isinstance() but since policy_class is a class and not
+        # an instance this doesn't work.
+        return policy_class is None or FixedPolicy not in policy_class.__mro__
+
     ma_config: Dict[str, Any] = {}
 
     policies: List[PolicyWrapper] = []
@@ -202,47 +208,71 @@ def create_rllib_config_dict(
     policy_mapping: Dict[PolicyID, Union[PolicyID, me.ID]] = {}
 
     if policy_grouping != {}:
-        for shared_policy_name, agent_ids in policy_grouping.items():
-            if len(agent_ids) == 0:
+        for shared_policy_name, ids in policy_grouping.items():
+            if len(ids) == 0:
                 raise ValueError(
                     f"Shared policy grouping '{shared_policy_name}' must have at least one agent using it"
                 )
 
-            policy_class = env.agents[agent_ids[0]].policy_class
-            policy_config = env.agents[agent_ids[0]].policy_config
-            obs_space = env.agents[agent_ids[0]].get_observation_space()
-            action_space = env.agents[agent_ids[0]].get_action_space()
+            policy_classes = []
+            policy_configs = []
+            obs_spaces = []
+            action_spaces = []
 
-            for agent_id in agent_ids[1:]:
-                if env.agents[agent_id].policy_class != policy_class:
-                    raise ValueError(
-                        f"All agents in shared policy grouping '{shared_policy_name}' must have same policy class (got '{policy_class}' and '{env.agents[agent_ids].policy_class}')"
-                    )
+            used_by = []
 
-                if env.agents[agent_id].policy_config != policy_config:
-                    raise ValueError(
-                        f"All agents in shared policy grouping '{shared_policy_name}' must have same policy config (got '{policy_config}' and '{env.agents[agent_ids].policy_config}')"
-                    )
+            for agent_or_stage_id in ids:
+                if agent_or_stage_id in env.agents:
+                    agent_id = agent_or_stage_id
+                    used_by.append(agent_id)
+                    agent = env.agents[agent_id]
 
-                if env.agents[agent_id].get_observation_space() != obs_space:
-                    raise ValueError(
-                        f"All agents in shared policy grouping '{shared_policy_name}' must have same observation space (got '{obs_space}' and '{env.agents[agent_ids].obs_space}')"
-                    )
+                    policy_classes.append(agent.policy_class)
+                    policy_configs.append(agent.policy_config)
+                    obs_spaces.append(agent.get_observation_space())
+                    action_spaces.append(agent.get_action_space())
+                else:
+                    elems = agent_or_stage_id.split("__")
+                    if len(elems) != 2:
+                        raise Exception
 
-                if env.agents[agent_id].get_action_space() != action_space:
-                    raise ValueError(
-                        f"All agents in shared policy grouping '{shared_policy_name}' must have same action space (got '{action_space}' and '{env.agents[agent_ids].action_space}')"
-                    )
+                    agent_id, stage_id = elems
+                    agent = env.agents[agent_id]
+                    used_by.append((agent_id, stage_id))
+                    handler = agent.stage_handler_map[agent_or_stage_id]
+
+                    policy_classes.append(handler.policy_class)
+                    policy_configs.append(handler.policy_config)
+                    obs_spaces.append(handler.get_observation_space(agent))
+                    action_spaces.append(handler.get_action_space(agent))
+
+            if not all(x == policy_classes[0] for x in policy_classes):
+                raise ValueError(
+                    f"All agents in shared policy grouping '{shared_policy_name}' must have same policy class (got '{policy_classes[0]}' and '{policy_classes[1]}')"
+                )
+
+            if not all(x == policy_configs[0] for x in policy_configs):
+                raise ValueError(
+                    f"All agents in shared policy grouping '{shared_policy_name}' must have same policy config (got '{policy_configs[0]}' and '{policy_configs[1]}')"
+                )
+
+            if not all(x == obs_spaces[0] for x in obs_spaces):
+                raise ValueError(
+                    f"All agents in shared policy grouping '{shared_policy_name}' must have same observation space (got '{obs_spaces[0]}' and '{obs_spaces[1]}')"
+                )
+
+            if not all(x == action_spaces[0] for x in action_spaces):
+                raise ValueError(
+                    f"All agents in shared policy grouping '{shared_policy_name}' must have same action space (got '{action_spaces[0]}' and '{action_spaces[1]}')"
+                )
 
             policy_wrapper = PolicyWrapper(
-                # TODO: add support for stages
-                used_by=agent_ids,
-                # TODO: check if trained
-                trained=True,
-                obs_space=obs_space,
-                action_space=action_space,
-                policy_class=policy_class,
-                policy_config=policy_config,
+                used_by=used_by,
+                trained=is_trained(policy_classes[0]),
+                obs_space=obs_spaces[0],
+                action_space=action_spaces[0],
+                policy_class=policy_classes[0],
+                policy_config=policy_configs[0],
                 shared_policy_name=shared_policy_name,
             )
 
@@ -250,10 +280,12 @@ def create_rllib_config_dict(
 
             policy_id = policy_wrapper.get_name()
 
-            for agent_id in agent_ids:
-                policy_mapping[agent_id] = policy_id
+            for id in ids:
+                policy_mapping[id] = policy_id
 
             policies_to_train.append(policy_id)
+
+    print(policy_mapping)
 
     for agent_id, agent in env.agents.items():
         if agent_id in map(str, policy_mapping.values()):
@@ -264,21 +296,19 @@ def create_rllib_config_dict(
         if isinstance(agent, FSMAgent):
             for stage_ids, stage_handler in agent.stage_handlers:
                 if isinstance(stage_handler, StagePolicyHandler):
-                    # Ignore this agent if it has already been included via a shared policy
-                    if agent_id in policy_mapping:
-                        continue
-
-                    # To find out if policy_class is an subclass of FixedPolicy normally
-                    # would use isinstance() but since policy_class is a class and not
-                    # an instance this doesn't work.
-                    trained = (
-                        stage_handler.policy_class is None
-                        or FixedPolicy not in stage_handler.policy_class.__mro__
+                    policy_name = (
+                        agent_id
+                        + "__"
+                        + "+".join(str(stage_id) for stage_id in stage_ids)
                     )
+
+                    # Ignore this agent if it has already been included via a shared policy
+                    if policy_name in policy_mapping:
+                        continue
 
                     policy_wrapper = PolicyWrapper(
                         used_by=[(agent_id, stage_id) for stage_id in stage_ids],
-                        trained=trained,
+                        trained=is_trained(agent.policy_class),
                         obs_space=stage_handler.get_observation_space(agent),
                         action_space=stage_handler.get_action_space(agent),
                         policy_class=stage_handler.policy_class,
@@ -296,17 +326,9 @@ def create_rllib_config_dict(
             if agent_id in policy_mapping:
                 continue
 
-            # To find out if policy_class is an subclass of FixedPolicy normally
-            # would use isinstance() but since policy_class is a class and not
-            # an instance this doesn't work.
-            trained = (
-                agent.policy_class is None
-                or FixedPolicy not in agent.policy_class.__mro__
-            )
-
             policy_wrapper = PolicyWrapper(
                 used_by=[agent_id],
-                trained=trained,
+                trained=is_trained(agent.policy_class),
                 obs_space=agent.get_observation_space(),
                 action_space=agent.get_action_space(),
                 policy_class=agent.policy_class,

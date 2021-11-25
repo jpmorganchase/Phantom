@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Tuple, Union, TYPE_CHECKING
 
 import mercury as me
 
-from .types import StageID
+from .typedefs import StageID
 
 if TYPE_CHECKING:
     from .handlers import StageHandler

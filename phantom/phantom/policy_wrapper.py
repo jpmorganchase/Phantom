@@ -7,7 +7,7 @@ from ray import rllib
 # TODO: upgrade to latest Ray and use PolicySpec
 # from ray.rllib.policy.policy import PolicySpec
 
-from .fsm.types import StageID
+from .fsm.typedefs import StageID
 
 
 class PolicyWrapper:
@@ -69,3 +69,6 @@ class PolicyWrapper:
             return str(agent_ids[0])
 
         raise Exception
+
+    def __eq__(self, other: "PolicyWrapper") -> bool:
+        return self.__dict__ == other.__dict__
