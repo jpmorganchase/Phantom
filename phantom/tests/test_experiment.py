@@ -11,7 +11,7 @@ from phantom.decoders import Decoder, DictDecoder
 from phantom.encoders import DictEncoder, Encoder
 
 
-class TestEncoder(Encoder):
+class SimpleEncoder(Encoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -26,7 +26,7 @@ class TestEncoder(Encoder):
         self.id = None
 
 
-class TestDecoder(Decoder):
+class SimpleDecoder(Decoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -45,8 +45,10 @@ class MinimalAgent(ph.agent.Agent):
     def __init__(self, id: str) -> None:
         super().__init__(
             agent_id=id,
-            obs_encoder=DictEncoder({"e1": TestEncoder(1), "e2": TestEncoder(2)}),
-            action_decoder=DictDecoder({"d1": TestDecoder(1), "d2": TestDecoder(2)}),
+            obs_encoder=DictEncoder({"e1": SimpleEncoder(1), "e2": SimpleEncoder(2)}),
+            action_decoder=DictDecoder(
+                {"d1": SimpleDecoder(1), "d2": SimpleDecoder(2)}
+            ),
         )
 
     def compute_reward(self, ctx: me.Network.Context) -> float:

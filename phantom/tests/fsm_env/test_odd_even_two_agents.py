@@ -1,5 +1,5 @@
 """
-Test a very simple FSM Env with two states and two agents.
+Test a very simple FSM Env with two stages and two agents.
 
 The agents take turns to take actions and return rewards.
 

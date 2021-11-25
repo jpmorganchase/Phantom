@@ -1,6 +1,5 @@
 import importlib
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Generic, TypeVar, Union

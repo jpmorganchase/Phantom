@@ -2,6 +2,7 @@ import collections
 from typing import (
     Dict,
     Iterable,
+    List,
     Tuple,
     Union,
     TYPE_CHECKING,
@@ -10,8 +11,7 @@ from typing import (
 import mercury as me
 
 from ..agent import Agent
-from .env import encode_stage_policy_name
-from .types import PolicyID, StageID
+from .types import StageID
 
 if TYPE_CHECKING:
     from .handlers import StagePolicyHandler
@@ -25,14 +25,16 @@ class FSMAgent(Agent):
     ):
         super().__init__(agent_id)
 
-        self.stage_handlers: Dict[
-            PolicyID, Tuple["StagePolicyHandler", Iterable[StageID]]
-        ] = {}
+        self.stage_handlers: List[Tuple[List[StageID], "StagePolicyHandler"]] = []
+        self.stage_handler_map: Dict[StageID, "StagePolicyHandler"] = {}
 
-        for stages, handler in stage_handlers.items():
-            policy_name = encode_stage_policy_name(agent_id, stages)
+        for stage_ids, handler in stage_handlers.items():
+            if isinstance(stage_ids, str) or not isinstance(
+                stage_ids, collections.Iterable
+            ):
+                stage_ids = [stage_ids]
 
-            if isinstance(stages, str) or not isinstance(stages, collections.Iterable):
-                stages = [stages]
+            self.stage_handlers.append((stage_ids, handler))
 
-            self.stage_handlers[policy_name] = (handler, stages)
+            for stage_id in stage_ids:
+                self.stage_handler_map[f"{agent_id}__{stage_id}"] = handler

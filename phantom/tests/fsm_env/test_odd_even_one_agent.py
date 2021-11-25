@@ -1,7 +1,7 @@
 """
-Test a very simple FSM Env with two states and two agents.
+Test a very simple FSM Env with two stages and one agents.
 
-The agents take turns to take actions and return rewards.
+The agent uses a different policy based on the stage.
 
 The episode duration is two steps.
 """

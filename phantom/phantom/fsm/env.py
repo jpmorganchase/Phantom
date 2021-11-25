@@ -18,8 +18,9 @@ import numpy as np
 from ..clock import Clock
 from ..env import EnvironmentActor, PhantomEnv
 from ..packet import Mutation
-from .types import EnvStageHandler, PolicyID, StageID
 
+from ..types import PolicyID
+from .types import EnvStageHandler, StageID
 
 logger = logging.getLogger(__name__)
 
@@ -213,15 +214,19 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         for agent_id, agent in self.agents.items():
             ctx = self.network.context_for(agent_id)
 
-            for policy_name, (handler, stages) in agent.stage_handlers.items():
-                self.policy_agent_map[policy_name] = agent_id
+            for stage_ids, handler in agent.stage_handlers:
+                stage_ids_str = "+".join(str(stage_id) for stage_id in stage_ids)
 
-                if self.current_stage in stages:
-                    observations[policy_name] = handler.encode_obs(agent, ctx)
+                policy_id = f"{agent_id}__{stage_ids_str}"
+
+                self.policy_agent_map[policy_id] = agent_id
+
+                if self.current_stage in stage_ids:
+                    observations[policy_id] = handler.encode_obs(agent, ctx)
 
                     logger.info(f"Returning initial observation for agent '{agent_id}'")
 
-                self._rewards[policy_name] = None
+                self._rewards[policy_id] = None
 
         return observations
 
@@ -245,7 +250,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
             ctx = self.network.context_for(agent_id)
             agent = self.agents[agent_id]
-            handler, _ = agent.stage_handlers[policy_name]
+            handler = agent.stage_handler_map[policy_name]
             packet = handler.decode_action(agent, ctx, action)
             mutations[agent_id] = packet.mutations
 
@@ -297,17 +302,21 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if terminals[agent_id]:
                 self._dones.add(agent_id)
 
-            for policy_name, (handler, stages) in agent.stage_handlers.items():
-                if next_stage in stages:
-                    observations[policy_name] = handler.encode_obs(agent, ctx)
-                    infos[policy_name] = agent.collect_infos(ctx)
+            for stage_ids, handler in agent.stage_handlers:
+                stage_ids_str = "+".join(str(stage_id) for stage_id in stage_ids)
+
+                policy_id = f"{agent_id}__{stage_ids_str}"
+
+                if next_stage in stage_ids:
+                    observations[policy_id] = handler.encode_obs(agent, ctx)
+                    infos[policy_id] = agent.collect_infos(ctx)
 
                     logger.info(f"Encoding observations for agent '{agent_id}'")
 
-                if policy_name in actions:
-                    rewards[policy_name] = handler.compute_reward(agent, ctx)
+                if policy_id in actions:
+                    rewards[policy_id] = handler.compute_reward(agent, ctx)
 
-                    if rewards[policy_name] is not None:
+                    if rewards[policy_id] is not None:
                         logger.info(f"Computing reward for agent '{agent_id}'")
 
         self._observations.update(observations)
@@ -334,17 +343,3 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             rewards = {aid: self._rewards[aid] for aid in observations.keys()}
 
             return self.Step(observations, rewards, terminals, infos)
-
-
-def encode_stage_policy_name(
-    agent_id: me.ID, stage_ids: Union[StageID, Iterable[StageID]]
-) -> PolicyID:
-    """
-    Internal function.
-    """
-    if isinstance(stage_ids, str) or not isinstance(stage_ids, collections.Iterable):
-        stages_str = str(stage_ids)
-    else:
-        stages_str = "+".join(str(stage) for stage in stage_ids)
-
-    return f"{agent_id}__{stages_str}"

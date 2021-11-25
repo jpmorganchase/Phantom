@@ -12,10 +12,6 @@ import mercury as me
 import ray
 from ray import tune
 from ray import rllib
-
-# Enable with Ray 1.7.0:
-# from ray.rllib.policy.policy import PolicySpec
-
 from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
@@ -23,10 +19,11 @@ from tabulate import tabulate
 
 from ..env import PhantomEnv
 from ..fsm import FSMAgent, StagePolicyHandler
-from ..fsm.env import encode_stage_policy_name
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..policy import FixedPolicy
+from ..policy_wrapper import PolicyWrapper
+from ..types import PolicyID
 from . import find_most_recent_results_dir, show_pythonhashseed_warning
 
 
@@ -113,7 +110,7 @@ def train(
                     f"Could not find file '{path}' to copy to results directory",
                 )
 
-    config = create_rllib_config_dict(
+    config, policies = create_rllib_config_dict(
         env,
         env_config,
         alg_config,
@@ -127,6 +124,7 @@ def train(
     if print_info:
         print_experiment_info(
             config,
+            policies,
             experiment_name,
             env.env_name,
             num_workers,
@@ -175,12 +173,12 @@ def create_rllib_config_dict(
     env_class: Type[PhantomEnv],
     env_config: Mapping[str, Any],
     alg_config: Mapping[str, Any],
-    policy_grouping: Mapping[str, Any],
+    policy_grouping: Mapping[str, List[str]],
     callbacks: Iterable[DefaultCallbacks],
     metrics: Mapping[str, Metric],
     seed: int,
     num_workers: int,
-) -> Dict[str, Any]:
+) -> Tuple[Dict[str, Any], List[PolicyWrapper]]:
     """
     Converts a TrainingParams object into a config dictionary compatible with
     Ray/RLlib.
@@ -199,114 +197,136 @@ def create_rllib_config_dict(
 
     ma_config: Dict[str, Any] = {}
 
-    if policy_grouping != {}:
-        custom_policies: Dict[
-            me.ID,
-            Tuple[
-                Optional[Type[rllib.Policy]],
-                gym.spaces.Space,
-                gym.spaces.Space,
-                Mapping[Any, Any],
-            ],
-        ] = {}
-        custom_policies_to_train = []
-        mapping = {}
+    policies: List[PolicyWrapper] = []
+    policies_to_train: List[PolicyID] = []
+    policy_mapping: Dict[PolicyID, Union[PolicyID, me.ID]] = {}
 
-        for pid, aids in policy_grouping.items():
-            # Enable with Ray 1.7.0:
-            # custom_policies[pid] = PolicySpec(
-            #     policy_class=None,
-            #     observation_space=env.agents[aids[0]].get_observation_space(),
-            #     action_space=env.agents[aids[0]].get_action_space(),
-            #     config=env.agents[aids[0]].policy_config or dict(),
-            # )
-            custom_policies[pid] = (
-                None,
-                env.agents[aids[0]].get_observation_space(),
-                env.agents[aids[0]].get_action_space(),
-                env.agents[aids[0]].policy_config or dict(),
+    if policy_grouping != {}:
+        for shared_policy_name, agent_ids in policy_grouping.items():
+            if len(agent_ids) == 0:
+                raise ValueError(
+                    f"Shared policy grouping '{shared_policy_name}' must have at least one agent using it"
+                )
+
+            policy_class = env.agents[agent_ids[0]].policy_class
+            policy_config = env.agents[agent_ids[0]].policy_config
+            obs_space = env.agents[agent_ids[0]].get_observation_space()
+            action_space = env.agents[agent_ids[0]].get_action_space()
+
+            for agent_id in agent_ids[1:]:
+                if env.agents[agent_id].policy_class != policy_class:
+                    raise ValueError(
+                        f"All agents in shared policy grouping '{shared_policy_name}' must have same policy class (got '{policy_class}' and '{env.agents[agent_ids].policy_class}')"
+                    )
+
+                if env.agents[agent_id].policy_config != policy_config:
+                    raise ValueError(
+                        f"All agents in shared policy grouping '{shared_policy_name}' must have same policy config (got '{policy_config}' and '{env.agents[agent_ids].policy_config}')"
+                    )
+
+                if env.agents[agent_id].get_observation_space() != obs_space:
+                    raise ValueError(
+                        f"All agents in shared policy grouping '{shared_policy_name}' must have same observation space (got '{obs_space}' and '{env.agents[agent_ids].obs_space}')"
+                    )
+
+                if env.agents[agent_id].get_action_space() != action_space:
+                    raise ValueError(
+                        f"All agents in shared policy grouping '{shared_policy_name}' must have same action space (got '{action_space}' and '{env.agents[agent_ids].action_space}')"
+                    )
+
+            policy_wrapper = PolicyWrapper(
+                # TODO: add support for stages
+                used_by=agent_ids,
+                # TODO: check if trained
+                trained=True,
+                obs_space=obs_space,
+                action_space=action_space,
+                policy_class=policy_class,
+                policy_config=policy_config,
+                shared_policy_name=shared_policy_name,
             )
 
-            for aid in aids:
-                mapping[aid] = pid
+            policies.append(policy_wrapper)
 
-            custom_policies_to_train.append(pid)
+            policy_id = policy_wrapper.get_name()
 
-        for aid, agent in env.agents.items():
-            if aid not in mapping:
-                # Enable with Ray 1.7.0:
-                # custom_policies[aid] = PolicySpec(
-                #     policy_class=agent.policy_class,
-                #     observation_space=agent.get_observation_space(),
-                #     action_space=agent.get_action_space(),
-                #     config=agent.policy_config or dict(),
-                # )
-                custom_policies[aid] = (
-                    agent.policy_class,
-                    agent.get_observation_space(),
-                    agent.get_action_space(),
-                    agent.policy_config or dict(),
-                )
+            for agent_id in agent_ids:
+                policy_mapping[agent_id] = policy_id
 
-                # TODO: add FSM stage policies
+            policies_to_train.append(policy_id)
 
-                mapping[aid] = aid
+    for agent_id, agent in env.agents.items():
+        if agent_id in map(str, policy_mapping.values()):
+            raise ValueError(
+                f"Can't add agent '{agent_id}' policy, policy with same name already exists"
+            )
 
-                # To find out if policy_class is an subclass of FixedPolicy normally
-                # would use isinstance() but since policy_class is a class and not an
-                # instance this doesn't work.
-                if (
-                    agent.policy_class is None
-                    or FixedPolicy not in agent.policy_class.__mro__
-                ):
-                    custom_policies_to_train.append(aid)
+        if isinstance(agent, FSMAgent):
+            for stage_ids, stage_handler in agent.stage_handlers:
+                if isinstance(stage_handler, StagePolicyHandler):
+                    # Ignore this agent if it has already been included via a shared policy
+                    if agent_id in policy_mapping:
+                        continue
 
-        ma_config["policies"] = custom_policies
-        ma_config["policy_mapping"] = mapping
-        ma_config[
-            "policy_mapping_fn"
-        ] = lambda agent_id, episode=None, **kwargs: mapping[agent_id]
-        ma_config["policies_to_train"] = custom_policies_to_train
+                    # To find out if policy_class is an subclass of FixedPolicy normally
+                    # would use isinstance() but since policy_class is a class and not
+                    # an instance this doesn't work.
+                    trained = (
+                        stage_handler.policy_class is None
+                        or FixedPolicy not in stage_handler.policy_class.__mro__
+                    )
 
-    else:
-        ma_config["policies"] = {}
+                    policy_wrapper = PolicyWrapper(
+                        used_by=[(agent_id, stage_id) for stage_id in stage_ids],
+                        trained=trained,
+                        obs_space=stage_handler.get_observation_space(agent),
+                        action_space=stage_handler.get_action_space(agent),
+                        policy_class=stage_handler.policy_class,
+                        policy_config=stage_handler.policy_config,
+                    )
 
-        for aid, agent in env.agents.items():
-            # Enable with Ray 1.7.0:
-            # ma_config["policies"][aid] = PolicySpec(
-            #     policy_class=agent.policy_class,
-            #     observation_space=agent.get_observation_space(),
-            #     action_space=agent.get_action_space(),
-            #     config=agent.policy_config or dict(),
-            # )
+                    policies.append(policy_wrapper)
 
-            if isinstance(agent, FSMAgent):
-                for policy_name, (stage_handler, _) in agent.stage_handlers.items():
-                    if isinstance(stage_handler, StagePolicyHandler):
-                        ma_config["policies"][policy_name] = (
-                            stage_handler.policy_class,
-                            stage_handler.get_observation_space(agent),
-                            stage_handler.get_action_space(agent),
-                            stage_handler.policy_config or dict(),
-                        )
-            else:
-                ma_config["policies"][aid] = (
-                    agent.policy_class,
-                    agent.get_observation_space(),
-                    agent.get_action_space(),
-                    agent.policy_config or dict(),
-                )
+                    policy_id = policy_wrapper.get_name()
 
-        ma_config["policy_mapping"] = {aid: aid for aid in env.agents.keys()}
-        ma_config[
-            "policy_mapping_fn"
-        ] = lambda agent_id, episode=None, **kwargs: agent_id
+                    policy_mapping[policy_id] = policy_id
 
-        ma_config["policies_to_train"] = [
-            agent_id
-            for agent_id, policy_spec in ma_config["policies"].items()
-            if policy_spec[0] is None or FixedPolicy not in policy_spec[0].__mro__
-        ]
+        else:
+            # Ignore this agent if it has already been included via a shared policy
+            if agent_id in policy_mapping:
+                continue
+
+            # To find out if policy_class is an subclass of FixedPolicy normally
+            # would use isinstance() but since policy_class is a class and not
+            # an instance this doesn't work.
+            trained = (
+                agent.policy_class is None
+                or FixedPolicy not in agent.policy_class.__mro__
+            )
+
+            policy_wrapper = PolicyWrapper(
+                used_by=[agent_id],
+                trained=trained,
+                obs_space=agent.get_observation_space(),
+                action_space=agent.get_action_space(),
+                policy_class=agent.policy_class,
+                policy_config=agent.policy_config,
+            )
+
+            policies.append(policy_wrapper)
+
+            policy_id = policy_wrapper.get_name()
+
+            policy_mapping[agent_id] = policy_id
+
+    ma_config["policies"] = {
+        policy.get_name(): policy.get_spec() for policy in policies
+    }
+    ma_config["policies_to_train"] = [
+        policy.get_name() for policy in policies if policy.trained
+    ]
+    ma_config["policy_mapping"] = policy_mapping
+    ma_config["policy_mapping_fn"] = lambda id, **kwargs: str(policy_mapping[id])
 
     if len(ma_config["policies_to_train"]) == 0:
         raise Exception("Must have at least one trained policy to perform training.")
@@ -341,11 +361,12 @@ def create_rllib_config_dict(
 
     config.update(**alg_config)
 
-    return config
+    return config, policies
 
 
 def print_experiment_info(
     config: Dict[str, Any],
+    policies: List[PolicyWrapper],
     experiment_name: str,
     env_name: str,
     num_workers: int,
@@ -380,27 +401,19 @@ def print_experiment_info(
     trained_policy_data = []
     untrained_policy_data = []
 
-    for policy_name, (_, obs_size, act_size, _) in config["multiagent"][
-        "policies"
-    ].items():
-        # TODO: fix for FSM stage policies
-
-        used_by = ",".join(
-            [
-                aid
-                for aid, pid in config["multiagent"]["policy_mapping"].items()
-                if pid == policy_name
-            ]
-        )
+    for policy in policies:
+        used_by = []
+        for x in policy.used_by:
+            used_by.append(f"{x[0]}[{x[1]}]" if isinstance(x, Tuple) else x)
 
         data = (
-            policy_name,
-            get_space_size(obs_size),
-            get_space_size(act_size),
-            used_by,
+            policy.get_name(),
+            get_space_size(policy.obs_space),
+            get_space_size(policy.action_space),
+            ", ".join(used_by),
         )
 
-        if policy_name in config["multiagent"]["policies_to_train"]:
+        if str(policy.get_name()) in config["multiagent"]["policies_to_train"]:
             trained_policy_data.append(data)
         else:
             untrained_policy_data.append(data)

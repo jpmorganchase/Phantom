@@ -1,4 +1,5 @@
-from typing import Dict, Iterable, Union, TYPE_CHECKING
+import collections
+from typing import Dict, Iterable, List, Tuple, Union, TYPE_CHECKING
 
 import mercury as me
 
@@ -16,11 +17,16 @@ class FSMActor(me.actors.SimpleSyncActor):
     ):
         super().__init__(actor_id)
 
-        self.stage_handlers: Dict[StageID, "StageHandler"] = {}
+        self.stage_handlers: List[Tuple[List[StageID], "StageHandler"]] = []
+        self.stage_handler_map: Dict[StageID, "StageHandler"] = {}
 
-        for stages, handler in stage_handlers.items():
-            if isinstance(stages, StageID):
-                self.stage_handlers[stages] = handler
-            else:
-                for stage in stages:
-                    self.stage_handlers[stage] = handler
+        for stage_ids, handler in stage_handlers.items():
+            if isinstance(stage_ids, str) or not isinstance(
+                stage_ids, collections.Iterable
+            ):
+                stage_ids = [stage_ids]
+
+            self.stage_handlers.append((stage_ids, handler))
+
+            for stage_id in stage_ids:
+                self.stage_handler_map[stage_id] = handler
