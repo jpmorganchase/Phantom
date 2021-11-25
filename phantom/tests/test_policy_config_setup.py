@@ -181,10 +181,13 @@ def test_single_agent_single_stage():
 
 
 def test_single_agent_multiple_stages():
-    agent = MockFSMAgent("a1", {
-        "stage1": MockStagePolicyHandler(),
-        "stage2": MockStagePolicyHandler(),
-    })
+    agent = MockFSMAgent(
+        "a1",
+        {
+            "stage1": MockStagePolicyHandler(),
+            "stage2": MockStagePolicyHandler(),
+        },
+    )
 
     _, policies = create_rllib_config_dict(
         env_class=MockEnv,
