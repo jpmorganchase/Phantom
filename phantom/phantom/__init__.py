@@ -1,4 +1,4 @@
-from . import decoders, encoders, fsm_env, logging, rewards, utils
+from . import decoders, encoders, fsm, logging, rewards, utils
 
 from .agent import Agent, AgentType, Supertype
 from .clock import Clock

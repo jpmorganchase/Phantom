@@ -1,16 +1,16 @@
 import mercury as me
-from phantom.fsm_env import (
+from phantom.fsm import (
     FSMStage,
     FiniteStateMachineEnv,
 )
 
-from . import MinimalAgent
+from . import MinimalAgent, MinimalStageHandler
 
 
 def test_decorator_style():
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MinimalAgent("agent", {"A": MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -35,7 +35,7 @@ def test_decorator_style():
 def test_state_definition_list_style():
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MinimalAgent("agent", {"A": MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 

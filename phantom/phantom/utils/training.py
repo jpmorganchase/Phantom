@@ -22,6 +22,8 @@ from ray.tune.registry import register_env
 from tabulate import tabulate
 
 from ..env import PhantomEnv
+from ..fsm import FSMAgent, StagePolicyHandler
+from ..fsm.env import encode_stage_policy_name
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..policy import FixedPolicy
@@ -197,7 +199,7 @@ def create_rllib_config_dict(
 
     ma_config: Dict[str, Any] = {}
 
-    if policy_grouping is not None:
+    if policy_grouping != {}:
         custom_policies: Dict[
             me.ID,
             Tuple[
@@ -246,6 +248,8 @@ def create_rllib_config_dict(
                     agent.policy_config or dict(),
                 )
 
+                # TODO: add FSM stage policies
+
                 mapping[aid] = aid
 
                 # To find out if policy_class is an subclass of FixedPolicy normally
@@ -265,22 +269,33 @@ def create_rllib_config_dict(
         ma_config["policies_to_train"] = custom_policies_to_train
 
     else:
-        ma_config["policies"] = {
+        ma_config["policies"] = {}
+
+        for aid, agent in env.agents.items():
             # Enable with Ray 1.7.0:
-            # aid: PolicySpec(
+            # ma_config["policies"][aid] = PolicySpec(
             #     policy_class=agent.policy_class,
             #     observation_space=agent.get_observation_space(),
             #     action_space=agent.get_action_space(),
             #     config=agent.policy_config or dict(),
             # )
-            aid: (
-                agent.policy_class,
-                agent.get_observation_space(),
-                agent.get_action_space(),
-                agent.policy_config or dict(),
-            )
-            for aid, agent in env.agents.items()
-        }
+
+            if isinstance(agent, FSMAgent):
+                for policy_name, (stage_handler, _) in agent.stage_handlers.items():
+                    if isinstance(stage_handler, StagePolicyHandler):
+                        ma_config["policies"][policy_name] = (
+                            stage_handler.policy_class,
+                            stage_handler.get_observation_space(agent),
+                            stage_handler.get_action_space(agent),
+                            stage_handler.policy_config or dict(),
+                        )
+            else:
+                ma_config["policies"][aid] = (
+                    agent.policy_class,
+                    agent.get_observation_space(),
+                    agent.get_action_space(),
+                    agent.policy_config or dict(),
+                )
 
         ma_config["policy_mapping"] = {aid: aid for aid in env.agents.keys()}
         ma_config[
@@ -368,6 +383,8 @@ def print_experiment_info(
     for policy_name, (_, obs_size, act_size, _) in config["multiagent"][
         "policies"
     ].items():
+        # TODO: fix for FSM stage policies
+
         used_by = ",".join(
             [
                 aid
