@@ -92,12 +92,7 @@ jobs:
     - name: Run Phantom tests
       run: |
         cd phantom
-        pytest --cache-clear --cov=phantom tests > pytest-coverage.txt
-
-    - name: Produce code coverage report
-      uses: coroo/pytest-coverage-commentator@v1.0.2
-      with:
-        pytest-coverage: phantom/pytest-coverage.txt
+        pytest tests
 
   build-docs-mercury:
     runs-on: ubuntu-latest
