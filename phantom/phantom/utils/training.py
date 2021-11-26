@@ -1,10 +1,22 @@
-import __main__
+from collections import defaultdict
 import logging
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, Union
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
+import __main__
 
 import cloudpickle
 import gym
@@ -18,7 +30,7 @@ from ray.tune.registry import register_env
 from tabulate import tabulate
 
 from ..env import PhantomEnv
-from ..fsm import FSMAgent, StagePolicyHandler
+from ..fsm import FSMAgent, StageID, StagePolicyHandler
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
 from ..policy import FixedPolicy
@@ -98,7 +110,7 @@ def train(
     local_files_to_copy = []
     local_dir = Path(__main__.__file__).parent
 
-    if discard_results == False and len(copy_files_to_results_dir) > 0:
+    if discard_results is False and len(copy_files_to_results_dir) > 0:
         # Check that files in the copy_files_to_results_dir list exist
         for file in copy_files_to_results_dir:
             path = Path(local_dir, file)
@@ -107,7 +119,7 @@ def train(
                 local_files_to_copy.append(file)
             else:
                 logger.warning(
-                    f"Could not find file '{path}' to copy to results directory",
+                    "Could not find file '%s' to copy to results directory", path
                 )
 
     config, policies = create_rllib_config_dict(
@@ -156,17 +168,17 @@ def train(
             ],
         )
 
-    except Exception as e:
+    except Exception as exception:
         # Ensure that Ray is properly shutdown in the instance of an error occuring
         ray.shutdown()
-        raise e
+        raise exception
     else:
         ray.shutdown()
 
     if discard_results:
         return None
-    else:
-        return find_most_recent_results_dir(Path(results_dir, experiment_name))
+
+    return find_most_recent_results_dir(Path(results_dir, experiment_name))
 
 
 def create_rllib_config_dict(
@@ -205,127 +217,97 @@ def create_rllib_config_dict(
 
     policies: List[PolicyWrapper] = []
     policies_to_train: List[PolicyID] = []
-    policy_mapping: Dict[PolicyID, Union[PolicyID, me.ID]] = {}
 
-    if policy_grouping != {}:
-        for shared_policy_name, ids in policy_grouping.items():
-            if len(ids) == 0:
-                raise ValueError(
-                    f"Shared policy grouping '{shared_policy_name}' must have at least one agent using it"
-                )
+    # Maps either agent IDs or agent-stage IDs to policy IDs
+    policy_mapping: Dict[Union[PolicyID, me.ID], PolicyID] = {}
 
-            policy_classes = []
-            policy_configs = []
-            obs_spaces = []
-            action_spaces = []
-
-            used_by = []
-
-            for agent_or_stage_id in ids:
-                if agent_or_stage_id in env.agents:
-                    agent_id = agent_or_stage_id
-                    used_by.append(agent_id)
-                    agent = env.agents[agent_id]
-
-                    policy_classes.append(agent.policy_class)
-                    policy_configs.append(agent.policy_config)
-                    obs_spaces.append(agent.get_observation_space())
-                    action_spaces.append(agent.get_action_space())
-                else:
-                    elems = agent_or_stage_id.split("__")
-                    if len(elems) != 2:
-                        raise Exception
-
-                    agent_id, stage_id = elems
-                    agent = env.agents[agent_id]
-                    used_by.append((agent_id, stage_id))
-                    handler = agent.stage_handler_map[agent_or_stage_id]
-
-                    policy_classes.append(handler.policy_class)
-                    policy_configs.append(handler.policy_config)
-                    obs_spaces.append(handler.get_observation_space(agent))
-                    action_spaces.append(handler.get_action_space(agent))
-
-            if not all(x == policy_classes[0] for x in policy_classes):
-                raise ValueError(
-                    f"All agents in shared policy grouping '{shared_policy_name}' must have same policy class (got '{policy_classes[0]}' and '{policy_classes[1]}')"
-                )
-
-            if not all(x == policy_configs[0] for x in policy_configs):
-                raise ValueError(
-                    f"All agents in shared policy grouping '{shared_policy_name}' must have same policy config (got '{policy_configs[0]}' and '{policy_configs[1]}')"
-                )
-
-            if not all(x == obs_spaces[0] for x in obs_spaces):
-                raise ValueError(
-                    f"All agents in shared policy grouping '{shared_policy_name}' must have same observation space (got '{obs_spaces[0]}' and '{obs_spaces[1]}')"
-                )
-
-            if not all(x == action_spaces[0] for x in action_spaces):
-                raise ValueError(
-                    f"All agents in shared policy grouping '{shared_policy_name}' must have same action space (got '{action_spaces[0]}' and '{action_spaces[1]}')"
-                )
-
-            policy_wrapper = PolicyWrapper(
-                used_by=used_by,
-                trained=is_trained(policy_classes[0]),
-                obs_space=obs_spaces[0],
-                action_space=action_spaces[0],
-                policy_class=policy_classes[0],
-                policy_config=policy_configs[0],
-                shared_policy_name=shared_policy_name,
+    # Shared policies creating using the policy_grouping config parameter can only
+    # contain none-FSM agents.
+    for shared_policy_name, agent_ids in policy_grouping.items():
+        if len(agent_ids) == 0:
+            raise ValueError(
+                f"Shared policy grouping '{shared_policy_name}' must have at least one agent using it"
             )
 
-            policies.append(policy_wrapper)
+        policy_classes = []
+        policy_configs = []
+        obs_spaces = []
+        action_spaces = []
 
-            policy_id = policy_wrapper.get_name()
+        used_by = []
 
-            for id in ids:
-                policy_mapping[id] = policy_id
+        for agent_id in agent_ids:
+            if agent_id in env.agents:
+                used_by.append(agent_id)
+                agent = env.agents[agent_id]
 
-            policies_to_train.append(policy_id)
+                policy_classes.append(agent.policy_class)
+                policy_configs.append(agent.policy_config)
+                obs_spaces.append(agent.get_observation_space())
+                action_spaces.append(agent.get_action_space())
+            else:
+                raise ValueError(
+                    f"Could not find agent with ID '{agent_id}' given in shared policy '{shared_policy_name}'"
+                )
 
-    print(policy_mapping)
+        if not all(x == policy_classes[0] for x in policy_classes):
+            raise ValueError(
+                f"All agents in shared policy grouping '{shared_policy_name}' must have same policy class (got '{policy_classes[0]}' and '{policy_classes[1]}')"
+            )
+
+        if not all(x == policy_configs[0] for x in policy_configs):
+            raise ValueError(
+                f"All agents in shared policy grouping '{shared_policy_name}' must have same policy config (got '{policy_configs[0]}' and '{policy_configs[1]}')"
+            )
+
+        if not all(x == obs_spaces[0] for x in obs_spaces):
+            raise ValueError(
+                f"All agents in shared policy grouping '{shared_policy_name}' must have same observation space (got '{obs_spaces[0]}' and '{obs_spaces[1]}')"
+            )
+
+        if not all(x == action_spaces[0] for x in action_spaces):
+            raise ValueError(
+                f"All agents in shared policy grouping '{shared_policy_name}' must have same action space (got '{action_spaces[0]}' and '{action_spaces[1]}')"
+            )
+
+        policy_wrapper = PolicyWrapper(
+            used_by=used_by,
+            trained=is_trained(policy_classes[0]),
+            obs_space=obs_spaces[0],
+            action_space=action_spaces[0],
+            policy_class=policy_classes[0],
+            policy_config=policy_configs[0],
+            shared_policy_name=shared_policy_name,
+        )
+
+        policies.append(policy_wrapper)
+
+        policy_id = policy_wrapper.get_name()
+
+        for agent_id in agent_ids:
+            policy_mapping[agent_id] = policy_id
+
+        policies_to_train.append(policy_id)
+
+    shared_handler_map: DefaultDict[
+        StagePolicyHandler, List[Tuple[me.ID, StageID]]
+    ] = defaultdict(list)
 
     for agent_id, agent in env.agents.items():
-        if agent_id in map(str, policy_mapping.values()):
-            raise ValueError(
-                f"Can't add agent '{agent_id}' policy, policy with same name already exists"
-            )
+        if agent_id in policy_mapping:
+            continue
 
         if isinstance(agent, FSMAgent):
-            for stage_ids, stage_handler in agent.stage_handlers:
-                if isinstance(stage_handler, StagePolicyHandler):
-                    policy_name = (
-                        agent_id
-                        + "__"
-                        + "+".join(str(stage_id) for stage_id in stage_ids)
+            # Collect stages across all FSM agents that share handlers - these will be
+            # used to decide which shared policies to create.
+            for stage_id, stage_policy_handler in agent.stage_policy_handlers.items():
+                if isinstance(stage_policy_handler, StagePolicyHandler):
+                    shared_handler_map[stage_policy_handler].append(
+                        (agent_id, stage_id)
                     )
-
-                    # Ignore this agent if it has already been included via a shared policy
-                    if policy_name in policy_mapping:
-                        continue
-
-                    policy_wrapper = PolicyWrapper(
-                        used_by=[(agent_id, stage_id) for stage_id in stage_ids],
-                        trained=is_trained(agent.policy_class),
-                        obs_space=stage_handler.get_observation_space(agent),
-                        action_space=stage_handler.get_action_space(agent),
-                        policy_class=stage_handler.policy_class,
-                        policy_config=stage_handler.policy_config,
-                    )
-
-                    policies.append(policy_wrapper)
-
-                    policy_id = policy_wrapper.get_name()
-
-                    policy_mapping[policy_id] = policy_id
 
         else:
-            # Ignore this agent if it has already been included via a shared policy
-            if agent_id in policy_mapping:
-                continue
-
+            # This is a standard agent, not part of a shared policy and with no stages
             policy_wrapper = PolicyWrapper(
                 used_by=[agent_id],
                 trained=is_trained(agent.policy_class),
@@ -336,10 +318,33 @@ def create_rllib_config_dict(
             )
 
             policies.append(policy_wrapper)
+            policy_mapping[agent_id] = policy_wrapper.get_name()
 
-            policy_id = policy_wrapper.get_name()
+    # Create any shared policies for the FSM agents
+    shared_policy_counter = 1
+    for stage_policy_handler, agent_and_stage_ids in shared_handler_map.items():
+        if len(agent_and_stage_ids) > 1:
+            shared_policy_name = f"fsm_shared_policy_{shared_policy_counter}"
+            shared_policy_counter += 1
+        else:
+            shared_policy_name = None
 
-            policy_mapping[agent_id] = policy_id
+        policy_wrapper = PolicyWrapper(
+            used_by=agent_and_stage_ids,
+            trained=is_trained(agent.policy_class),
+            obs_space=stage_policy_handler.get_observation_space(agent),
+            action_space=stage_policy_handler.get_action_space(agent),
+            policy_class=stage_policy_handler.policy_class,
+            policy_config=stage_policy_handler.policy_config,
+            shared_policy_name=shared_policy_name,
+        )
+
+        policy_id = policy_wrapper.get_name()
+
+        policies.append(policy_wrapper)
+
+        for agent_id, stage_id in agent_and_stage_ids:
+            policy_mapping[f"{agent_id}__{stage_id}"] = policy_id
 
     ma_config["policies"] = {
         policy.get_name(): policy.get_spec() for policy in policies
@@ -399,14 +404,14 @@ def print_experiment_info(
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):
             return sum(space.shape)
-        elif isinstance(space, gym.spaces.Discrete):
+        if isinstance(space, gym.spaces.Discrete):
             return 1
-        elif isinstance(space, gym.spaces.Tuple):
+        if isinstance(space, gym.spaces.Tuple):
             return sum(get_space_size(elem) for elem in space)
-        elif isinstance(space, gym.spaces.Dict):
+        if isinstance(space, gym.spaces.Dict):
             return sum(get_space_size(elem) for elem in space.spaces.values())
-        else:
-            raise NotImplementedError(type(space))
+
+        raise NotImplementedError(type(space))
 
     print()
     print("General Parameters")

@@ -1,4 +1,4 @@
-from typing import Any, List, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import gym.spaces
 import mercury as me

@@ -29,8 +29,8 @@ class MinimalStageHandler(ph.fsm.StagePolicyHandler["MinimalAgent"]):
 
 
 class MinimalAgent(ph.fsm.FSMAgent):
-    def __init__(self, id: str, stage_handlers) -> None:
-        super().__init__(agent_id=id, stage_handlers=stage_handlers)
+    def __init__(self, id: str, stage_policy_handlers) -> None:
+        super().__init__(agent_id=id, stage_policy_handlers=stage_policy_handlers)
 
     @me.actors.handler(str)
     def handle_message(self, ctx, msg):

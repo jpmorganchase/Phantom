@@ -41,7 +41,7 @@ class SimpleDecoder(Decoder):
         self.id = None
 
 
-class MinimalAgent(ph.agent.Agent):
+class MinimalAgent(ph.Agent):
     def __init__(self, id: str) -> None:
         super().__init__(
             agent_id=id,

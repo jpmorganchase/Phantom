@@ -1,4 +1,3 @@
-import collections
 import logging
 from abc import ABC
 from typing import (
@@ -9,7 +8,7 @@ from typing import (
     Optional,
     Mapping,
     Set,
-    Union,
+    Tuple,
 )
 
 import mercury as me
@@ -18,8 +17,8 @@ import numpy as np
 from ..clock import Clock
 from ..env import EnvironmentActor, PhantomEnv
 from ..packet import Mutation
-
 from ..typedefs import PolicyID
+from .agent import FSMAgent
 from .typedefs import EnvStageHandler, StageID
 
 logger = logging.getLogger(__name__)
@@ -55,11 +54,11 @@ class FSMStage:
         self.next_stages = next_stages
         self.handler: Optional[EnvStageHandler] = handler
 
-    def __call__(self, fn: Callable[..., Optional[StageID]]):
-        setattr(fn, "_decorator", self)
-        self.handler = fn
+    def __call__(self, handler_fn: Callable[..., Optional[StageID]]):
+        setattr(handler_fn, "_decorator", self)
+        self.handler = handler_fn
 
-        return fn
+        return handler_fn
 
 
 class FSMValidationError(Exception):
@@ -132,6 +131,10 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._stages: Dict[StageID, FSMStage] = {}
         self.current_stage: Optional[StageID] = None
 
+        self.policy_agent_handler_map: Dict[
+            PolicyID, Tuple[me.ID, Optional[StageID]]
+        ] = {}
+
         # Register stages via optional class initialiser list
         if stages is not None:
             for stage in stages:
@@ -142,14 +145,14 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         for attr in dir(self):
             attr = getattr(self, attr)
             if callable(attr):
-                fn = attr
-                if hasattr(fn, "_decorator"):
-                    if fn._decorator.stage_id in self._stages:
+                handler_fn = attr
+                if hasattr(handler_fn, "_decorator"):
+                    if handler_fn._decorator.stage_id in self._stages:
                         raise FSMValidationError(
-                            f"Found multiple stages with ID '{fn._decorator.stage_id}'"
+                            f"Found multiple stages with ID '{handler_fn._decorator.stage_id}'"
                         )
 
-                    self._stages[fn._decorator.stage_id] = fn._decorator
+                    self._stages[handler_fn._decorator.stage_id] = handler_fn._decorator
 
         # Check there is at least one stage
         if len(self._stages) == 0:
@@ -178,7 +181,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                     f"Stage '{stage.stage_id}' without handler must have exactly one next stage (got {len(stage.next_stages)})"
                 )
 
-    def reset(self) -> Dict[me.ID, Any]:
+    def reset(self) -> Dict[PolicyID, Any]:
         """
         Reset the environment and return an initial observation.
 
@@ -186,7 +189,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         includes all the agents in the network.
 
         Returns:
-            A dictionary mapping Agent IDs to observations made by the respective
+            A dictionary mapping PolicyIDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
 
@@ -197,7 +200,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         self.current_stage = self.initial_stage
 
-        logger.info(f"FSMEnv reset to '{self.current_stage}' stage")
+        logger.info("FSMEnv reset to '%s' stage", self.current_stage)
 
         # Set clock back to time step 0
         self.clock.reset()
@@ -207,30 +210,37 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self.network.resolve()
 
         # Generate initial observations.
-        observations: Dict[me.ID, Any] = {}
+        observations: Dict[PolicyID, Any] = {}
 
-        self.policy_agent_map: Dict[PolicyID, me.ID] = {}
+        self.policy_agent_handler_map = {}
 
         for agent_id, agent in self.agents.items():
             ctx = self.network.context_for(agent_id)
 
-            for stage_ids, handler in agent.stage_handlers:
-                stage_ids_str = "+".join(str(stage_id) for stage_id in stage_ids)
+            if isinstance(agent, FSMAgent):
+                for stage_id, handler in agent.stage_policy_handlers.items():
+                    policy_id = f"{agent_id}__{stage_id}"
 
-                policy_id = f"{agent_id}__{stage_ids_str}"
+                    self.policy_agent_handler_map[policy_id] = (agent, handler)
 
-                self.policy_agent_map[policy_id] = agent_id
+                    if stage_id == self.current_stage:
+                        observations[policy_id] = handler.encode_obs(agent, ctx)
 
-                if self.current_stage in stage_ids:
-                    observations[policy_id] = handler.encode_obs(agent, ctx)
+                        logger.info(
+                            "Returning initial observation for agent '%s'", agent_id
+                        )
 
-                    logger.info(f"Returning initial observation for agent '{agent_id}'")
+                    self._rewards[policy_id] = None
 
+            else:
+                # TODO: make tests for combination of standard agents and FSM agents
+                self.policy_agent_handler_map[agent_id] = (agent, None)
+                observations[agent_id] = agent.encode_obs(ctx)
                 self._rewards[policy_id] = None
 
         return observations
 
-    def step(self, actions: Mapping[me.ID, Any]) -> PhantomEnv.Step:
+    def step(self, actions: Mapping[PolicyID, Any]) -> PhantomEnv.Step:
         """
         Step the simulation forward one step given some set of agent actions.
 
@@ -244,36 +254,41 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         # Handle the updates due to active/strategic behaviours:
         for policy_name, action in actions.items():
-            agent_id = self.policy_agent_map[policy_name]
+            agent, handler = self.policy_agent_handler_map[policy_name]
 
-            logger.info(f"Received actions for agent '{agent_id}'")
+            logger.info("Received actions for agent '%s'", agent.id)
 
-            ctx = self.network.context_for(agent_id)
-            agent = self.agents[agent_id]
-            handler = agent.stage_handler_map[policy_name]
-            packet = handler.decode_action(agent, ctx, action)
-            mutations[agent_id] = packet.mutations
+            ctx = self.network.context_for(agent.id)
 
-            self.network.send_from(agent_id, packet.messages)
+            if handler is None:
+                packet = agent.decode_action(ctx, action)
+            else:
+                packet = handler.decode_action(agent, ctx, action)
 
-        handler = self._stages[self.current_stage].handler
+            mutations[agent.id] = packet.mutations
 
-        if handler is None:
+            self.network.send_from(agent.id, packet.messages)
+
+        env_handler = self._stages[self.current_stage].handler
+
+        if env_handler is None:
             # If no handler has been set, manually resolve the network messages.
             self.network.resolve()
             next_stage = self._stages[self.current_stage].next_stages[0]
-        elif hasattr(handler, "__self__"):
+        elif hasattr(env_handler, "__self__"):
             # If the FSMStage is defined with the stage definitions the handler will be
             # a bound method of the env class.
-            next_stage = handler()
+            next_stage = env_handler()
         else:
             # If the FSMStage is defined as a decorator the handler will be an unbound
             # function.
-            next_stage = handler(self)
+            next_stage = env_handler(self)
 
         logger.info("~" * 80)
         logger.info(
-            f"FSMEnv progressed from '{self.current_stage}' stage to '{next_stage}' stage"
+            "FSMEnv progressed from '%s' stage to '%s' stage",
+            self.current_stage,
+            next_stage,
         )
 
         if next_stage not in self._stages[self.current_stage].next_stages:
@@ -302,22 +317,32 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if terminals[agent_id]:
                 self._dones.add(agent_id)
 
-            for stage_ids, handler in agent.stage_handlers:
-                stage_ids_str = "+".join(str(stage_id) for stage_id in stage_ids)
+            if isinstance(agent, FSMAgent):
+                for stage_id, handler in agent.stage_policy_handlers.items():
+                    policy_id = f"{agent_id}__{stage_id}"
 
-                policy_id = f"{agent_id}__{stage_ids_str}"
+                    if stage_id == next_stage:
+                        observations[policy_id] = handler.encode_obs(agent, ctx)
+                        infos[policy_id] = agent.collect_infos(ctx)
 
-                if next_stage in stage_ids:
-                    observations[policy_id] = handler.encode_obs(agent, ctx)
-                    infos[policy_id] = agent.collect_infos(ctx)
+                        logger.info("Encoding observations for agent '%s'", agent_id)
 
-                    logger.info(f"Encoding observations for agent '{agent_id}'")
+                    if policy_id in actions:
+                        rewards[policy_id] = handler.compute_reward(agent, ctx)
 
-                if policy_id in actions:
-                    rewards[policy_id] = handler.compute_reward(agent, ctx)
+                        if rewards[policy_id] is not None:
+                            logger.info("Computing reward for agent '%s'", agent_id)
 
-                    if rewards[policy_id] is not None:
-                        logger.info(f"Computing reward for agent '{agent_id}'")
+            else:
+                observations[agent_id] = handler.encode_obs(agent, ctx)
+                infos[agent_id] = agent.collect_infos(ctx)
+
+                logger.info("Encoding observations for agent '%s'", agent_id)
+
+                rewards[agent_id] = handler.compute_reward(agent, ctx)
+
+                if rewards[agent_id] is not None:
+                    logger.info("Computing reward for agent '%s'", agent_id)
 
         self._observations.update(observations)
         self._rewards.update(rewards)
@@ -339,7 +364,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                 terminals=terminals,
                 infos=self._infos,
             )
-        else:
-            rewards = {aid: self._rewards[aid] for aid in observations.keys()}
 
-            return self.Step(observations, rewards, terminals, infos)
+        # Otherwise not in terminal stage:
+        rewards = {aid: self._rewards[aid] for aid in observations}
+
+        return self.Step(observations, rewards, terminals, infos)

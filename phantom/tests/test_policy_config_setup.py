@@ -174,8 +174,10 @@ def test_single_agent_single_stage():
         PolicyWrapper(
             used_by=[("a1", "stage1")],
             trained=True,
-            obs_space=agent.stage_handlers[0][1].get_observation_space(agent),
-            action_space=agent.stage_handlers[0][1].get_action_space(agent),
+            obs_space=agent.stage_policy_handlers["stage1"].get_observation_space(
+                agent
+            ),
+            action_space=agent.stage_policy_handlers["stage1"].get_action_space(agent),
         )
     ]
 
@@ -206,14 +208,97 @@ def test_single_agent_multiple_stages():
         PolicyWrapper(
             used_by=[("a1", "stage1")],
             trained=True,
-            obs_space=agent.stage_handlers[0][1].get_observation_space(agent),
-            action_space=agent.stage_handlers[0][1].get_action_space(agent),
+            obs_space=agent.stage_policy_handlers["stage1"].get_observation_space(
+                agent
+            ),
+            action_space=agent.stage_policy_handlers["stage1"].get_action_space(agent),
         ),
         PolicyWrapper(
             used_by=[("a1", "stage2")],
             trained=True,
-            obs_space=agent.stage_handlers[0][1].get_observation_space(agent),
-            action_space=agent.stage_handlers[0][1].get_action_space(agent),
+            obs_space=agent.stage_policy_handlers["stage1"].get_observation_space(
+                agent
+            ),
+            action_space=agent.stage_policy_handlers["stage1"].get_action_space(agent),
+        ),
+    ]
+
+
+def test_single_agent_shared_multiple_stages():
+    agent = MockFSMAgent(
+        "a1",
+        {
+            "stage1": MockStagePolicyHandler(),
+            "stage2": MockStagePolicyHandler(),
+        },
+    )
+
+    _, policies = create_rllib_config_dict(
+        env_class=MockEnv,
+        env_config={
+            "agents": [agent],
+        },
+        alg_config={},
+        policy_grouping={},
+        callbacks=[],
+        metrics={},
+        seed=0,
+        num_workers=0,
+    )
+
+    assert policies == [
+        PolicyWrapper(
+            used_by=[("a1", "stage1")],
+            trained=True,
+            obs_space=agent.stage_policy_handlers["stage1"].get_observation_space(
+                agent
+            ),
+            action_space=agent.stage_policy_handlers["stage1"].get_action_space(agent),
+        ),
+        PolicyWrapper(
+            used_by=[("a1", "stage2")],
+            trained=True,
+            obs_space=agent.stage_policy_handlers["stage2"].get_observation_space(
+                agent
+            ),
+            action_space=agent.stage_policy_handlers["stage2"].get_action_space(agent),
+        ),
+    ]
+
+
+def test_single_agent_shared_multiple_shared_stages():
+    handler = MockStagePolicyHandler()
+
+    agent = MockFSMAgent(
+        "a1",
+        {
+            "stage1": handler,
+            "stage2": handler,
+        },
+    )
+
+    _, policies = create_rllib_config_dict(
+        env_class=MockEnv,
+        env_config={
+            "agents": [agent],
+        },
+        alg_config={},
+        policy_grouping={},
+        callbacks=[],
+        metrics={},
+        seed=0,
+        num_workers=0,
+    )
+
+    assert policies == [
+        PolicyWrapper(
+            used_by=[("a1", "stage1"), ("a1", "stage2")],
+            trained=True,
+            obs_space=agent.stage_policy_handlers["stage1"].get_observation_space(
+                agent
+            ),
+            action_space=agent.stage_policy_handlers["stage1"].get_action_space(agent),
+            shared_policy_name="fsm_shared_policy_1",
         ),
     ]
 
@@ -230,22 +315,23 @@ def test_multiple_agents_shared_stage():
             "agents": [agent1, agent2],
         },
         alg_config={},
-        policy_grouping={"shared": ["a1__stage1", "a2__stage1"]},
+        policy_grouping={},
         callbacks=[],
         metrics={},
         seed=0,
         num_workers=0,
     )
 
-    for p in policies:
-        print(p.__dict__)
-
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1"), ("a2", "stage1")],
             trained=True,
-            obs_space=agent1.stage_handlers[0][1].get_observation_space(agent1),
-            action_space=agent1.stage_handlers[0][1].get_action_space(agent1),
-            shared_policy_name="shared",
+            obs_space=agent1.stage_policy_handlers["stage1"].get_observation_space(
+                agent1
+            ),
+            action_space=agent1.stage_policy_handlers["stage1"].get_action_space(
+                agent1
+            ),
+            shared_policy_name="fsm_shared_policy_1",
         )
     ]

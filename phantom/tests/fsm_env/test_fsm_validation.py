@@ -46,7 +46,7 @@ def test_duplicate_stages():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {"A": MinimalStageHandler()})]
+            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -81,7 +81,7 @@ def test_invalid_initial_stage():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {"A": MinimalStageHandler()})]
+            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -109,7 +109,7 @@ def test_invalid_next_state():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {"A": MinimalStageHandler()})]
+            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -137,7 +137,7 @@ def test_invalid_no_handler_stage_next_stages():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {"A": MinimalStageHandler()})]
+            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -145,7 +145,7 @@ def test_invalid_no_handler_stage_next_stages():
                 network=network,
                 n_steps=1,
                 initial_stage=Stages.A,
-                stages=[FSMStage("stage", next_stages=[])],
+                stages=[FSMStage(Stages.A, next_stages=[])],
             )
 
     with pytest.raises(FSMValidationError):
