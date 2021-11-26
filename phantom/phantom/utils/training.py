@@ -300,7 +300,7 @@ def create_rllib_config_dict(
         if isinstance(agent, FSMAgent):
             # Collect stages across all FSM agents that share handlers - these will be
             # used to decide which shared policies to create.
-            for stage_id, stage_policy_handler in agent.stage_policy_handlers.items():
+            for stage_id, stage_policy_handler in agent.stage_handlers.items():
                 if isinstance(stage_policy_handler, StagePolicyHandler):
                     shared_handler_map[stage_policy_handler].append(
                         (agent_id, stage_id)

@@ -58,7 +58,7 @@ class OddEvenAgent(FSMAgent):
     def __init__(self, id: str) -> None:
         super().__init__(
             agent_id=id,
-            stage_policy_handlers={
+            stage_handlers={
                 Stages.ODD: OddEvenAgentHandler(),
                 Stages.EVEN: OddEvenAgentHandler(),
             },

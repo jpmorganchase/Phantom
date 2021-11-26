@@ -18,6 +18,7 @@ from ..clock import Clock
 from ..env import EnvironmentActor, PhantomEnv
 from ..packet import Mutation
 from ..typedefs import PolicyID
+from .actor import FSMActor
 from .agent import FSMAgent
 from .typedefs import EnvStageHandler, StageID
 
@@ -214,11 +215,19 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         self.policy_agent_handler_map = {}
 
+        # Handle pre-stage hooks in actor/agent StageHandlers.
+        for actor_id, actor in self.network.actors.items():
+            if isinstance(actor, (FSMActor, FSMAgent)):
+                if self.current_stage in actor.stage_handlers:
+                    ctx = self.network.context_for(actor_id)
+                    handler = actor.stage_handlers[self.current_stage]
+                    handler.pre_stage_hook(actor, ctx)
+
         for agent_id, agent in self.agents.items():
             ctx = self.network.context_for(agent_id)
 
             if isinstance(agent, FSMAgent):
-                for stage_id, handler in agent.stage_policy_handlers.items():
+                for stage_id, handler in agent.stage_handlers.items():
                     policy_id = f"{agent_id}__{stage_id}"
 
                     self.policy_agent_handler_map[policy_id] = (agent, handler)
@@ -273,7 +282,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         if env_handler is None:
             # If no handler has been set, manually resolve the network messages.
-            self.network.resolve()
+            self.resolve_network()
             next_stage = self._stages[self.current_stage].next_stages[0]
         elif hasattr(env_handler, "__self__"):
             # If the FSMStage is defined with the stage definitions the handler will be
@@ -284,12 +293,28 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             # function.
             next_stage = env_handler(self)
 
+        # Handle post-stage hooks in actor/agent StageHandlers.
+        for actor_id, actor in self.network.actors.items():
+            if isinstance(actor, (FSMActor, FSMAgent)):
+                if self.current_stage in actor.stage_handlers:
+                    ctx = self.network.context_for(actor_id)
+                    handler = actor.stage_handlers[self.current_stage]
+                    handler.post_stage_hook(actor, ctx)
+
         logger.info("~" * 80)
         logger.info(
             "FSMEnv progressed from '%s' stage to '%s' stage",
             self.current_stage,
             next_stage,
         )
+
+        # Handle pre-stage hooks in actor/agent StageHandlers.
+        for actor_id, actor in self.network.actors.items():
+            if isinstance(actor, (FSMActor, FSMAgent)):
+                if next_stage in actor.stage_handlers:
+                    ctx = self.network.context_for(actor_id)
+                    handler = actor.stage_handlers[next_stage]
+                    handler.pre_stage_hook(actor, ctx)
 
         if next_stage not in self._stages[self.current_stage].next_stages:
             raise FSMRuntimeError(
@@ -318,7 +343,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                 self._dones.add(agent_id)
 
             if isinstance(agent, FSMAgent):
-                for stage_id, handler in agent.stage_policy_handlers.items():
+                for stage_id, handler in agent.stage_handlers.items():
                     policy_id = f"{agent_id}__{stage_id}"
 
                     if stage_id == next_stage:
@@ -369,3 +394,43 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         rewards = {aid: self._rewards[aid] for aid in observations}
 
         return self.Step(observations, rewards, terminals, infos)
+
+    def resolve_network(self) -> None:
+        """
+        Used as a replacement to the Mercury ``Network.resolve`` method to allow control
+        of the environment actor's pre- and post-resolution hooks.
+        """
+        ctx_map = {
+            actor_id: self.network.context_for(actor_id)
+            for actor_id in self.network.actors
+            if actor_id != EnvironmentActor.ID
+        }
+
+        if self.environment_actor is not None:
+            env_actor_ctx = self.network.context_for(EnvironmentActor.ID)
+            self.environment_actor.pre_resolution(env_actor_ctx)
+
+        for actor_id, ctx in ctx_map.items():
+            actor = self.network.actors[actor_id]
+            if isinstance(actor, (FSMActor, FSMAgent)):
+                if self.current_stage in actor.stage_handlers:
+                    handler = actor.stage_handlers[self.current_stage]
+                    handler.pre_msg_resolution_hook(actor, ctx_map[actor_id])
+            else:
+                ctx.actor.pre_resolution(ctx)
+
+        self.network.resolver.resolve(self.network)
+
+        if self.environment_actor is not None:
+            self.environment_actor.post_resolution(env_actor_ctx)
+
+        for actor_id, ctx in ctx_map.items():
+            actor = self.network.actors[actor_id]
+            if isinstance(actor, (FSMActor, FSMAgent)):
+                if self.current_stage in actor.stage_handlers:
+                    handler = actor.stage_handlers[self.current_stage]
+                    handler.post_msg_resolution_hook(actor, ctx_map[actor_id])
+            else:
+                ctx.actor.post_resolution(ctx)
+
+        self.network.resolver.reset()

@@ -18,52 +18,64 @@ AgentType = TypeVar("AgentType", bound=FSMAgent)
 class StageHandler(ABC, Generic[ActorType]):
     """
     Defines custom hooks for an actor/agent for a particular FSM stage or stages.
+
+    WARNING: Internal state should not be stored on handler instances! Instead it should
+    be stored on the actor/agent instances passed into the class's methods.
     """
 
-    # TODO: implement and test
     @staticmethod
-    def pre_stage_hook(actor: ActorType) -> None:
+    def pre_stage_hook(actor: ActorType, ctx: me.Network.Context) -> None:
         """
-        TODO: docstring
+        This method is called at the start of the stage that this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            ctx: The context of the actor (or agent) in reference to the current
+                environment state.
         """
 
-    # TODO: implement and test
     @staticmethod
-    def pre_msg_resolution_hook(actor: ActorType) -> None:
+    def pre_msg_resolution_hook(actor: ActorType, ctx: me.Network.Context) -> None:
         """
-        TODO: docstring
+        This method is called at the start of the message resolution in the stage that
+        this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            ctx: The context of the actor (or agent) in reference to the current
+                environment state.
         """
 
-    # TODO: implement and test
     @staticmethod
-    def post_msg_resolution_hook(actor: ActorType) -> None:
+    def post_msg_resolution_hook(actor: ActorType, ctx: me.Network.Context) -> None:
         """
-        TODO: docstring
+        This method is called at the end of the message resolution in the stage that
+        this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            ctx: The context of the actor (or agent) in reference to the current
+                environment state.
         """
 
-    # TODO: implement and test
     @staticmethod
-    def post_stage_hook(actor: ActorType) -> None:
+    def post_stage_hook(actor: ActorType, ctx: me.Network.Context) -> None:
         """
-        TODO: docstring
+        This method is called at the end of the stage that this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            ctx: The context of the actor (or agent) in reference to the current
+                environment state.
         """
 
 
 class StagePolicyHandler(StageHandler[AgentType], ABC, Generic[AgentType]):
     """
     Defines custom hooks for an agent's policy for a particular FSM stage or stages.
+
+    WARNING: Internal state should not be stored on handler instances! Instead it should
+    be stored on the agent instances passed into the class's methods.
     """
 
     def __init__(

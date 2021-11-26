@@ -49,7 +49,7 @@ class OneStageAgentHandler(StagePolicyHandler["OneStageAgent"]):
 class OneStageAgent(FSMAgent):
     def __init__(self, id: str) -> None:
         super().__init__(
-            agent_id=id, stage_policy_handlers={Stages.UNIT: OneStageAgentHandler()}
+            agent_id=id, stage_handlers={Stages.UNIT: OneStageAgentHandler()}
         )
 
         self.compute_reward_count = 0
