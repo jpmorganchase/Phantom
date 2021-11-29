@@ -280,7 +280,7 @@ def rollout(
 
         workers = [
             mp.Process(target=_parallel_fn, args=worker_payloads[i])
-            for i in range(num_workers)
+            for i in range(len(worker_payloads))
         ]
         for worker in workers:
             worker.start()
