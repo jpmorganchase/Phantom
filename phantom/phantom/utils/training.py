@@ -180,7 +180,6 @@ def train(
         env_config,
         env_supertype,
         agent_supertypes,
-        samplers,
         policy_grouping,
         callbacks,
         metrics,
@@ -279,11 +278,10 @@ def train(
 
 def create_rllib_config_dict(
     env_class: Type[PhantomEnv],
-    env_config: Mapping[str, Any],
     alg_config: Mapping[str, Any],
+    env_config: Mapping[str, Any],
     env_supertype: Optional[BaseSupertype],
     agent_supertypes: Mapping[me.ID, BaseSupertype],
-    samplers: List[BaseSampler],
     policy_grouping: Mapping[str, Any],
     callbacks: Iterable[DefaultCallbacks],
     metrics: Mapping[str, Metric],
@@ -470,6 +468,8 @@ def print_experiment_info(
             return 1
         elif isinstance(space, gym.spaces.Tuple):
             return sum(get_space_size(elem) for elem in space)
+        elif isinstance(space, gym.spaces.MultiDiscrete):
+            return len(space.nvec)
         elif isinstance(space, gym.spaces.Dict):
             return sum(get_space_size(elem) for elem in space.spaces.values())
         else:
