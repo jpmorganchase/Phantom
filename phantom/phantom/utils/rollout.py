@@ -15,7 +15,7 @@ from ray.rllib.agents.registry import get_trainer_class
 from ray.tune.registry import register_env
 from tqdm import tqdm
 
-
+from ..env import PhantomEnv
 from ..logging import Logger, Metric
 from ..supertype import BaseSupertype
 from .ranges import BaseRange
@@ -67,6 +67,7 @@ def rollout(
     num_workers: int = 0,
     num_repeats: int = 1,
     checkpoint: Optional[int] = None,
+    env_class: Optional[Type[PhantomEnv]] = None,
     env_config: Optional[Mapping[str, Any]] = None,
     env_supertype: Optional[BaseSupertype] = None,
     agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
@@ -97,6 +98,8 @@ def rollout(
         num_workers: Number of Ray rollout workers to initialise.
         num_repeats: Number of rollout repeats to perform, distributed over all workers.
         checkpoint: Checkpoint to use (defaults to most recent).
+        env_class: Optionally pass the Environment class to use. If not give will
+            fallback to the copy of the environment class saved during training.
         env_config: Configuration parameters to pass to the environment init method.
         env_supertype: Type object for the environment. Any contained objects that
             inherit from BaseRange will be sampled from and automatically applied to
@@ -247,9 +250,10 @@ def rollout(
         results: List[Rollout] = _parallel_fn(
             directory,
             checkpoint,
-            metrics,
             algorithm,
             rollout_configs,
+            env_class,
+            metrics,
             result_mapping_fn,
             None,
         )
@@ -264,9 +268,10 @@ def rollout(
             (
                 directory,
                 checkpoint,
-                metrics,
                 algorithm,
                 rollout_configs[i : i + rollouts_per_worker],
+                env_class,
+                metrics,
                 result_mapping_fn,
                 result_queue,
             )
@@ -322,9 +327,10 @@ def rollout(
 def _parallel_fn(
     directory: Path,
     checkpoint: int,
-    tracked_metrics: Optional[Mapping[str, Metric]],
     algorithm: str,
     configs: List[RolloutConfig],
+    env_class: Optional[Type[PhantomEnv]] = None,
+    tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     result_queue: Optional[mp.Queue] = None,
 ) -> List[Rollout]:
@@ -340,9 +346,10 @@ def _parallel_fn(
     with open(Path(directory, "params.pkl"), "rb") as f:
         config = cloudpickle.load(f)
 
-    # Load env class from results directory.
-    with open(Path(directory, "env.pkl"), "rb") as f:
-        env_class = cloudpickle.load(f)
+    if env_class is None:
+        # Load env class from results directory.
+        with open(Path(directory, "env.pkl"), "rb") as f:
+            env_class = cloudpickle.load(f)
 
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
