@@ -117,7 +117,7 @@ jobs:
 
     - name: Build Mercury docs
       run: |
-        cd phantom/docs
+        cd mercury/docs
         make html
 
   build-docs-phantom:
