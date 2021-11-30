@@ -274,91 +274,97 @@ def _rollout_task_fn(
         f"checkpoint-{checkpoint}",
     )
 
-    ray.init(local_mode=True, include_dashboard=False)
+    # Wrap ray code in a try block to ensure ray is shutdown correctly if an error occurs
+    try:
+        ray.init(local_mode=True, include_dashboard=False)
 
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
+        # Load config from results directory.
+        with open(Path(directory, "params.pkl"), "rb") as params_file:
+            config = cloudpickle.load(params_file)
 
-    # Load env class from results directory.
-    with open(Path(directory, "env.pkl"), "rb") as env_file:
-        env_class = cloudpickle.load(env_file)
+        # Load env class from results directory.
+        with open(Path(directory, "env.pkl"), "rb") as env_file:
+            env_class = cloudpickle.load(env_file)
 
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-    config["env_config"] = configs[0].env_config
+        # Set to zero as rollout workers != training workers - if > 0 will spin up
+        # unnecessary additional workers.
+        config["num_workers"] = 0
+        config["env_config"] = configs[0].env_config
 
-    # Register custom environment with Ray
-    register_env(env_class.env_name, lambda config: env_class(**config))
+        # Register custom environment with Ray
+        register_env(env_class.env_name, lambda config: env_class(**config))
 
-    trainer = get_trainer_class(algorithm)(env=env_class.env_name, config=config)
-    trainer.restore(str(checkpoint_path))
+        trainer = get_trainer_class(algorithm)(env=env_class.env_name, config=config)
+        trainer.restore(str(checkpoint_path))
 
-    results = []
+        results = []
 
-    iter_obj = tqdm(configs) if result_queue is None else configs
+        iter_obj = tqdm(configs) if result_queue is None else configs
 
-    for rollout_config in iter_obj:
-        # Create environment instance from config from results directory
-        env = env_class(**rollout_config.env_config)
+        for rollout_config in iter_obj:
+            # Create environment instance from config from results directory
+            env = env_class(**rollout_config.env_config)
 
-        # Setting seed needs to come after trainer setup
-        np.random.seed(rollout_config.seed)
+            # Setting seed needs to come after trainer setup
+            np.random.seed(rollout_config.seed)
 
-        metric_logger = Logger(tracked_metrics)
+            metric_logger = Logger(tracked_metrics)
 
-        observation = env.reset()
+            observation = env.reset()
 
-        observations: List[Dict[me.ID, Any]] = [observation]
-        rewards: List[Dict[me.ID, float]] = []
-        dones: List[Dict[me.ID, bool]] = []
-        infos: List[Dict[me.ID, Dict[str, Any]]] = []
-        actions: List[Dict[me.ID, Any]] = []
+            observations: List[Dict[me.ID, Any]] = [observation]
+            rewards: List[Dict[me.ID, float]] = []
+            dones: List[Dict[me.ID, bool]] = []
+            infos: List[Dict[me.ID, Dict[str, Any]]] = []
+            actions: List[Dict[me.ID, Any]] = []
 
-        # Run rollout steps.
-        for _ in range(env.clock.n_steps):
-            step_actions = {}
+            # Run rollout steps.
+            for _ in range(env.clock.n_steps):
+                step_actions = {}
 
-            for agent_id, agent_obs in observation.items():
-                policy_id = config["multiagent"]["policy_mapping"][agent_id]
+                for agent_id, agent_obs in observation.items():
+                    policy_id = config["multiagent"]["policy_mapping"][agent_id]
 
-                agent_action = trainer.compute_action(
-                    agent_obs, policy_id=policy_id, explore=False
-                )
-                step_actions[agent_id] = agent_action
+                    agent_action = trainer.compute_action(
+                        agent_obs, policy_id=policy_id, explore=False
+                    )
+                    step_actions[agent_id] = agent_action
 
-            observation, reward, done, info = env.step(step_actions)
-            metric_logger.log(env)
+                observation, reward, done, info = env.step(step_actions)
+                metric_logger.log(env)
 
-            observations.append(observation)
-            rewards.append(reward)
-            dones.append(done)
-            infos.append(info)
-            actions.append(step_actions)
+                observations.append(observation)
+                rewards.append(reward)
+                dones.append(done)
+                infos.append(info)
+                actions.append(step_actions)
 
-        metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
+            metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
-        trajectory = EpisodeTrajectory(
-            observations,
-            rewards,
-            dones,
-            infos,
-            actions,
-        )
+            trajectory = EpisodeTrajectory(
+                observations,
+                rewards,
+                dones,
+                infos,
+                actions,
+            )
 
-        result = Rollout(rollout_config, metrics, trajectory)
+            result = Rollout(rollout_config, metrics, trajectory)
 
-        if result_mapping_fn is not None:
-            result = result_mapping_fn(result)
+            if result_mapping_fn is not None:
+                result = result_mapping_fn(result)
 
-        # If in multiprocess mode, add the results to the queue, otherwise store locally
-        # until all rollouts for this function call are complete.
-        if result_queue is None:
-            results.append(result)
-        else:
-            result_queue.put(result)
+            # If in multiprocess mode, add the results to the queue, otherwise store locally
+            # until all rollouts for this function call are complete.
+            if result_queue is None:
+                results.append(result)
+            else:
+                result_queue.put(result)
 
+    except Exception as exception:
+        ray.shutdown()
+        raise exception
+    
     ray.shutdown()
 
     # If using multi-processing this will be an empty list
