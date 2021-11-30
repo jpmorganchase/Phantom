@@ -56,7 +56,6 @@ class PhantomEnv(MultiAgentEnv):
         n_steps: Alternative to providing a Clock instance.
         environment_actor: An optional actor that has access to global environment
             information.
-        seed: A random number generator seed to use (optional).
     """
 
     env_name: str = "phantom"
@@ -75,7 +74,6 @@ class PhantomEnv(MultiAgentEnv):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        seed: Optional[int] = None,
     ) -> None:
         if clock is None:
             if n_steps is None:
@@ -102,9 +100,6 @@ class PhantomEnv(MultiAgentEnv):
             self.network.add_connections_between(
                 [self.environment_actor.id], list(network.actor_ids)
             )
-
-        if seed is not None:
-            self.seed(seed)
 
     def resolve_network(self) -> None:
         """
@@ -240,16 +235,6 @@ class PhantomEnv(MultiAgentEnv):
         Implements the logic to decide when the episode is completed
         """
         return self.clock.is_terminal or len(self._dones) == len(self.agents)
-
-    def seed(self, seed: int) -> None:
-        """
-        Set the random seed of the environment.
-
-        Arguments:
-            seed: The seed used by numpy to generate a deterministic set of
-                random values.
-        """
-        self.np_random, self.sid = seeding.np_random(seed)
 
     def __getitem__(self, actor_id: me.ID) -> me.actors.Actor:
         return self.network[actor_id]

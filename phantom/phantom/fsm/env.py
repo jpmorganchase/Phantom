@@ -115,11 +115,10 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        seed: Optional[int] = None,
         # fsm env specific:
         stages: Optional[Iterable[FSMStage]] = None,
     ) -> None:
-        super().__init__(network, clock, n_steps, environment_actor, seed)
+        super().__init__(network, clock, n_steps, environment_actor)
 
         self.initial_stage: StageID = initial_stage
 

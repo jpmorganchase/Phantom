@@ -45,18 +45,18 @@ logger = logging.getLogger(__name__)
 def train(
     experiment_name: str,
     env: Type[PhantomEnv],
-    num_workers: int,
     num_episodes: int,
     algorithm: str,
     seed: int = 0,
+    num_workers: Optional[int] = None,
     checkpoint_freq: Optional[int] = None,
-    env_config: Optional[Mapping[str, Any]] = None,
     alg_config: Optional[Mapping[str, Any]] = None,
+    env_config: Optional[Mapping[str, Any]] = None,
     policy_grouping: Optional[Mapping[str, List[str]]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     callbacks: Optional[Iterable[DefaultCallbacks]] = None,
     discard_results: bool = False,
-    results_dir: Union[str, Path] = "~/phantom_results",
+    results_dir: Union[str, Path] = "~/phantom-results",
     copy_files_to_results_dir: Optional[Iterable[Union[str, Path]]] = None,
     local_mode: bool = False,
     print_info: bool = True,
@@ -67,20 +67,22 @@ def train(
     Arguments:
         experiment_name: Experiment name used for tensorboard logging.
         env: A PhantomEnv subclass.
-        num_workers: Number of Ray workers to initialise.
         num_episodes: Number of episodes to train for, distributed over all workers.
         algorithm: RL algorithm to use.
         seed: Optional seed to pass to environment.
+        num_workers: Number of Ray workers to initialise (defaults to NUM CPU - 1).
         checkpoint_freq: Episodic frequency at which to save checkpoints.
-        env_config: Configuration parameters to pass to the environment init method.
         alg_config: Optional algorithm parameters dictionary to pass to RLlib.
+        env_config: Configuration parameters to pass to the environment init method.
         policy_grouping: A mapping between custom policy names and lists of agents
             sharing the same policy.
         metrics: Optional set of metrics to record and log.
         callbacks: Optional Ray Callbacks for custom metrics.
             (https://docs.ray.io/en/master/rllib-training.html#callbacks-and-custom-metrics)
-        discard_results: If True, all results are discarded (useful for unit testing & development).
-        results_dir: Directory where training results will be saved (defaults to "~/phantom_results").
+        discard_results: If True, all results are discarded (useful for unit testing &
+            development).
+        results_dir: Directory where training results will be saved (defaults to
+            "~/phantom-results").
         copy_files_to_results_dir: Any files given here will be copied to a
             "copied_files" sub-directory in the experiment results directory. Paths
             should be given relative to the main experiment entry point script.
@@ -100,17 +102,24 @@ def train(
     """
     show_pythonhashseed_warning()
 
-    env_config = env_config or {}
     alg_config = alg_config or {}
+    env_config = env_config or {}
     policy_grouping = policy_grouping or {}
     metrics = metrics or {}
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
 
-    local_files_to_copy = []
-    local_dir = Path(__main__.__file__).parent
+    num_workers = num_workers or os.cpu_count() - 1
 
-    if discard_results is False and len(copy_files_to_results_dir) > 0:
+    local_files_to_copy = []
+
+    # When running from ipython notebooks the '__main__.__file__' object does not exist
+    if hasattr(__main__, "__file__") and not discard_results:
+        local_dir = Path(__main__.__file__).parent
+    else:
+        local_dir = None
+
+    if local_dir is not None and discard_results is False:
         # Check that files in the copy_files_to_results_dir list exist
         for file in copy_files_to_results_dir:
             path = Path(local_dir, file)
@@ -124,8 +133,8 @@ def train(
 
     config, policies = create_rllib_config_dict(
         env,
-        env_config,
         alg_config,
+        env_config,
         policy_grouping,
         callbacks,
         metrics,
@@ -183,8 +192,8 @@ def train(
 
 def create_rllib_config_dict(
     env_class: Type[PhantomEnv],
-    env_config: Mapping[str, Any],
     alg_config: Mapping[str, Any],
+    env_config: Mapping[str, Any],
     policy_grouping: Mapping[str, List[str]],
     callbacks: Iterable[DefaultCallbacks],
     metrics: Mapping[str, Metric],
@@ -406,10 +415,14 @@ def print_experiment_info(
             return sum(space.shape)
         if isinstance(space, gym.spaces.Discrete):
             return 1
-        if isinstance(space, gym.spaces.Tuple):
-            return sum(get_space_size(elem) for elem in space)
         if isinstance(space, gym.spaces.Dict):
             return sum(get_space_size(elem) for elem in space.spaces.values())
+        if isinstance(space, gym.spaces.MultiBinary):
+            return len(space.n)
+        if isinstance(space, gym.spaces.MultiDiscrete):
+            return len(space.nvec)
+        if isinstance(space, gym.spaces.Tuple):
+            return sum(get_space_size(elem) for elem in space)
 
         raise NotImplementedError(type(space))
 

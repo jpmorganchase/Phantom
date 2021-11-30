@@ -11,7 +11,7 @@ from phantom.decoders import Decoder, DictDecoder
 from phantom.encoders import DictEncoder, Encoder
 
 
-class SimpleEncoder(Encoder):
+class MinimalEncoder(Encoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -26,7 +26,7 @@ class SimpleEncoder(Encoder):
         self.id = None
 
 
-class SimpleDecoder(Decoder):
+class MinimalDecoder(Decoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -45,9 +45,9 @@ class MinimalAgent(ph.Agent):
     def __init__(self, id: str) -> None:
         super().__init__(
             agent_id=id,
-            obs_encoder=DictEncoder({"e1": SimpleEncoder(1), "e2": SimpleEncoder(2)}),
+            obs_encoder=DictEncoder({"e1": MinimalEncoder(1), "e2": MinimalEncoder(2)}),
             action_decoder=DictDecoder(
-                {"d1": SimpleDecoder(1), "d2": SimpleDecoder(2)}
+                {"d1": MinimalDecoder(1), "d2": MinimalDecoder(2)}
             ),
         )
 
@@ -72,7 +72,7 @@ def test_experiment():
         experiment_name="unit-testing",
         algorithm="PPO",
         num_workers=0,
-        num_episodes=3,
+        num_episodes=1,
         env=MinimalEnv,
         env_config={},
         policy_grouping={"shared_policy": ["a2", "a3"]},
@@ -80,27 +80,23 @@ def test_experiment():
 
     assert os.path.exists(results_dir)
 
-    metrics, trajectories = ph.rollout(
+    rollouts = ph.rollout(
         directory=results_dir,
         algorithm="PPO",
-        num_workers=1,
-        num_rollouts=5,
+        num_workers=0,
+        num_rollouts=1,
         env_config={},
         save_trajectories=True,
     )
 
-    assert len(metrics) == 5
-    assert len(trajectories) == 5
-    assert type(metrics[0]) == dict
-    assert type(trajectories[0]) == ph.utils.rollout.EpisodeTrajectory
+    assert type(rollouts) == list
+    assert len(rollouts) == 1
+    assert type(rollouts[0]) == ph.utils.rollout.Rollout
 
     results = cloudpickle.load(open(Path(results_dir, "results.pkl"), "rb"))
 
-    assert type(results) == dict
-    assert "metrics" not in results
-    assert "trajectories" in results
-
-    assert len(results["trajectories"]) == 5
-    assert type(results["trajectories"][0]) == ph.utils.rollout.EpisodeTrajectory
+    assert type(results) == list
+    assert len(results) == 1
+    assert type(results[0]) == ph.utils.rollout.Rollout
 
     shutil.rmtree(results_dir)
