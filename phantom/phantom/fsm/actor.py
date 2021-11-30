@@ -15,7 +15,7 @@ class FSMActor(me.actors.SimpleSyncActor):
     This class adds the ability to set per-stage hooks for tasks such as message
     resolution via the ``stage_handlers`` property.
 
-    See the :class:``StageHandler`` class for the full list of available hooks.
+    See the :class:`StageHandler` class for the full list of available hooks.
 
     Attributes:
         actor_id: A unique token identifying this actor.

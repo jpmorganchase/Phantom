@@ -19,8 +19,9 @@ class StageHandler(ABC, Generic[ActorType]):
     """
     Defines custom hooks for an actor/agent for a particular FSM stage or stages.
 
-    WARNING: Internal state should not be stored on handler instances! Instead it should
-    be stored on the actor/agent instances passed into the class's methods.
+    WARNING:
+        Internal state should not be stored on handler instances! Instead it should be
+        stored on the actor/agent instances passed into the class's methods.
     """
 
     @staticmethod
@@ -74,8 +75,9 @@ class StagePolicyHandler(StageHandler[AgentType], ABC, Generic[AgentType]):
     """
     Defines custom hooks for an agent's policy for a particular FSM stage or stages.
 
-    WARNING: Internal state should not be stored on handler instances! Instead it should
-    be stored on the agent instances passed into the class's methods.
+    WARNING:
+        Internal state should not be stored on handler instances! Instead it should be
+        stored on the agent instances passed into the class's methods.
     """
 
     def __init__(

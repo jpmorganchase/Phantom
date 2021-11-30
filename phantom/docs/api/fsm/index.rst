@@ -1,7 +1,13 @@
-.. _api_fsm_env:
-
+================================
 Finite State Machine Environment
 ================================
+
+.. toctree::
+    :hidden:
+
+    actor
+    agent
+    handlers
 
 The :class:`FiniteStateMachineEnv` class maps states in a finite state machine to
 functions that handle the logic of the state. At the end of each state agents take
@@ -69,18 +75,26 @@ environment class is initialised (eg. lists of agent IDs).
          self.network.resolve()
          # Perform any post-resolve tasks
 
+Environment
+===========
 
-.. autoclass:: phantom.fsm_env.FiniteStateMachineEnv
+.. autoclass:: phantom.fsm.env.FiniteStateMachineEnv
    :inherited-members:
 
 
-.. autoclass:: phantom.fsm_env.FSMStage
+Stages
+======
+
+.. autoclass:: phantom.fsm.env.FSMStage
    :inherited-members:
 
 
-.. autoclass:: phantom.fsm_env.FSMValidationError
+Errors
+======
+
+.. autoclass:: phantom.fsm.env.FSMValidationError
    :inherited-members:
 
 
-.. autoclass:: phantom.fsm_env.FSMRuntimeError
+.. autoclass:: phantom.fsm.env.FSMRuntimeError
    :inherited-members:

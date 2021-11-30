@@ -18,7 +18,7 @@ class FSMAgent(Agent):
 
     Beyond that, this class also adds the ability to set per-stage policies to the agent.
 
-    See the :class:``StagePolicyHandler`` class for the full list of available hooks.
+    See the :class:`StagePolicyHandler` class for the full list of available hooks.
 
     Attributes:
         agent_id: A unique token identifying this agent.
