@@ -351,7 +351,11 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                         )
                         infos[policy_id] = agent.collect_infos(ctx)
 
-                        logger.info("Encoding observations for agent '%s'", agent_id)
+                        logger.info(
+                            "Encoding observations for agent '%s' and stage '%s'",
+                            agent_id,
+                            stage_id,
+                        )
 
                     if policy_id in actions:
                         rewards[policy_id] = handler.compute_reward(
@@ -359,7 +363,11 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                         )
 
                         if rewards[policy_id] is not None:
-                            logger.info("Computing reward for agent '%s'", agent_id)
+                            logger.info(
+                                "Computing reward for agent '%s' and stage '%s'",
+                                agent_id,
+                                stage_id,
+                            )
 
             else:
                 observations[agent_id] = agent.encode_obs(ctx)
@@ -383,8 +391,8 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             # infos from all agents.
             terminals = {"__all__": True}
 
-            for aid in self.agents:
-                terminals[aid] = aid in self._dones
+            for agent_id in self.agents:
+                terminals[agent_id] = agent_id in self._dones
 
             return self.Step(
                 observations=self._observations,
@@ -394,7 +402,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             )
 
         # Otherwise not in terminal stage:
-        rewards = {aid: self._rewards[aid] for aid in observations}
+        rewards = {agent_id: self._rewards[agent_id] for agent_id in observations}
 
         return self.Step(observations, rewards, terminals, infos)
 
