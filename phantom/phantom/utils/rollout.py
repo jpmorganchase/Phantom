@@ -224,8 +224,6 @@ def rollout(
                 if len(results) == len(rollout_configs):
                     break
 
-        print()
-
         for worker in workers:
             worker.join()
 
@@ -364,7 +362,7 @@ def _rollout_task_fn(
     except Exception as exception:
         ray.shutdown()
         raise exception
-    
+
     ray.shutdown()
 
     # If using multi-processing this will be an empty list
