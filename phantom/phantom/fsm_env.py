@@ -103,7 +103,6 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             information.
         policy_grouping: A mapping between custom policy name and list of agents
             sharing the policy (optional).
-        seed: A random number generator seed to use (optional).
         stages: List of FSM stages. FSM stages can be defined via this list or
             alternatively via the :class:`FSMStage` decorator.
     """
@@ -117,11 +116,10 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         clock: Optional[Clock] = None,
         n_steps: Optional[int] = None,
         environment_actor: Optional[EnvironmentActor] = None,
-        seed: Optional[int] = None,
         # fsm env specific:
         stages: Optional[Iterable[FSMStage]] = None,
     ) -> None:
-        super().__init__(network, clock, n_steps, environment_actor, seed)
+        super().__init__(network, clock, n_steps, environment_actor)
 
         self.initial_stage: StageID = initial_stage
 
