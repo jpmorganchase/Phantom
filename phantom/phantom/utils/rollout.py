@@ -294,8 +294,6 @@ def rollout(
                 if len(results) == len(rollout_configs):
                     break
 
-        print()
-
         for worker in workers:
             worker.join()
 
