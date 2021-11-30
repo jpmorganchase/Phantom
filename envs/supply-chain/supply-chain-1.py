@@ -192,7 +192,7 @@ if sys.argv[1].lower() == "train":
 
 elif sys.argv[1].lower() == "rollout":
     ph.rollout(
-        directory="/home/ubuntu/phantom_results/supply-chain-1/LATEST",
+        directory="supply-chain-1/LATEST",
         algorithm="PPO",
         num_workers=1,
         num_rollouts=10,
