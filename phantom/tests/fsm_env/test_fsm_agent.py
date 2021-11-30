@@ -6,18 +6,22 @@ import phantom as ph
 
 class StageHandler(ph.fsm.StagePolicyHandler[ph.fsm.FSMAgent]):
     @staticmethod
-    def compute_reward(agent: ph.fsm.FSMAgent, ctx: me.Network.Context) -> float:
+    def compute_reward(
+        agent: ph.fsm.FSMAgent, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> float:
         agent.compute_reward_count += 1
         return 0
 
     @staticmethod
-    def encode_obs(agent: ph.fsm.FSMAgent, ctx: me.Network.Context) -> np.ndarray:
+    def encode_obs(
+        agent: ph.fsm.FSMAgent, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> np.ndarray:
         agent.encode_obs_count += 1
         return np.array([1])
 
     @staticmethod
     def decode_action(
-        agent: ph.fsm.FSMAgent, ctx: me.Network.Context, action
+        agent: ph.fsm.FSMAgent, stage: ph.fsm.StageID, ctx: me.Network.Context, action
     ) -> ph.Packet:
         agent.decode_action_count += 1
         return ph.Packet(messages={agent.id: ["message"]})

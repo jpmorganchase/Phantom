@@ -13,7 +13,13 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
-from phantom.fsm import FSMAgent, FSMStage, FiniteStateMachineEnv, StagePolicyHandler
+from phantom.fsm import (
+    FSMAgent,
+    FSMStage,
+    FiniteStateMachineEnv,
+    StageID,
+    StagePolicyHandler,
+)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -24,23 +30,24 @@ class Stages(Enum):
     EVEN = 2
 
 
-# TODO: consider allowing internal state on policy handlers, for cases where multiple
-# handlers from same class used across different states
 class OddEvenAgentHandler(StagePolicyHandler["OddEvenAgent"]):
     @staticmethod
-    def compute_reward(agent: "OddEvenAgent", ctx: me.Network.Context) -> float:
+    def compute_reward(
+        agent: "OddEvenAgent", stage: StageID, ctx: me.Network.Context
+    ) -> float:
         agent.compute_reward_count += 1
         return 0
 
     @staticmethod
-    def encode_obs(agent: "OddEvenAgent", ctx: me.Network.Context) -> np.ndarray:
+    def encode_obs(
+        agent: "OddEvenAgent", stage: StageID, ctx: me.Network.Context
+    ) -> np.ndarray:
         agent.encode_obs_count += 1
-        # TODO: add current state to ctx
         return np.array([1])
 
     @staticmethod
     def decode_action(
-        agent: "OddEvenAgent", ctx: me.Network.Context, action
+        agent: "OddEvenAgent", stage: StageID, ctx: me.Network.Context, action
     ) -> ph.Packet:
         agent.decode_action_count += 1
         return ph.Packet(messages={agent.id: ["message"]})

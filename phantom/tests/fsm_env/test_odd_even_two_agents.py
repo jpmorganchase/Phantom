@@ -26,18 +26,22 @@ class Stages(Enum):
 
 class OddEvenAgentHandler(StagePolicyHandler["OddEvenAgent"]):
     @staticmethod
-    def compute_reward(agent: "OddEvenAgent", ctx: me.Network.Context) -> float:
+    def compute_reward(
+        agent: "OddEvenAgent", stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> float:
         agent.compute_reward_count += 1
         return 0
 
     @staticmethod
-    def encode_obs(agent: "OddEvenAgent", ctx: me.Network.Context) -> np.ndarray:
+    def encode_obs(
+        agent: "OddEvenAgent", stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> np.ndarray:
         agent.encode_obs_count += 1
         return np.array([1]) if agent.id == "odd_agent" else np.array([0])
 
     @staticmethod
     def decode_action(
-        agent: "OddEvenAgent", ctx: me.Network.Context, action
+        agent: "OddEvenAgent", stage: ph.fsm.StageID, ctx: me.Network.Context, action
     ) -> ph.Packet:
         agent.decode_action_count += 1
         return ph.Packet(messages={agent.id: ["message"]})

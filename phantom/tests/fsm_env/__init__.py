@@ -6,16 +6,20 @@ import phantom as ph
 
 class MinimalStageHandler(ph.fsm.StagePolicyHandler["MinimalAgent"]):
     @staticmethod
-    def compute_reward(agent: "MinimalAgent", ctx: me.Network.Context) -> float:
+    def compute_reward(
+        agent: "MinimalAgent", stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> float:
         return 0
 
     @staticmethod
-    def encode_obs(agent: "MinimalAgent", ctx: me.Network.Context) -> np.ndarray:
+    def encode_obs(
+        agent: "MinimalAgent", stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> np.ndarray:
         return np.array([0])
 
     @staticmethod
     def decode_action(
-        agent: "MinimalAgent", ctx: me.Network.Context, action
+        agent: "MinimalAgent", stage: ph.fsm.StageID, ctx: me.Network.Context, action
     ) -> ph.Packet:
         return ph.Packet()
 

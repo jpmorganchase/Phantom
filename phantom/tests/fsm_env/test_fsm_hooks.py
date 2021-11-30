@@ -36,37 +36,61 @@ class MockFSMActor(ph.fsm.FSMActor):
 
 class OddStateActorHandler(ph.fsm.StageHandler[MockFSMActor]):
     @staticmethod
-    def pre_stage_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def pre_stage_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.ODD
         actor.odd_pre_stage_count += 1
 
     @staticmethod
-    def pre_msg_resolution_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def pre_msg_resolution_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.ODD
         actor.odd_pre_msg_resolution_count += 1
 
     @staticmethod
-    def post_msg_resolution_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def post_msg_resolution_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.ODD
         actor.odd_post_msg_resolution_count += 1
 
     @staticmethod
-    def post_stage_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def post_stage_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.ODD
         actor.odd_post_stage_count += 1
 
 
 class EvenStateActorHandler(ph.fsm.StageHandler[MockFSMActor]):
     @staticmethod
-    def pre_stage_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def pre_stage_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.EVEN
         actor.even_pre_stage_count += 1
 
     @staticmethod
-    def pre_msg_resolution_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def pre_msg_resolution_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.EVEN
         actor.even_pre_msg_resolution_count += 1
 
     @staticmethod
-    def post_msg_resolution_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def post_msg_resolution_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.EVEN
         actor.even_post_msg_resolution_count += 1
 
     @staticmethod
-    def post_stage_hook(actor: MockFSMActor, ctx: me.Network.Context) -> None:
+    def post_stage_hook(
+        actor: MockFSMActor, stage: ph.fsm.StageID, ctx: me.Network.Context
+    ) -> None:
+        assert stage == Stages.EVEN
         actor.even_post_stage_count += 1
 
 

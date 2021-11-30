@@ -219,7 +219,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                 if self.current_stage in actor.stage_handlers:
                     ctx = self.network.context_for(actor_id)
                     handler = actor.stage_handlers[self.current_stage]
-                    handler.pre_stage_hook(actor, ctx)
+                    handler.pre_stage_hook(actor, self.current_stage, ctx)
 
         for agent_id, agent in self.agents.items():
             ctx = self.network.context_for(agent_id)
@@ -231,7 +231,9 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                     self.policy_agent_handler_map[policy_id] = (agent, handler)
 
                     if stage_id == self.current_stage:
-                        observations[policy_id] = handler.encode_obs(agent, ctx)
+                        observations[policy_id] = handler.encode_obs(
+                            agent, self.current_stage, ctx
+                        )
 
                         logger.info(
                             "Returning initial observation for agent '%s'", agent_id
@@ -240,10 +242,9 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                     self._rewards[policy_id] = None
 
             else:
-                # TODO: make tests for combination of standard agents and FSM agents
                 self.policy_agent_handler_map[agent_id] = (agent, None)
                 observations[agent_id] = agent.encode_obs(ctx)
-                self._rewards[policy_id] = None
+                self._rewards[agent_id] = None
 
         return observations
 
@@ -270,7 +271,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if handler is None:
                 packet = agent.decode_action(ctx, action)
             else:
-                packet = handler.decode_action(agent, ctx, action)
+                packet = handler.decode_action(agent, self.current_stage, ctx, action)
 
             mutations[agent.id] = packet.mutations
 
@@ -297,7 +298,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                 if self.current_stage in actor.stage_handlers:
                     ctx = self.network.context_for(actor_id)
                     handler = actor.stage_handlers[self.current_stage]
-                    handler.post_stage_hook(actor, ctx)
+                    handler.post_stage_hook(actor, self.current_stage, ctx)
 
         logger.info("~" * 80)
         logger.info(
@@ -312,7 +313,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                 if next_stage in actor.stage_handlers:
                     ctx = self.network.context_for(actor_id)
                     handler = actor.stage_handlers[next_stage]
-                    handler.pre_stage_hook(actor, ctx)
+                    handler.pre_stage_hook(actor, next_stage, ctx)
 
         if next_stage not in self._stages[self.current_stage].next_stages:
             raise FSMRuntimeError(
@@ -345,24 +346,28 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                     policy_id = f"{agent_id}__{stage_id}"
 
                     if stage_id == next_stage:
-                        observations[policy_id] = handler.encode_obs(agent, ctx)
+                        observations[policy_id] = handler.encode_obs(
+                            agent, self.current_stage, ctx
+                        )
                         infos[policy_id] = agent.collect_infos(ctx)
 
                         logger.info("Encoding observations for agent '%s'", agent_id)
 
                     if policy_id in actions:
-                        rewards[policy_id] = handler.compute_reward(agent, ctx)
+                        rewards[policy_id] = handler.compute_reward(
+                            agent, self.current_stage, ctx
+                        )
 
                         if rewards[policy_id] is not None:
                             logger.info("Computing reward for agent '%s'", agent_id)
 
             else:
-                observations[agent_id] = handler.encode_obs(agent, ctx)
+                observations[agent_id] = agent.encode_obs(ctx)
                 infos[agent_id] = agent.collect_infos(ctx)
 
                 logger.info("Encoding observations for agent '%s'", agent_id)
 
-                rewards[agent_id] = handler.compute_reward(agent, ctx)
+                rewards[agent_id] = agent.compute_reward(ctx)
 
                 if rewards[agent_id] is not None:
                     logger.info("Computing reward for agent '%s'", agent_id)
@@ -413,7 +418,9 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if isinstance(actor, (FSMActor, FSMAgent)):
                 if self.current_stage in actor.stage_handlers:
                     handler = actor.stage_handlers[self.current_stage]
-                    handler.pre_msg_resolution_hook(actor, ctx_map[actor_id])
+                    handler.pre_msg_resolution_hook(
+                        actor, self.current_stage, ctx_map[actor_id]
+                    )
             else:
                 ctx.actor.pre_resolution(ctx)
 
@@ -427,7 +434,9 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
             if isinstance(actor, (FSMActor, FSMAgent)):
                 if self.current_stage in actor.stage_handlers:
                     handler = actor.stage_handlers[self.current_stage]
-                    handler.post_msg_resolution_hook(actor, ctx_map[actor_id])
+                    handler.post_msg_resolution_hook(
+                        actor, self.current_stage, ctx_map[actor_id]
+                    )
             else:
                 ctx.actor.post_resolution(ctx)
 

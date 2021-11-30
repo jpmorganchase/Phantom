@@ -9,6 +9,7 @@ from ray import rllib
 from ..packet import Packet
 from .actor import FSMActor
 from .agent import FSMAgent
+from .typedefs import StageID
 
 
 ActorType = TypeVar("ActorType", bound=FSMActor)
@@ -25,47 +26,59 @@ class StageHandler(ABC, Generic[ActorType]):
     """
 
     @staticmethod
-    def pre_stage_hook(actor: ActorType, ctx: me.Network.Context) -> None:
+    def pre_stage_hook(
+        actor: ActorType, stage: StageID, ctx: me.Network.Context
+    ) -> None:
         """
         This method is called at the start of the stage that this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: The context of the actor (or agent) in reference to the current
                 environment state.
         """
 
     @staticmethod
-    def pre_msg_resolution_hook(actor: ActorType, ctx: me.Network.Context) -> None:
+    def pre_msg_resolution_hook(
+        actor: ActorType, stage: StageID, ctx: me.Network.Context
+    ) -> None:
         """
         This method is called at the start of the message resolution in the stage that
         this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: The context of the actor (or agent) in reference to the current
                 environment state.
         """
 
     @staticmethod
-    def post_msg_resolution_hook(actor: ActorType, ctx: me.Network.Context) -> None:
+    def post_msg_resolution_hook(
+        actor: ActorType, stage: StageID, ctx: me.Network.Context
+    ) -> None:
         """
         This method is called at the end of the message resolution in the stage that
         this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: The context of the actor (or agent) in reference to the current
                 environment state.
         """
 
     @staticmethod
-    def post_stage_hook(actor: ActorType, ctx: me.Network.Context) -> None:
+    def post_stage_hook(
+        actor: ActorType, stage: StageID, ctx: me.Network.Context
+    ) -> None:
         """
         This method is called at the end of the stage that this instance is assigned to.
 
         Arguments:
             actor: The actor (or agent) this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: The context of the actor (or agent) in reference to the current
                 environment state.
         """
@@ -89,12 +102,15 @@ class StagePolicyHandler(StageHandler[AgentType], ABC, Generic[AgentType]):
         self.policy_config = policy_config or {}
 
     @staticmethod
-    def compute_reward(agent: AgentType, ctx: me.Network.Context) -> Optional[float]:
+    def compute_reward(
+        agent: AgentType, stage: StageID, ctx: me.Network.Context
+    ) -> Optional[float]:
         """
         See ``ph.Agent.compute_reward``.
 
         Arguments:
             agent: The agent this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: A Mercury Context object representing the local view of the
                 environment.
 
@@ -104,12 +120,15 @@ class StagePolicyHandler(StageHandler[AgentType], ABC, Generic[AgentType]):
         return None
 
     @abstractstaticmethod
-    def encode_obs(agent: AgentType, ctx: me.Network.Context) -> np.ndarray:
+    def encode_obs(
+        agent: AgentType, stage: StageID, ctx: me.Network.Context
+    ) -> np.ndarray:
         """
         See ``ph.Agent.encode_obs``.
 
         Arguments:
             agent: The agent this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: A Mercury Context object representing the local view of the
                 environment.
 
@@ -120,13 +139,14 @@ class StagePolicyHandler(StageHandler[AgentType], ABC, Generic[AgentType]):
 
     @abstractstaticmethod
     def decode_action(
-        agent: AgentType, ctx: me.Network.Context, action: np.ndarray
+        agent: AgentType, stage: StageID, ctx: me.Network.Context, action: np.ndarray
     ) -> Packet:
         """
         See ``ph.Agent.decode_action``.
 
         Arguments:
             agent: The agent this stage handler class belongs to.
+            stage: The ID of the current stage.
             ctx: A Mercury Context object representing the local view of the
                 environment.
             action: The action taken by the agent.
