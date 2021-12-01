@@ -1,31 +1,37 @@
+from enum import Enum
+
 import mercury as me
-from phantom.fsm_env import (
+from phantom.fsm import (
     FSMStage,
     FiniteStateMachineEnv,
 )
 
-from . import MinimalAgent
+from . import MinimalAgent, MinimalStageHandler
+
+
+class Stages(Enum):
+    A = 1
 
 
 def test_decorator_style():
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_stage="A",
+                initial_stage=Stages.A,
             )
 
         @FSMStage(
-            stage_id="A",
-            next_stages=["A"],
+            stage_id=Stages.A,
+            next_stages=[Stages.A],
         )
         def handle(self):
-            return "A"
+            return Stages.A
 
     env = Env()
     env.reset()
@@ -35,25 +41,25 @@ def test_decorator_style():
 def test_state_definition_list_style():
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_stage="A",
+                initial_stage=Stages.A,
                 stages=[
                     FSMStage(
-                        stage_id="A",
-                        next_stages=["A"],
+                        stage_id=Stages.A,
+                        next_stages=[Stages.A],
                         handler=self.handle,
                     )
                 ],
             )
 
         def handle(self):
-            return "A"
+            return Stages.A
 
     env = Env()
     env.reset()

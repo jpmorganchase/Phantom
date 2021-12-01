@@ -1,11 +1,11 @@
 import logging
 import math
-import multiprocessing as mp
+import multiprocessing
 import os
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import *
+from typing import Any, Callable, Dict, List, Mapping, Optional, Type, Union
 
 import cloudpickle
 import mercury as me
@@ -122,7 +122,6 @@ def rollout(
         - If result_mapping_fn is not None: A list of the outputs from the
             result_mapping_fn function.
 
-
     NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
     command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
     the Python interpreter to run this code. Not setting this may lead to
@@ -159,10 +158,15 @@ def rollout(
 
     directory = Path(directory)
 
+    # If the user provides a path ending in '/LATEST', look for the most recent run
+    # results in that directory
     if directory.stem == "LATEST":
         parent_dir = Path(os.path.expanduser(directory.parent))
 
         if not parent_dir.exists():
+            # The user can provide a path relative to the phantom directory, if they do
+            # so this will not be found when comparing to the system root so we try
+            # appending it to the phantom directory path and test again.
             parent_dir = Path(phantom_dir, parent_dir)
 
             if not parent_dir.exists():
@@ -170,11 +174,11 @@ def rollout(
                     f"Base results directory '{parent_dir}' does not exist"
                 )
 
-        logger.info(f"Trying to find latest experiment results in '{parent_dir}'")
+        logger.info("Trying to find latest experiment results in '%s'", parent_dir)
 
         directory = find_most_recent_results_dir(parent_dir)
 
-        logger.info(f"Found experiment results: '{directory.stem}'")
+        logger.info("Found experiment results: '%s'", directory.stem)
     else:
         directory = Path(os.path.expanduser(directory))
 
@@ -186,8 +190,9 @@ def rollout(
                     f"Results directory '{directory}' does not exist"
                 )
 
-        logger.info(f"Using results directory: '{directory}'")
+        logger.info("Using results directory: '%s'", directory)
 
+    # If an explicit checkpoint is not given, find all checkpoints and use the newest.
     if checkpoint is None:
         checkpoint_dirs = sorted(Path(directory).glob("checkpoint_*"))
 
@@ -196,9 +201,9 @@ def rollout(
 
         checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
 
-        logger.info(f"Using most recent checkpoint: {checkpoint}")
+        logger.info("Using most recent checkpoint: %s", checkpoint)
     else:
-        logger.info(f"Using checkpoint: {checkpoint}")
+        logger.info("Using checkpoint: %s", checkpoint)
 
     # We find all instances of objects that inherit from BaseRange in the env supertype
     # and agent supertypes. We keep a track of where in this structure they came from
@@ -241,13 +246,15 @@ def rollout(
     rollouts_per_worker = int(math.ceil(len(rollout_configs) / max(num_workers, 1)))
 
     logger.info(
-        f"Starting {len(rollout_configs)} rollout(s) using {num_workers} worker process(es)"
+        "Starting %s rollout(s) using %s worker process(es)",
+        len(rollout_configs),
+        num_workers,
     )
 
     # Start the rollouts
     if num_workers == 0:
         # If num_workers is 0, run all the rollouts in this thread.
-        results: List[Rollout] = _parallel_fn(
+        results: List[Rollout] = _rollout_task_fn(
             directory,
             checkpoint,
             algorithm,
@@ -262,7 +269,7 @@ def rollout(
         # Otherwise, manually create threads and give a list of rollouts to each thread.
         # multiprocessing.Pool is not used to allow the use a progressbar that shows the
         # overall state across all threads.
-        result_queue = mp.Manager().Queue()
+        result_queue = multiprocessing.Manager().Queue()
 
         worker_payloads = [
             (
@@ -279,14 +286,16 @@ def rollout(
         ]
 
         workers = [
-            mp.Process(target=_parallel_fn, args=worker_payloads[i])
+            multiprocessing.Process(target=_rollout_task_fn, args=worker_payloads[i])
             for i in range(len(worker_payloads))
         ]
+
         for worker in workers:
             worker.start()
 
         results = []
 
+        # As results asynchronously arrive in the results queue, update the progress bar
         with tqdm(total=len(rollout_configs)) as pbar:
             for item in iter(result_queue.get, None):
                 results.append(item)
@@ -299,7 +308,7 @@ def rollout(
 
     # Optionally save the results
     if results_file is not None:
-        logger.info(f"Generating results file")
+        logger.info("Generating results file")
 
         if result_mapping_fn is None:
             results_to_save = [
@@ -317,12 +326,12 @@ def rollout(
 
         cloudpickle.dump(results_to_save, open(results_file, "wb"))
 
-        logger.info(f"Saved rollout results to '{results_file}'")
+        logger.info("Saved rollout results to '%s'", results_file)
 
     return results
 
 
-def _parallel_fn(
+def _rollout_task_fn(
     directory: Path,
     checkpoint: int,
     algorithm: str,
@@ -330,108 +339,117 @@ def _parallel_fn(
     env_class: Optional[Type[PhantomEnv]] = None,
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
-    result_queue: Optional[mp.Queue] = None,
+    result_queue: Optional[multiprocessing.Queue] = None,
 ) -> List[Rollout]:
+    """
+    Internal function.
+    """
+
     checkpoint_path = Path(
         directory,
         f"checkpoint_{str(checkpoint).zfill(6)}",
         f"checkpoint-{checkpoint}",
     )
 
-    ray.init(local_mode=True, include_dashboard=False)
+    # Wrap ray code in a try block to ensure ray is shutdown correctly if an error occurs
+    try:
+        ray.init(local_mode=True, include_dashboard=False)
 
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as f:
-        config = cloudpickle.load(f)
+        # Load config from results directory.
+        with open(Path(directory, "params.pkl"), "rb") as params_file:
+            config = cloudpickle.load(params_file)
 
-    if env_class is None:
         # Load env class from results directory.
-        with open(Path(directory, "env.pkl"), "rb") as f:
-            env_class = cloudpickle.load(f)
+        with open(Path(directory, "env.pkl"), "rb") as env_file:
+            env_class = cloudpickle.load(env_file)
 
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-    config["env_config"] = configs[0].env_config
+        # Set to zero as rollout workers != training workers - if > 0 will spin up
+        # unnecessary additional workers.
+        config["num_workers"] = 0
+        config["env_config"] = configs[0].env_config
 
-    # Register custom environment with Ray
-    register_env(env_class.env_name, lambda config: env_class(**configs[0].env_config))
+        # Register custom environment with Ray
+        register_env(env_class.env_name, lambda config: env_class(**config))
 
-    trainer = get_trainer_class(algorithm)(env=env_class.env_name, config=config)
-    trainer.restore(str(checkpoint_path))
+        trainer = get_trainer_class(algorithm)(env=env_class.env_name, config=config)
+        trainer.restore(str(checkpoint_path))
 
-    results = []
+        results = []
 
-    iter_obj = tqdm(configs) if result_queue is None else configs
+        iter_obj = tqdm(configs) if result_queue is None else configs
 
-    for rollout_config in iter_obj:
-        # Create environment instance from config from results directory
-        env = env_class(**rollout_config.env_config)
+        for rollout_config in iter_obj:
+            # Create environment instance from config from results directory
+            env = env_class(**rollout_config.env_config)
 
-        for agent_id, supertype in rollout_config.agent_supertypes.items():
-            env.agents[agent_id].supertype = supertype
+            for agent_id, supertype in rollout_config.agent_supertypes.items():
+                env.agents[agent_id].supertype = supertype
 
-        if rollout_config.env_supertype is not None:
-            env.env_type = rollout_config.env_supertype
+            if rollout_config.env_supertype is not None:
+                env.env_type = rollout_config.env_supertype
 
-            if "__ENV" in env.network.actor_ids:
-                env.network.actors["__ENV"].env_type = env.env_type
+                if "__ENV" in env.network.actor_ids:
+                    env.network.actors["__ENV"].env_type = env.env_type
 
-        # Setting seed needs to come after trainer setup
-        np.random.seed(rollout_config.seed)
+            # Setting seed needs to come after trainer setup
+            np.random.seed(rollout_config.seed)
 
-        logger = Logger(tracked_metrics)
+            metric_logger = Logger(tracked_metrics)
 
-        observation = env.reset()
+            observation = env.reset()
 
-        observations: List[Dict[me.ID, Any]] = [observation]
-        rewards: List[Dict[me.ID, float]] = []
-        dones: List[Dict[me.ID, bool]] = []
-        infos: List[Dict[me.ID, Dict[str, Any]]] = []
-        actions: List[Dict[me.ID, Any]] = []
+            observations: List[Dict[me.ID, Any]] = [observation]
+            rewards: List[Dict[me.ID, float]] = []
+            dones: List[Dict[me.ID, bool]] = []
+            infos: List[Dict[me.ID, Dict[str, Any]]] = []
+            actions: List[Dict[me.ID, Any]] = []
 
-        # Run rollout steps.
-        for _ in range(env.clock.n_steps):
-            step_actions = {}
+            # Run rollout steps.
+            for _ in range(env.clock.n_steps):
+                step_actions = {}
 
-            for agent_id, agent_obs in observation.items():
-                policy_id = config["multiagent"]["policy_mapping"][agent_id]
+                for agent_id, agent_obs in observation.items():
+                    policy_id = config["multiagent"]["policy_mapping"][agent_id]
 
-                agent_action = trainer.compute_action(
-                    agent_obs, policy_id=policy_id, explore=False
-                )
-                step_actions[agent_id] = agent_action
+                    agent_action = trainer.compute_action(
+                        agent_obs, policy_id=policy_id, explore=False
+                    )
+                    step_actions[agent_id] = agent_action
 
-            observation, reward, done, info = env.step(step_actions)
-            logger.log(env)
+                observation, reward, done, info = env.step(step_actions)
+                metric_logger.log(env)
 
-            observations.append(observation)
-            rewards.append(reward)
-            dones.append(done)
-            infos.append(info)
-            actions.append(step_actions)
+                observations.append(observation)
+                rewards.append(reward)
+                dones.append(done)
+                infos.append(info)
+                actions.append(step_actions)
 
-        metrics = {k: np.array(v) for k, v in logger.to_dict().items()}
+            metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
-        trajectory = EpisodeTrajectory(
-            observations,
-            rewards,
-            dones,
-            infos,
-            actions,
-        )
+            trajectory = EpisodeTrajectory(
+                observations,
+                rewards,
+                dones,
+                infos,
+                actions,
+            )
 
-        result = Rollout(rollout_config, metrics, trajectory)
+            result = Rollout(rollout_config, metrics, trajectory)
 
-        if result_mapping_fn is not None:
-            result = result_mapping_fn(result)
+            if result_mapping_fn is not None:
+                result = result_mapping_fn(result)
 
-        # If in multiprocess mode, add the results to the queue, otherwise store locally
-        # until all rollouts for this function call are complete.
-        if result_queue is None:
-            results.append(result)
-        else:
-            result_queue.put(result)
+            # If in multiprocess mode, add the results to the queue, otherwise store locally
+            # until all rollouts for this function call are complete.
+            if result_queue is None:
+                results.append(result)
+            else:
+                result_queue.put(result)
+
+    except Exception as exception:
+        ray.shutdown()
+        raise exception
 
     ray.shutdown()
 

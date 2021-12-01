@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Generic, Iterable, Mapping
+from typing import Iterable, Mapping
 
 import mercury as me
 

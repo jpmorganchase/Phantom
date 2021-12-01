@@ -5,7 +5,7 @@ import phantom as ph
 from phantom.encoders import ChainedEncoder, Encoder
 
 
-class TestEncoder(Encoder):
+class SimpleEncoder(Encoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -21,8 +21,8 @@ class TestEncoder(Encoder):
 
 
 def test_chained_encoder():
-    e1 = TestEncoder(1)
-    e2 = TestEncoder(2)
+    e1 = SimpleEncoder(1)
+    e2 = SimpleEncoder(2)
 
     ce1 = ChainedEncoder([e1, e2])
 
@@ -32,8 +32,8 @@ def test_chained_encoder():
 
 
 def test_chained_encoder_reset():
-    e1 = TestEncoder(1)
-    e2 = TestEncoder(2)
+    e1 = SimpleEncoder(1)
+    e2 = SimpleEncoder(2)
 
     cd = ChainedEncoder([e1, e2])
 
