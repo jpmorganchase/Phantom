@@ -2,9 +2,10 @@ import logging
 import math
 import multiprocessing
 import os
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import mercury as me
@@ -65,6 +66,18 @@ class EpisodeTrajectory:
 
     def actions_for_agent(self, agent_id: me.ID) -> List[Optional[Any]]:
         return [step_actions.get(agent_id, None) for step_actions in self.actions]
+
+    def count_actions(self) -> List[Tuple[Any, int]]:
+        return Counter(
+            tuple(action)
+            for step_actions in self.actions
+            for action in step_actions.values()
+        ).most_common()
+
+    def count_agent_actions(self, agent_id: me.ID) -> List[Tuple[Any, int]]:
+        return Counter(
+            tuple(step_actions.get(agent_id, None)) for step_actions in self.actions
+        ).most_common()
 
     def steps_for_agent(self, agent_id: me.ID) -> List[Step]:
         return [
