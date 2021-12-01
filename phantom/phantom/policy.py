@@ -2,6 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Dict, List, Optional, Mapping, Tuple, Union
 
 import gym
+import numpy as np
 from ray import rllib
 from ray.rllib.evaluation import MultiAgentEpisode
 from ray.rllib.utils.typing import TensorStructType, TensorType
@@ -58,4 +59,4 @@ class FixedPolicy(rllib.Policy, ABC):
         timestep: Optional[int] = None,
         **kwargs
     ) -> Tuple[TensorType, List[TensorType], Dict[str, TensorType]]:
-        return ([self.compute_action(obs) for obs in obs_batch], [], {})
+        return (np.array([self.compute_action(obs) for obs in obs_batch]), [], {})
