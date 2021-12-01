@@ -58,7 +58,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # built documents.
 #
 # The short X.Y version.
-version = "2.0"
+version = "1.0"
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
@@ -68,13 +68,14 @@ add_module_names = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "alabaster"
+html_theme = "sphinx_rtd_theme"
+# html_theme = "alabaster"
 
-html_theme_options = {
-    "description": description,
-    "fixed_sidebar": True,
-    "show_powered_by": False,
-}
+# html_theme_options = {
+#     "description": description,
+#     "fixed_sidebar": True,
+#     "show_powered_by": False,
+# }
 
 # html_sidebars = {"**": ["about.html", "localtoc.html", "searchbox.html"]}
 
