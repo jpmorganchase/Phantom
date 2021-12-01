@@ -15,6 +15,7 @@ from ray.tune.registry import register_env
 from tqdm import tqdm
 
 from ..env import PhantomEnv
+from ..fsm import FiniteStateMachineEnv, StageID
 from ..logging import Logger, Metric
 from . import find_most_recent_results_dir, show_pythonhashseed_warning
 
@@ -23,10 +24,24 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class Step:
+    """
+    Describes a step taken by a single agent.
+    """
+
+    action: Any
+    observation: Any
+    reward: float
+    done: bool
+    info: Dict[str, Any]
+    stage: Optional[StageID]
+
+
+@dataclass
 class EpisodeTrajectory:
     """
-    Class describing all the actions, observations, rewards, infos and dones of
-    a single episode.
+    Class describing all the actions, observations, rewards, infos and dones of a single
+    episode.
     """
 
     observations: List[Dict[me.ID, Any]]
@@ -34,6 +49,35 @@ class EpisodeTrajectory:
     dones: List[Dict[me.ID, bool]]
     infos: List[Dict[me.ID, Dict[str, Any]]]
     actions: List[Dict[me.ID, Any]]
+    stages: Optional[List[StageID]]
+
+    def observations_for_agent(self, agent_id: me.ID) -> List[Optional[Any]]:
+        return [step_obs.get(agent_id, None) for step_obs in self.observations]
+
+    def rewards_for_agent(self, agent_id: me.ID) -> List[Optional[float]]:
+        return [step_rewards.get(agent_id, None) for step_rewards in self.rewards]
+
+    def dones_for_agent(self, agent_id: me.ID) -> List[Optional[bool]]:
+        return [step_dones.get(agent_id, None) for step_dones in self.dones]
+
+    def infos_for_agent(self, agent_id: me.ID) -> List[Optional[Dict[str, Any]]]:
+        return [step_infos.get(agent_id, None) for step_infos in self.infos]
+
+    def actions_for_agent(self, agent_id: me.ID) -> List[Optional[Any]]:
+        return [step_actions.get(agent_id, None) for step_actions in self.actions]
+
+    def steps_for_agent(self, agent_id: me.ID) -> List[Step]:
+        return [
+            Step(
+                self.actions[i].get(agent_id, None),
+                self.observations[i].get(agent_id, None),
+                self.rewards[i].get(agent_id, None),
+                self.dones[i].get(agent_id, None),
+                self.infos[i].get(agent_id, None),
+                self.stages[i] if self.stages is not None else None,
+            )
+            for i in range(len(self.actions))
+        ]
 
 
 @dataclass
@@ -316,6 +360,7 @@ def _rollout_task_fn(
             dones: List[Dict[me.ID, bool]] = []
             infos: List[Dict[me.ID, Dict[str, Any]]] = []
             actions: List[Dict[me.ID, Any]] = []
+            stages: List[StageID] = []
 
             # Run rollout steps.
             for _ in range(env.clock.n_steps):
@@ -339,6 +384,9 @@ def _rollout_task_fn(
                 infos.append(info)
                 actions.append(step_actions)
 
+                if isinstance(env, FiniteStateMachineEnv):
+                    stages.append(env.previous_stage)
+
             metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
             trajectory = EpisodeTrajectory(
@@ -347,6 +395,7 @@ def _rollout_task_fn(
                 dones,
                 infos,
                 actions,
+                stages if isinstance(env, FiniteStateMachineEnv) else None,
             )
 
             result = Rollout(rollout_config, metrics, trajectory)

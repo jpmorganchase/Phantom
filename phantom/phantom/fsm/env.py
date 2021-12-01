@@ -129,6 +129,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
         self._stages: Dict[StageID, FSMStage] = {}
         self.current_stage: Optional[StageID] = None
+        self.previous_stage: Optional[StageID] = None
 
         self.policy_agent_handler_map: Dict[
             PolicyID, Tuple[me.ID, Optional[StageID]]
@@ -384,7 +385,7 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
         self._rewards.update(rewards)
         self._infos.update(infos)
 
-        self.current_stage = next_stage
+        self.previous_stage, self.current_stage = self.current_stage, next_stage
 
         if self.current_stage is None or self.is_done():
             # This is the terminal stage, return most recent observations, rewards and
