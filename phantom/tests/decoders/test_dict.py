@@ -6,7 +6,7 @@ from phantom.decoders import Decoder, DictDecoder
 from phantom.packet import Packet
 
 
-class TestDecoder(Decoder):
+class MockDecoder(Decoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -24,8 +24,8 @@ class TestDecoder(Decoder):
 
 
 def test_dict_decoder():
-    d1 = TestDecoder(1)
-    d2 = TestDecoder(2)
+    d1 = MockDecoder(1)
+    d2 = MockDecoder(2)
 
     dd = DictDecoder({"d1": d1, "d2": d2})
 
@@ -44,8 +44,8 @@ def test_dict_decoder():
 
 
 def test_chained_decoder_reset():
-    d1 = TestDecoder(1)
-    d2 = TestDecoder(2)
+    d1 = MockDecoder(1)
+    d2 = MockDecoder(2)
 
     dd = DictDecoder({"d1": d1, "d2": d2})
 
