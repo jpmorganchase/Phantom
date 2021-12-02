@@ -296,7 +296,7 @@ if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
         algorithm="PPO",
         num_workers=1,
         num_episodes=10,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(
             n_customers=NUM_CUSTOMERS,
         ),

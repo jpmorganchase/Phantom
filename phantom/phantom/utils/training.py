@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 def train(
     experiment_name: str,
-    env: Type[PhantomEnv],
+    env_class: Type[PhantomEnv],
     algorithm: str,
     num_episodes: int,
     seed: int = 0,
@@ -81,7 +81,7 @@ def train(
 
     Arguments:
         experiment_name: Experiment name used for tensorboard logging.
-        env: A PhantomEnv subclass.
+        env_class: A PhantomEnv subclass.
         algorithm: RL algorithm to use.
         num_episodes: The number of episodes to train for, distributed over all workers.
         seed: Optional seed to pass to environment.
@@ -187,7 +187,7 @@ def train(
         sampler.value = sampler.sample()
 
     config, policies = create_rllib_config_dict(
-        env,
+        env_class,
         alg_config,
         env_config,
         env_supertype,
@@ -204,7 +204,7 @@ def train(
             config,
             policies,
             experiment_name,
-            env.env_name,
+            env_class.env_name,
             num_workers,
             num_episodes,
             algorithm,
@@ -216,23 +216,20 @@ def train(
     # supertypes given to this 'train' function are properly applied to the environment
     # and agents.
     def reg_env(config):
-        e = env(**config)
+        env = env_class(**config)
+
         # The environment needs access to the list of samplers so it can generate new
         # values in each step.
-        e._samplers = samplers
-        # The environment needs access to the env_supertype so it can sample from it in
-        # each step.
-        e._env_supertype = env_supertype
+        env._samplers = samplers
 
-        # Set the supertypes on the agents.
-        for agent_id, supertype in agent_supertypes.items():
-            e.agents[agent_id].supertype = supertype
+        # Give the supertypes to the correct objects in the environment
+        env.set_supertypes(env_supertype, agent_supertypes)
 
         # Here we override the reset method on the environment class so we can generate
         # values from the sampler before the main environment reset logic is run.
         # Ideally in the future we will insert a layer between the env and RLlib to do
         # this.
-        original_reset = e.reset
+        original_reset = env.reset
 
         def overridden_reset(self) -> Dict[me.ID, Any]:
             # Sample from samplers
@@ -248,12 +245,12 @@ def train(
 
             return original_reset()
 
-        e.reset = types.MethodType(overridden_reset, e)
-        e.reset()
+        env.reset = types.MethodType(overridden_reset, env)
+        env.reset()
 
-        return e
+        return env
 
-    register_env(env.env_name, reg_env)
+    register_env(env_class.env_name, reg_env)
 
     training_it = int(num_episodes / num_workers) if num_workers > 0 else num_episodes
 
@@ -272,7 +269,7 @@ def train(
             config=config,
             callbacks=[
                 TBXExtendedLoggerCallback(),
-                TrialStartTasksCallback(env, local_dir, local_files_to_copy),
+                TrialStartTasksCallback(env_class, local_dir, local_files_to_copy),
             ],
         )
 
@@ -314,8 +311,7 @@ def create_rllib_config_dict(
     # the default parameters.
     env = env_class(**env_config)
 
-    for agent_id, supertype in agent_supertypes.items():
-        env.agents[agent_id].supertype = supertype
+    env.set_supertypes(env_supertype, agent_supertypes)
 
     # Update and apply env type
     if env_supertype is not None:

@@ -484,7 +484,7 @@ There are more fields available in ``ph.train`` function than what is shown here
         algorithm="PPO",
         num_workers=2,
         num_episodes=10000,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(n_customers=5),
     )
 

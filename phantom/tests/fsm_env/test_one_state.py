@@ -130,7 +130,7 @@ def test_one_state_with_handler_with_ray():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=OneStateFSMEnvWithHandler,
+        env_class=OneStateFSMEnvWithHandler,
         env_config={},
         discard_results=True,
     )
@@ -195,7 +195,7 @@ def test_one_state_without_handler_with_ray():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=OneStateFSMEnvWithoutHandler,
+        env_class=OneStateFSMEnvWithoutHandler,
         env_config={},
         discard_results=True,
     )

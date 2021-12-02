@@ -73,7 +73,7 @@ def test_experiment():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=MinimalEnv,
+        env_class=MinimalEnv,
         policy_grouping={"shared_policy": ["a2", "a3"]},
     )
 

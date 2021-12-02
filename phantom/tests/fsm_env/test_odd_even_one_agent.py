@@ -171,7 +171,7 @@ def test_odd_even_one_agent_with_ray():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=OddEvenFSMEnv,
+        env_class=OddEvenFSMEnv,
         env_config={},
         discard_results=True,
     )

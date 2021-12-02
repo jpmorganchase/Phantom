@@ -62,7 +62,7 @@ the agent and the property that is being measured, eg. ``stock/SHOP``.
         algorithm="PPO",
         num_workers=15,
         num_episodes=1000,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(n_customers=5),
         metrics=metrics,
     )
@@ -406,7 +406,7 @@ function;
         algorithm="PPO",
         num_workers=2,
         num_episodes=10000,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(n_customers=5),
         agent_supertypes=agent_supertypes,
     )

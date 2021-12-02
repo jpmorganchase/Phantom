@@ -242,5 +242,13 @@ class PhantomEnv(MultiAgentEnv):
         """
         return self.clock.is_terminal or len(self._dones) == len(self.agents)
 
+    def set_supertypes(
+        self, env_supertype: BaseSupertype, agent_supertypes: Dict[me.ID, BaseSupertype]
+    ) -> None:
+        self._env_supertype = env_supertype
+
+        for agent_id, supertype in agent_supertypes.items():
+            self.agents[agent_id].supertype = supertype
+
     def __getitem__(self, actor_id: me.ID) -> me.actors.Actor:
         return self.network[actor_id]
