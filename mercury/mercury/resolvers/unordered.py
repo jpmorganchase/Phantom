@@ -1,8 +1,11 @@
-import typing as _t
+from typing import Mapping, TYPE_CHECKING
 
-import mercury as _me
-
+from ..core import ID
+from ..message import Batch
 from . import BatchResolver
+
+if TYPE_CHECKING:
+    from ..network import Network
 
 
 class UnorderedResolver(BatchResolver):
@@ -15,9 +18,7 @@ class UnorderedResolver(BatchResolver):
     problems.
     """
 
-    def resolve_batches(
-        self, network: "_me.Network", batches: _t.Mapping[_me.ID, _me.message.Batch]
-    ) -> None:
+    def resolve_batches(self, network: "Network", batches: Mapping[ID, Batch]) -> None:
         for batch in batches.values():
             ctx = network.context_for(batch.receiver_id)
 

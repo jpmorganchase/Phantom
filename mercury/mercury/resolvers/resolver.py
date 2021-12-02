@@ -1,10 +1,14 @@
-import abc as _abc
-import typing as _t
+import abc
+from typing import Dict, Iterable, Mapping, TYPE_CHECKING
 
-import mercury as _me
+from ..core import ID
+from ..message import Batch, Payload
+
+if TYPE_CHECKING:
+    from ..network import Network
 
 
-class Resolver(_abc.ABC):
+class Resolver(abc.ABC):
     """Network message resolver.
 
     This type is responsible for resolution processing. That is, the order in
@@ -15,14 +19,12 @@ class Resolver(_abc.ABC):
     not the case; e.g. processing incoming market orders in an LOB.
     """
 
-    @_abc.abstractmethod
-    def push(
-        self, from_id: _me.ID, to_id: _me.ID, payloads: _t.Iterable[_me.Payload]
-    ) -> None:
+    @abc.abstractmethod
+    def push(self, from_id: ID, to_id: ID, payloads: Iterable[Payload]) -> None:
         raise NotImplementedError
 
-    @_abc.abstractmethod
-    def resolve(self, network: "_me.Network") -> None:
+    @abc.abstractmethod
+    def resolve(self, network: "Network") -> None:
         """Process queues messages for a (sub) set of network contexts.
 
         Arguments:
@@ -30,7 +32,7 @@ class Resolver(_abc.ABC):
         """
         raise NotImplementedError
 
-    @_abc.abstractmethod
+    @abc.abstractmethod
     def reset(self) -> None:
         raise NotImplementedError
 
@@ -39,20 +41,20 @@ class BatchResolver(Resolver):
     def __init__(self, chain_limit: int = 2) -> None:
         self.chain_limit = chain_limit
 
-        self._q1: _t.Dict[_me.ID, _me.Batch] = dict()
+        self._q1: Dict[ID, Batch] = dict()
 
-        self._q2: _t.Dict[_me.ID, _me.Batch] = dict()
+        self._q2: Dict[ID, Batch] = dict()
 
         self._qi = 0
         self._qs = (self._q1, self._q2)
 
     @property
-    def _cq(self) -> _t.Dict[_me.ID, _me.Batch]:
+    def _cq(self) -> Dict[ID, Batch]:
         """Current queue."""
         return self._qs[self._qi]
 
     @property
-    def _pq(self) -> _t.Dict[_me.ID, _me.Batch]:
+    def _pq(self) -> Dict[ID, Batch]:
         """Populated queue."""
         return self._qs[1 - self._qi]
 
@@ -60,15 +62,13 @@ class BatchResolver(Resolver):
         self._q1.clear()
         self._q2.clear()
 
-    def push(
-        self, from_id: _me.ID, to_id: _me.ID, payloads: _t.Iterable[_me.Payload]
-    ) -> None:
+    def push(self, from_id: ID, to_id: ID, payloads: Iterable[Payload]) -> None:
         if to_id not in self._cq:
-            self._cq[to_id] = _me.message.Batch(to_id)
+            self._cq[to_id] = Batch(to_id)
 
         self._cq[to_id][from_id].extend(payloads)
 
-    def resolve(self, network: "_me.Network") -> None:
+    def resolve(self, network: "Network") -> None:
         self._qi = 1 - self._qi
 
         for i in range(self.chain_limit):
@@ -81,8 +81,6 @@ class BatchResolver(Resolver):
 
             self._qi = 1 - self._qi
 
-    @_abc.abstractmethod
-    def resolve_batches(
-        self, network: "_me.Network", batches: _t.Mapping[_me.ID, _me.message.Batch]
-    ) -> None:
+    @abc.abstractmethod
+    def resolve_batches(self, network: "Network", batches: Mapping[ID, Batch]) -> None:
         raise NotImplementedError
