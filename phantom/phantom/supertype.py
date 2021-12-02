@@ -68,8 +68,8 @@ class BaseSupertype(ABC):
         """
 
         new_type = make_dataclass(
-            self.__class__.__name__ + "_Type",
-            [
+            cls_name=self.__class__.__name__ + "_Type",
+            fields=[
                 (
                     name,
                     # If len(value.type.__args__) == 3 then this type is likely a
@@ -79,6 +79,7 @@ class BaseSupertype(ABC):
                 )
                 for name, value in self.__dataclass_fields__.items()
             ],
+            bases=(BaseType,),
         )
 
         return new_type(
