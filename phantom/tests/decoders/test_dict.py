@@ -3,7 +3,6 @@ import mercury as me
 import numpy as np
 import phantom as ph
 from phantom.decoders import Decoder, DictDecoder
-from phantom.packet import Packet
 
 
 class MockDecoder(Decoder):
@@ -51,5 +50,5 @@ def test_chained_decoder_reset():
 
     dd.reset()
 
-    assert d1.id == None
-    assert d2.id == None
+    assert d1.id is None
+    assert d2.id is None
