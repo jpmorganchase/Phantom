@@ -6,7 +6,7 @@ from phantom.fsm import (
     FiniteStateMachineEnv,
 )
 
-from . import MinimalAgent, MinimalStageHandler
+from . import MockFSMAgent, MockStageHandler
 
 
 class Stages(Enum):
@@ -16,7 +16,7 @@ class Stages(Enum):
 def test_decorator_style():
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -41,7 +41,7 @@ def test_decorator_style():
 def test_state_definition_list_style():
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 

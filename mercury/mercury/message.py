@@ -1,6 +1,5 @@
-import typing as _t
-
 from dataclasses import dataclass
+from typing import Any, DefaultDict, Generic, Iterator, List, TypeVar
 
 from mercury import ID
 
@@ -10,11 +9,11 @@ class Payload:
     """Payload structure."""
 
 
-PayloadType = _t.TypeVar("PayloadType", bound=Payload)
+PayloadType = TypeVar("PayloadType", bound=Payload)
 
 
 @dataclass(frozen=True)
-class Message(_t.Generic[PayloadType]):
+class Message(Generic[PayloadType]):
     """Immutable message structure."""
 
     sender_id: ID
@@ -23,8 +22,8 @@ class Message(_t.Generic[PayloadType]):
     payload: PayloadType
 
 
-class Batch(_t.DefaultDict[ID, _t.List[Payload]]):
-    def __init__(self, receiver_id: ID, *args: _t.Any, **kwargs: _t.Any) -> None:
+class Batch(DefaultDict[ID, List[Payload]]):
+    def __init__(self, receiver_id: ID, *args: Any, **kwargs: Any) -> None:
         super().__init__(list, *args, **kwargs)
 
         self.receiver_id = receiver_id
@@ -33,7 +32,7 @@ class Batch(_t.DefaultDict[ID, _t.List[Payload]]):
         for sender_id, payloads in other.items():
             self[sender_id].extend(payloads)
 
-    def messages_from(self, sender_id: ID) -> _t.Iterator[Message]:
+    def messages_from(self, sender_id: ID) -> Iterator[Message]:
         def to_message(payload: Payload) -> Message:
             return Message(sender_id, self.receiver_id, payload)
 

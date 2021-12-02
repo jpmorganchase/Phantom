@@ -359,9 +359,10 @@ def _rollout_task_fn(
         with open(Path(directory, "params.pkl"), "rb") as params_file:
             config = cloudpickle.load(params_file)
 
-        # Load env class from results directory.
-        with open(Path(directory, "env.pkl"), "rb") as env_file:
-            env_class = cloudpickle.load(env_file)
+        if env_class is None:
+            # Load env class from results directory.
+            with open(Path(directory, "env.pkl"), "rb") as env_file:
+                env_class = cloudpickle.load(env_file)
 
         # Set to zero as rollout workers != training workers - if > 0 will spin up
         # unnecessary additional workers.
@@ -414,6 +415,7 @@ def _rollout_task_fn(
                     agent_action = trainer.compute_action(
                         agent_obs, policy_id=policy_id, explore=False
                     )
+
                     step_actions[agent_id] = agent_action
 
                 observation, reward, done, info = env.step(step_actions)

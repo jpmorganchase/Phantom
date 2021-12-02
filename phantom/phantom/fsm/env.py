@@ -49,10 +49,14 @@ class FSMStage:
         self,
         stage_id: StageID,
         next_stages: Optional[Iterable[StageID]] = None,
+        acting_agents: Optional[Iterable[me.ID]] = None,
+        rewarded_agents: Optional[Iterable[me.ID]] = None,
         handler: Optional[EnvStageHandler] = None,
     ) -> None:
         self.stage_id = stage_id
         self.next_stages = next_stages
+        self.acting_agents = acting_agents
+        self.rewarded_agents = rewarded_agents
         self.handler: Optional[EnvStageHandler] = handler
 
     def __call__(self, handler_fn: Callable[..., Optional[StageID]]):
@@ -243,7 +247,11 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
 
             else:
                 self.policy_agent_handler_map[agent_id] = (agent, None)
-                observations[agent_id] = agent.encode_obs(ctx)
+
+                acting_agents = self._stages[self.current_stage].acting_agents
+                if acting_agents is None or agent_id in acting_agents:
+                    observations[agent_id] = agent.encode_obs(ctx)
+
                 self._rewards[agent_id] = None
 
         return observations
@@ -346,39 +354,39 @@ class FiniteStateMachineEnv(PhantomEnv, ABC):
                     policy_id = f"{agent_id}__{stage_id}"
 
                     if stage_id == next_stage:
-                        observations[policy_id] = handler.encode_obs(
-                            agent, self.current_stage, ctx
-                        )
-                        infos[policy_id] = agent.collect_infos(ctx)
-
                         logger.info(
                             "Encoding observations for agent '%s' and stage '%s'",
                             agent_id,
                             stage_id,
                         )
 
+                        observations[policy_id] = handler.encode_obs(
+                            agent, self.current_stage, ctx
+                        )
+                        infos[policy_id] = agent.collect_infos(ctx)
+
                     if policy_id in actions:
+                        logger.info(
+                            "Computing reward for agent '%s' and stage '%s'",
+                            agent_id,
+                            stage_id,
+                        )
+
                         rewards[policy_id] = handler.compute_reward(
                             agent, self.current_stage, ctx
                         )
 
-                        if rewards[policy_id] is not None:
-                            logger.info(
-                                "Computing reward for agent '%s' and stage '%s'",
-                                agent_id,
-                                stage_id,
-                            )
-
             else:
-                observations[agent_id] = agent.encode_obs(ctx)
-                infos[agent_id] = agent.collect_infos(ctx)
+                acting_agents = self._stages[next_stage].acting_agents
+                if acting_agents is None or agent_id in acting_agents:
+                    logger.info("Encoding observations for agent '%s'", agent_id)
+                    observations[agent_id] = agent.encode_obs(ctx)
+                    infos[agent_id] = agent.collect_infos(ctx)
 
-                logger.info("Encoding observations for agent '%s'", agent_id)
-
-                rewards[agent_id] = agent.compute_reward(ctx)
-
-                if rewards[agent_id] is not None:
+                rewarded_agents = self._stages[self.current_stage].rewarded_agents
+                if rewarded_agents is None or agent_id in rewarded_agents:
                     logger.info("Computing reward for agent '%s'", agent_id)
+                    rewards[agent_id] = agent.compute_reward(ctx)
 
         self._observations.update(observations)
         self._rewards.update(rewards)

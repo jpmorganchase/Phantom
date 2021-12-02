@@ -98,10 +98,10 @@ class CustomerAgent(ph.Agent):
         return np.zeros((1,))
 
     def get_observation_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=0, high=np.inf, shape=(2,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
@@ -215,12 +215,10 @@ class ShopAgent(ph.Agent):
         self.total_missed_sales = 0
 
     def get_observation_space(self):
-        return gym.spaces.Box(low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK]))
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(
-            low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK_REQUEST])
-        )
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK_REQUEST, shape=(1,))
 
 
 SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]

@@ -106,7 +106,7 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
         return Stages.ODD
 
 
-def test_odd_even():
+def test_odd_even_two_fsm_agents():
     env = OddEvenFSMEnv()
 
     # Start in ODD stage, ODD agent provides initial observations
@@ -115,11 +115,12 @@ def test_odd_even():
     assert env.current_stage == Stages.ODD
     # ODD agent has not taken an action, so does not compute reward
     assert env.agents["odd_agent"].compute_reward_count == 0
-    assert env.agents["even_agent"].compute_reward_count == 0
     # ODD agent encodes it's observations during the reset() call
     assert env.agents["odd_agent"].encode_obs_count == 1
-    assert env.agents["even_agent"].encode_obs_count == 0
     assert env.agents["odd_agent"].decode_action_count == 0
+
+    assert env.agents["even_agent"].compute_reward_count == 0
+    assert env.agents["even_agent"].encode_obs_count == 0
     assert env.agents["even_agent"].decode_action_count == 0
 
     # Policy returns action for odd agent as observations were provided
@@ -138,10 +139,11 @@ def test_odd_even():
     assert step.infos == {"even_agent__Stages.EVEN": {}}
 
     assert env.agents["odd_agent"].compute_reward_count == 1
-    assert env.agents["even_agent"].compute_reward_count == 0
     assert env.agents["odd_agent"].encode_obs_count == 1
-    assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["odd_agent"].decode_action_count == 1
+
+    assert env.agents["even_agent"].compute_reward_count == 0
+    assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["even_agent"].decode_action_count == 0
 
     step = env.step({"even_agent__Stages.EVEN": np.array([0])})
@@ -153,10 +155,11 @@ def test_odd_even():
     assert step.infos == {"odd_agent__Stages.ODD": {}}
 
     assert env.agents["odd_agent"].compute_reward_count == 1
-    assert env.agents["even_agent"].compute_reward_count == 1
     assert env.agents["odd_agent"].encode_obs_count == 2
-    assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["odd_agent"].decode_action_count == 1
+
+    assert env.agents["even_agent"].compute_reward_count == 1
+    assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["even_agent"].decode_action_count == 1
 
     step = env.step({"odd_agent__Stages.ODD": np.array([0])})
@@ -171,20 +174,9 @@ def test_odd_even():
     assert step.infos == {"even_agent__Stages.EVEN": {}, "odd_agent__Stages.ODD": {}}
 
     assert env.agents["odd_agent"].compute_reward_count == 2
-    assert env.agents["even_agent"].compute_reward_count == 1
     assert env.agents["odd_agent"].encode_obs_count == 2
-    assert env.agents["even_agent"].encode_obs_count == 2
     assert env.agents["odd_agent"].decode_action_count == 2
+
+    assert env.agents["even_agent"].compute_reward_count == 1
+    assert env.agents["even_agent"].encode_obs_count == 2
     assert env.agents["even_agent"].decode_action_count == 1
-
-
-def test_odd_even_two_agents_with_ray():
-    ph.train(
-        experiment_name="unit-testing",
-        algorithm="PPO",
-        num_workers=0,
-        num_episodes=1,
-        env_class=OddEvenFSMEnv,
-        env_config={},
-        discard_results=True,
-    )

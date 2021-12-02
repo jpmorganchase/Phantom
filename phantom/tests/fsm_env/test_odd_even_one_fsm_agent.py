@@ -114,7 +114,7 @@ class OddEvenFSMEnv(FiniteStateMachineEnv):
         return Stages.ODD
 
 
-def test_odd_even():
+def test_odd_even_one_fsm_agent():
     env = OddEvenFSMEnv()
 
     # Start in ODD stage, ODD agent provides initial observations
@@ -163,15 +163,3 @@ def test_odd_even():
     assert env.agents["agent"].compute_reward_count == 3
     assert env.agents["agent"].encode_obs_count == 4
     assert env.agents["agent"].decode_action_count == 3
-
-
-def test_odd_even_one_agent_with_ray():
-    ph.train(
-        experiment_name="unit-testing",
-        algorithm="PPO",
-        num_workers=0,
-        num_episodes=1,
-        env_class=OddEvenFSMEnv,
-        env_config={},
-        discard_results=True,
-    )

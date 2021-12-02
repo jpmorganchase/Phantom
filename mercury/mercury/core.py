@@ -1,7 +1,7 @@
 """Module containing common types used throughout the library."""
-import typing as _t
+from typing import Hashable
 
 
-ID = _t.Hashable  # doc: Type alias for entity labels.
+ID = Hashable  # doc: Type alias for entity labels.
 
 NULL_ID: ID = 0
