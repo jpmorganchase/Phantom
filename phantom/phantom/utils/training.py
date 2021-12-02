@@ -109,7 +109,7 @@ def train(
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
 
-    num_workers = num_workers or os.cpu_count() - 1
+    num_workers = os.cpu_count() - 1 if num_workers is None else num_workers
 
     local_files_to_copy = []
 
