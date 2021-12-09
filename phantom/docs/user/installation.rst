@@ -18,7 +18,7 @@ file. Mercury should be installed by downloading the source code and installing 
 package manually. The rest of the packages can be installed by running from the
 Phantom project root directory::
 
-    python -m pip install -r requirements.txt
+    python3 -m pip install -r requirements.txt
 
 
 Get the Source Code
