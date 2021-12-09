@@ -43,9 +43,6 @@ class SimpleMarketEnv(ph.PhantomEnv):
         env_actor = SimpleMktEnvActor()
         network.add_actor(env_actor)
         self.network.add_connections_between([env_actor.id], list(network.actor_ids))
-        if not isinstance(self.network.resolver, ph.env.EnvironmentFirstResolver):
-            # TODO: currently replaces actual resolver
-            self.network.resolver = ph.env.EnvironmentFirstResolver()
 
     def step(self, actions):
         self.clock.tick()
