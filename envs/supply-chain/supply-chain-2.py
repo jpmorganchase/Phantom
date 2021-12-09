@@ -287,8 +287,6 @@ metrics.update({f"missed_sales/{id}": MissedSalesMetric(id) for id in SHOP_IDS})
 
 
 if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
-    weight = UniformSampler(low=0.5, high=3.0)
-
     ph.train(
         experiment_name="supply-chain-2",
         algorithm="PPO",
@@ -299,15 +297,16 @@ if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
             n_customers=NUM_CUSTOMERS,
         ),
         agent_supertypes={
-            id: ShopAgentSupertype(missed_sales_weight=weight) for id in SHOP_IDS
+            id: ShopAgentSupertype(
+                missed_sales_weight=UniformSampler(low=0.5, high=3.0)
+            )
+            for id in SHOP_IDS
         },
         metrics=metrics,
         policy_grouping={"shared_SHOP_policy": SHOP_IDS},
     )
 
 elif sys.argv[1].lower() == "rollout":
-    weight = UniformRange(start=0.5, end=3.0, step=0.5)
-
     ph.rollout(
         directory="supply-chain-2/LATEST",
         algorithm="PPO",
@@ -317,7 +316,10 @@ elif sys.argv[1].lower() == "rollout":
             n_customers=NUM_CUSTOMERS,
         ),
         agent_supertypes={
-            id: ShopAgentSupertype(missed_sales_weight=weight) for id in SHOP_IDS
+            id: ShopAgentSupertype(
+                missed_sales_weight=UniformRange(start=0.5, end=3.0, step=0.5)
+            )
+            for id in SHOP_IDS
         },
         results_file=None,
     )
