@@ -152,7 +152,7 @@ def train(
             "agent_supertypes should not contain instances of classes inheriting from BaseRange"
         )
 
-    num_workers = num_workers or os.cpu_count() - 1
+    num_workers = os.cpu_count() - 1 if num_workers is None else num_workers
 
     local_files_to_copy = []
 

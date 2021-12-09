@@ -1,7 +1,6 @@
 import gym
 import mercury as me
 import numpy as np
-import phantom as ph
 from phantom.encoders import ChainedEncoder, Encoder
 
 
@@ -39,5 +38,5 @@ def test_chained_encoder_reset():
 
     cd.reset()
 
-    assert e1.id == None
-    assert e2.id == None
+    assert e1.id is None
+    assert e2.id is None

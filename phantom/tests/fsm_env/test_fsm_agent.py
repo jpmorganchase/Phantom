@@ -37,4 +37,4 @@ class StageHandler(ph.fsm.StagePolicyHandler[ph.fsm.FSMAgent]):
 
 def test_fsm_agent():
     handler = StageHandler()
-    agent = ph.fsm.FSMAgent("agent", stage_handlers={"stage1": handler})
+    ph.fsm.FSMAgent("agent", stage_handlers={"stage1": handler})
