@@ -24,7 +24,7 @@ class Order:
 ###############################################################
 
 # Buyer type = buyer's intrinsic value for the good
-@dataclass(frozen=True)
+@dataclass
 class Value(ph.AgentType):
     value: float
 
@@ -169,7 +169,7 @@ class SimpleMktEnvActor(ph.env.EnvironmentActor):
     def post_resolution(self, ctx):
         self.avg_price = np.mean(np.array(list(self.seller_prices.values())))
 
-    def view(self, neighbour_id = None) -> "SimpleMktEnvActor.View":
+    def view(self, neighbour_id=None) -> "SimpleMktEnvActor.View":
         return self.View(
             actor_id=self._id,
             avg_price=self.avg_price,

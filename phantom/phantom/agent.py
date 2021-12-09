@@ -16,7 +16,7 @@ from .rewards import RewardFunction
 ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 
 
-@dataclass(frozen=True)
+@dataclass
 class AgentType(ABC):
     """
     Abstract base class representing Agent Types.
