@@ -7,7 +7,7 @@ test_glob_patterns = ["*.tests", "*.tests.*", "tests.*", "tests"]
 
 setup(
     name="phantom",
-    version="0.1",
+    version="0.2",
     description="Multi-agent simulator for OTC markets",
     url="https://us-east-2.console.aws.amazon.com/codesuite/codecommit/repositories/phantom-core/setup",
     author="JPM AI Research",

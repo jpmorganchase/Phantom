@@ -58,7 +58,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # built documents.
 #
 # The short X.Y version.
-version = "1.0"
+version = "0.2"
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).

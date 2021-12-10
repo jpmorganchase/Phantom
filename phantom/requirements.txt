@@ -6,7 +6,7 @@ fsspec==0.8
 gputil==1.4
 gym==0.18
 matplotlib>=3.0
-mercury
+mercury==0.2
 networkx>=2.5
 numba==0.53.1
 numpy==1.19.3
