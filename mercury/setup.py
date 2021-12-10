@@ -9,10 +9,8 @@ NAME = "mercury"
 
 
 def _get_version():
-    with open(os.path.join(NAME, "__init__.py")) as fp:
-        return re.findall(
-            r".*__version__\s*=\s*\"(?P<version>.*)\"", fp.read(), re.MULTILINE
-        )[0]
+    with open("../version.txt") as fp:
+        return fp.readlines()[0]
 
 
 def _get_long_description():
@@ -40,7 +38,7 @@ def _get_requirements():
 setup(
     name=NAME,
     version=_get_version(),
-    description="Mechanism toolbox for OTC market simulations",
+    description="A library for simulating P2P messaging networks.",
     long_description=_get_long_description(),
     url="",
     author="JPM AI Research",
@@ -49,7 +47,7 @@ setup(
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
     ],
-    keywords="ai research market",
+    keywords="ai research network",
     packages=find_packages(exclude=TEST_GLOB_PATTERNS),
     install_requires=_get_requirements(),
 )

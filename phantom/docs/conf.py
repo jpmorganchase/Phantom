@@ -27,6 +27,9 @@ copyright = "{}, AI Research, JP Morgan. Some icons used freely from Font Awesom
 author = "AI Research Group"
 description = "A Multi-agent reinforcement-learning simulator framework."
 
+def _get_version():
+    with open("../../version.txt") as fp:
+        return fp.readlines()[0]
 
 # -- General configuration ---------------------------------------------------
 # Add any Sphinx extension module names here, as strings. They can be
@@ -58,7 +61,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # built documents.
 #
 # The short X.Y version.
-version = "0.2"
+version = _get_version()
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
