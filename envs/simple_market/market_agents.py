@@ -24,12 +24,12 @@ class Order:
 ###############################################################
 
 # Buyer type = buyer's intrinsic value for the good
-@dataclass(frozen=True)
+@dataclass
 class Value(ph.AgentType):
     value: float
 
 
-class BuyerSupertype(ph.Supertype, Value):
+class BuyerSupertype(ph.Supertype):
     def __init__(self, min_val, max_val):
         self.min_val = min_val
         self.max_val = max_val
@@ -88,6 +88,7 @@ class BuyerAgent(ph.Agent):
         yield from ()
 
     def reset(self):
+        super().reset()
         self.seller_prices = dict()
         self.current_reward = 0
 
@@ -151,6 +152,10 @@ class SellerAgent(ph.Agent):
 
 
 class SimpleMktEnvActor(ph.env.EnvironmentActor):
+    @dataclass(frozen=True)
+    class View(me.actors.View):
+        avg_price: float
+
     def __init__(self):
         super().__init__()
         self.seller_prices = dict()
@@ -164,9 +169,11 @@ class SimpleMktEnvActor(ph.env.EnvironmentActor):
     def post_resolution(self, ctx):
         self.avg_price = np.mean(np.array(list(self.seller_prices.values())))
 
-    @property
-    def environment_fields(self):
-        return [("actor_id", me.ID), ("avg_price", float)]
+    def view(self, neighbour_id=None) -> "SimpleMktEnvActor.View":
+        return self.View(
+            actor_id=self._id,
+            avg_price=self.avg_price,
+        )
 
     def reset(self):
         super().reset()

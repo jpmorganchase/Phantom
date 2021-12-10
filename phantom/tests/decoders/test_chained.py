@@ -3,10 +3,9 @@ import mercury as me
 import numpy as np
 import phantom as ph
 from phantom.decoders import ChainedDecoder, Decoder
-from phantom.packet import Packet
 
 
-class TestDecoder(Decoder):
+class SimpleDecoder(Decoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -22,8 +21,8 @@ class TestDecoder(Decoder):
 
 
 def test_chained_decoder():
-    d1 = TestDecoder(1)
-    d2 = TestDecoder(2)
+    d1 = SimpleDecoder(1)
+    d2 = SimpleDecoder(2)
 
     cd1 = ChainedDecoder([d1, d2])
 
@@ -43,12 +42,12 @@ def test_chained_decoder():
 
 
 def test_chained_decoder_reset():
-    d1 = TestDecoder(1)
-    d2 = TestDecoder(2)
+    d1 = SimpleDecoder(1)
+    d2 = SimpleDecoder(2)
 
     cd = ChainedDecoder([d1, d2])
 
     cd.reset()
 
-    assert d1.id == None
-    assert d2.id == None
+    assert d1.id is None
+    assert d2.id is None

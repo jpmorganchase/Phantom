@@ -1,31 +1,43 @@
-import typing as _t
+from typing import (
+    overload,
+    Any,
+    Dict,
+    Hashable,
+    Iterable,
+    Iterator,
+    ItemsView,
+    KeysView,
+    MutableMapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    ValuesView,
+)
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
 
-import numpy as _np
-
-from mercury import ID, linalg
 
 #################################################
 # Type helpers for DiGraph
 #################################################
-NodeType = _t.TypeVar("NodeType", bound=_t.Hashable)
+NodeType = TypeVar("NodeType", bound=Hashable)
 
-_AttributeValue = _t.Any
-_EdgeValue = _t.MutableMapping[str, _AttributeValue]
-_NodeValue = _t.MutableMapping[NodeType, _EdgeValue]
-_GraphValue = _t.Union[_NodeValue[NodeType], _EdgeValue, _AttributeValue]
+_AttributeValue = Any
+_EdgeValue = MutableMapping[str, _AttributeValue]
+_NodeValue = MutableMapping[NodeType, _EdgeValue]
+_GraphValue = Union[_NodeValue[NodeType], _EdgeValue, _AttributeValue]
 
-_EdgeAttributeKey = _t.Tuple[NodeType, NodeType, str]
-_EdgeKey = _t.Tuple[NodeType, NodeType]
-_NodeKey = _t.Type[NodeType]
-_GraphKey = _t.Union[
-    _NodeKey[NodeType], _EdgeKey[NodeType], _EdgeAttributeKey[NodeType]
-]
+_EdgeAttributeKey = Tuple[NodeType, NodeType, str]
+_EdgeKey = Tuple[NodeType, NodeType]
+_NodeKey = Type[NodeType]
+_GraphKey = Union[_NodeKey[NodeType], _EdgeKey[NodeType], _EdgeAttributeKey[NodeType]]
 
-_GraphDataType = _t.MutableMapping[NodeType, _NodeValue[NodeType]]
+_GraphDataType = MutableMapping[NodeType, _NodeValue[NodeType]]
 _RaiseKeyError = object()
 
 
@@ -66,22 +78,22 @@ class DiGraph(_GraphDataType[NodeType]):
     """
 
     @dataclass
-    class EdgeCollection(_t.Iterable[_t.Tuple[NodeType, NodeType]]):
-        edges: _t.Tuple[_t.Tuple[NodeType, NodeType], _EdgeValue]
+    class EdgeCollection(Iterable[Tuple[NodeType, NodeType]]):
+        edges: Tuple[Tuple[NodeType, NodeType], _EdgeValue]
 
-        def __iter__(self) -> _t.Iterator[_t.Tuple[NodeType, NodeType]]:
+        def __iter__(self) -> Iterator[Tuple[NodeType, NodeType]]:
             return (t[0] for t in self.edges)
 
         def data(
             self,
-        ) -> _t.Iterator[_t.Tuple[_t.Tuple[NodeType, NodeType], _EdgeValue]]:
+        ) -> Iterator[Tuple[Tuple[NodeType, NodeType], _EdgeValue]]:
             return ((u, v, d) for (u, v), d in self.edges)
 
     def __init__(
         self,
-        incoming_data=_t.Union[
-            _t.Iterable[NodeType],
-            _t.MutableMapping[_GraphKey[NodeType], _GraphValue[NodeType]],
+        incoming_data=Union[
+            Iterable[NodeType],
+            MutableMapping[_GraphKey[NodeType], _GraphValue[NodeType]],
         ],
     ):
         self._init()
@@ -93,8 +105,8 @@ class DiGraph(_GraphDataType[NodeType]):
 
     def _init(self):
         self._data: _GraphDataType[NodeType] = defaultdict(self._edge_factory)
-        self._successors: _t.Dict[NodeType, _t.Set[NodeType]] = defaultdict(set)
-        self._predecessors: _t.Dict[NodeType, _t.Set[NodeType]] = defaultdict(set)
+        self._successors: Dict[NodeType, Set[NodeType]] = defaultdict(set)
+        self._predecessors: Dict[NodeType, Set[NodeType]] = defaultdict(set)
 
     @staticmethod
     def _edge_factory():
@@ -117,131 +129,131 @@ class DiGraph(_GraphDataType[NodeType]):
     # overload methods for type hints
     ############################################
 
-    @_t.overload
+    @overload
     def __getitem__(self, k: _NodeKey[NodeType]) -> _NodeValue[NodeType]:
         ...
 
-    @_t.overload
+    @overload
     def __getitem__(self, k: _EdgeKey[NodeType]) -> _EdgeValue:
         ...
 
-    @_t.overload
+    @overload
     def __getitem__(self, k: _EdgeAttributeKey[NodeType]) -> _AttributeValue:
         ...
 
-    @_t.overload
+    @overload
     def get(
-        self, k: _NodeKey[NodeType], default: _t.Optional[_NodeValue[NodeType]] = None
-    ) -> _t.Optional[_NodeValue[NodeType]]:
+        self, k: _NodeKey[NodeType], default: Optional[_NodeValue[NodeType]] = None
+    ) -> Optional[_NodeValue[NodeType]]:
         ...
 
-    @_t.overload
+    @overload
     def get(
-        self, k: _EdgeKey[NodeType], default: _t.Optional[_EdgeValue] = None
-    ) -> _t.Optional[_EdgeValue]:
+        self, k: _EdgeKey[NodeType], default: Optional[_EdgeValue] = None
+    ) -> Optional[_EdgeValue]:
         ...
 
-    @_t.overload
+    @overload
     def get(
         self,
         k: _EdgeAttributeKey[NodeType],
-        default: _t.Optional[_AttributeValue] = None,
-    ) -> _t.Optional[_AttributeValue]:
+        default: Optional[_AttributeValue] = None,
+    ) -> Optional[_AttributeValue]:
         ...
 
-    @_t.overload
+    @overload
     def pop(
         self,
         k: _NodeKey[NodeType],
-        default: _t.Union[_NodeValue[NodeType], object] = _RaiseKeyError,
+        default: Union[_NodeValue[NodeType], object] = _RaiseKeyError,
     ) -> _NodeValue[NodeType]:
         ...
 
-    @_t.overload
+    @overload
     def pop(
         self,
         k: _EdgeKey[NodeType],
-        default: _t.Union[_EdgeValue, object] = _RaiseKeyError,
+        default: Union[_EdgeValue, object] = _RaiseKeyError,
     ) -> _EdgeValue:
         ...
 
-    @_t.overload
+    @overload
     def pop(
         self,
         k: _EdgeAttributeKey[NodeType],
-        default: _t.Union[_AttributeValue, object] = _RaiseKeyError,
+        default: Union[_AttributeValue, object] = _RaiseKeyError,
     ) -> _AttributeValue:
         ...
 
-    @_t.overload
+    @overload
     def __setitem__(self, k: _NodeKey[NodeType], v: _NodeValue[NodeType]) -> None:
         ...
 
-    @_t.overload
+    @overload
     def __setitem__(self, k: _EdgeKey[NodeType], v: _EdgeValue) -> None:
         ...
 
-    @_t.overload
+    @overload
     def __setitem__(self, k: _EdgeAttributeKey[NodeType], v: _AttributeValue) -> None:
         ...
 
-    @_t.overload
+    @overload
     def setdefault(
-        self, k: _NodeKey[NodeType], default: _t.Optional[_NodeValue[NodeType]] = None
+        self, k: _NodeKey[NodeType], default: Optional[_NodeValue[NodeType]] = None
     ) -> _NodeValue[NodeType]:
         ...
 
-    @_t.overload
+    @overload
     def setdefault(
-        self, k: _EdgeKey[NodeType], default: _t.Optional[_EdgeValue] = None
+        self, k: _EdgeKey[NodeType], default: Optional[_EdgeValue] = None
     ) -> _EdgeValue:
         ...
 
-    @_t.overload
+    @overload
     def setdefault(
         self,
         k: _EdgeAttributeKey[NodeType],
-        default: _t.Optional[_AttributeValue] = None,
+        default: Optional[_AttributeValue] = None,
     ) -> _AttributeValue:
         ...
 
-    @_t.overload
+    @overload
     def update(
-        self, data: _t.MutableMapping[_EdgeAttributeKey[NodeType], _AttributeValue]
+        self, data: MutableMapping[_EdgeAttributeKey[NodeType], _AttributeValue]
     ) -> None:
         ...
 
-    @_t.overload
-    def update(self, data: _t.MutableMapping[_EdgeKey[NodeType], _EdgeValue]) -> None:
+    @overload
+    def update(self, data: MutableMapping[_EdgeKey[NodeType], _EdgeValue]) -> None:
         ...
 
-    @_t.overload
+    @overload
     def update(
-        self, data: _t.MutableMapping[_NodeKey[NodeType], _NodeValue[NodeType]]
+        self, data: MutableMapping[_NodeKey[NodeType], _NodeValue[NodeType]]
     ) -> None:
         ...
 
-    @_t.overload
+    @overload
     def fromkeys(
         self,
-        iterable: _t.Iterable[_EdgeAttributeKey[NodeType]],
-        value: _t.Optional[_AttributeValue] = None,
+        iterable: Iterable[_EdgeAttributeKey[NodeType]],
+        value: Optional[_AttributeValue] = None,
     ):
         ...
 
-    @_t.overload
+    @overload
     def fromkeys(
         self,
-        iterable: _t.Iterable[_EdgeKey[NodeType]],
-        value: _t.Optional[_EdgeValue] = None,
+        iterable: Iterable[_EdgeKey[NodeType]],
+        value: Optional[_EdgeValue] = None,
     ):
         ...
 
-    @_t.overload
+    @overload
     def fromkeys(
         self,
-        iterable: _t.Iterable[_NodeKey[NodeType]],
-        value: _t.Optional[_NodeValue[NodeType]] = None,
+        iterable: Iterable[_NodeKey[NodeType]],
+        value: Optional[_NodeValue[NodeType]] = None,
     ):
         ...
 
@@ -266,8 +278,8 @@ class DiGraph(_GraphDataType[NodeType]):
         raise KeyError(k)
 
     def get(
-        self, k: _GraphKey[NodeType], default: _t.Optional[_GraphValue[NodeType]] = None
-    ) -> _t.Optional[_GraphValue[NodeType]]:
+        self, k: _GraphKey[NodeType], default: Optional[_GraphValue[NodeType]] = None
+    ) -> Optional[_GraphValue[NodeType]]:
         if k not in self:
             return default
         return self[k]
@@ -283,12 +295,8 @@ class DiGraph(_GraphDataType[NodeType]):
                 )
 
             data_: _GraphDataType[NodeType] = deepcopy(self._data)
-            successors_: _t.Dict[NodeType, _t.Set[NodeType]] = deepcopy(
-                self._successors
-            )
-            predecessors_: _t.Dict[NodeType, _t.Set[NodeType]] = deepcopy(
-                self._predecessors
-            )
+            successors_: Dict[NodeType, Set[NodeType]] = deepcopy(self._successors)
+            predecessors_: Dict[NodeType, Set[NodeType]] = deepcopy(self._predecessors)
 
             if k[0] not in self:
                 successors_[k[0]] = successors_.default_factory()
@@ -321,7 +329,7 @@ class DiGraph(_GraphDataType[NodeType]):
             self._data[k[0]][k[1]][k[2]] = v
 
     def setdefault(
-        self, k: _GraphKey[NodeType], default: _t.Optional[_GraphValue[NodeType]] = None
+        self, k: _GraphKey[NodeType], default: Optional[_GraphValue[NodeType]] = None
     ) -> _GraphValue[NodeType]:
         if not isinstance(k, tuple):
             k = (k,)
@@ -357,7 +365,7 @@ class DiGraph(_GraphDataType[NodeType]):
     def pop(
         self,
         k: _GraphKey[NodeType],
-        default: _t.Union[_GraphValue[NodeType], object] = _RaiseKeyError,
+        default: Union[_GraphValue[NodeType], object] = _RaiseKeyError,
     ) -> _GraphValue[NodeType]:
         if k not in self:
             if default is _RaiseKeyError:
@@ -369,7 +377,7 @@ class DiGraph(_GraphDataType[NodeType]):
 
         return ret
 
-    def __iter__(self) -> _t.Iterator[NodeType]:
+    def __iter__(self) -> Iterator[NodeType]:
         return self._data.__iter__()
 
     def __len__(self) -> int:
@@ -406,17 +414,17 @@ class DiGraph(_GraphDataType[NodeType]):
         self._init()
         return self
 
-    def keys(self) -> _t.KeysView[NodeType]:
+    def keys(self) -> KeysView[NodeType]:
         return tuple((f, t) for f, td in self._data.items() for t in td.keys())
 
-    def values(self) -> _t.ValuesView[_NodeValue]:
+    def values(self) -> ValuesView[_NodeValue]:
         return tuple(d for f, td in self._data.items() for d in td.values())
 
-    def items(self) -> _t.ItemsView[NodeType, _NodeValue]:
+    def items(self) -> ItemsView[NodeType, _NodeValue]:
         return tuple(((f, t), d) for f, td in self._data.items() for t, d in td.items())
 
     def update(
-        self, data: _t.MutableMapping[_GraphKey[NodeType], _GraphValue[NodeType]]
+        self, data: MutableMapping[_GraphKey[NodeType], _GraphValue[NodeType]]
     ) -> None:
         if self._is_a_three_layers_dict(data):
             _ = [
@@ -435,8 +443,8 @@ class DiGraph(_GraphDataType[NodeType]):
 
     def fromkeys(
         self,
-        iterable: _t.Iterable[_GraphKey[NodeType]],
-        value: _t.Optional[_GraphValue[NodeType]] = None,
+        iterable: Iterable[_GraphKey[NodeType]],
+        value: Optional[_GraphValue[NodeType]] = None,
     ):
         _ = [self.setdefault(k, value) for k in iterable]
 
@@ -482,11 +490,11 @@ class DiGraph(_GraphDataType[NodeType]):
     ############################################
 
     @property
-    def nodes(self) -> _t.Iterator[NodeType]:
+    def nodes(self) -> Iterator[NodeType]:
         """Property returning the nodes in the graph
 
         Returns:
-            _t.Iterator[NodeType]: The iterator of nodes in the graph
+            Iterator[NodeType]: The iterator of nodes in the graph
         """
         return iter(set(self._successors.keys()).union(set(self._predecessors.keys())))
 
@@ -507,7 +515,7 @@ class DiGraph(_GraphDataType[NodeType]):
         """
         self.setdefault(node)
 
-    def add_edge(self, u: NodeType, v: NodeType, **attr: _t.Any) -> None:
+    def add_edge(self, u: NodeType, v: NodeType, **attr: Any) -> None:
         """Add an edge to the graph.
 
         Note:
@@ -542,40 +550,40 @@ class DiGraph(_GraphDataType[NodeType]):
         """
         return (u, v) in self
 
-    def successors(self, node: NodeType) -> _t.Iterator[NodeType]:
+    def successors(self, node: NodeType) -> Iterator[NodeType]:
         """The successors of the given node
 
         Args:
             node (NodeType): The node for which we want the successors
 
         Returns:
-            _t.Iterator[NodeType]: Iterator of the successors nodes
+            Iterator[NodeType]: Iterator of the successors nodes
         """
         return iter(self._successors[node])
 
-    def predecessors(self, node: NodeType) -> _t.Iterator[NodeType]:
+    def predecessors(self, node: NodeType) -> Iterator[NodeType]:
         """The predecessors of the given node
 
         Args:
             node (NodeType): The node for which we want the predecessors
 
         Returns:
-            _t.Iterator[NodeType]: Iterator of the predecessors nodes
+            Iterator[NodeType]: Iterator of the predecessors nodes
         """
         return iter(self._predecessors[node])
 
-    def neighbors(self, node: NodeType) -> _t.Iterator[NodeType]:
+    def neighbors(self, node: NodeType) -> Iterator[NodeType]:
         """The neighbors of the given node (i.e successors + predecessors)
 
         Args:
             node (NodeType): The node for which we want the neighbors
 
         Returns:
-            _t.Iterator[NodeType]: Iterator of the neighbors nodes
+            Iterator[NodeType]: Iterator of the neighbors nodes
         """
         return chain(self.successors(node), self.predecessors(node))
 
-    def subgraph(self, nodes: _t.Iterable[NodeType]) -> "DiGraph":
+    def subgraph(self, nodes: Iterable[NodeType]) -> "DiGraph":
         """Create the graph induced by the given nodes
 
         Returns:

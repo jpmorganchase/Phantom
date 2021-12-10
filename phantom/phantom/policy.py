@@ -17,6 +17,11 @@ class FixedPolicy(rllib.Policy, ABC):
     Arguments:
         observation_space: Observation space of the policy.
         action_space: Action space of the policy.
+
+    NOTE:
+        If the action space is larger than -1.0 < x < 1.0, RLlib will attempt to
+        'unsquash' the values leading to unintended results.
+        (https://github.com/ray-project/ray/pull/16531)
     """
 
     def __init__(
@@ -59,4 +64,4 @@ class FixedPolicy(rllib.Policy, ABC):
         timestep: Optional[int] = None,
         **kwargs
     ) -> Tuple[TensorType, List[TensorType], Dict[str, TensorType]]:
-        return ([self.compute_action(obs) for obs in obs_batch], [], {})
+        return (np.array([self.compute_action(obs) for obs in obs_batch]), [], {})

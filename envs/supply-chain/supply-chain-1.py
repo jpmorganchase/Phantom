@@ -51,10 +51,10 @@ class CustomerAgent(ph.Agent):
         return np.zeros((1,))
 
     def get_observation_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=0, high=np.inf, shape=(1,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
@@ -143,12 +143,10 @@ class ShopAgent(ph.Agent):
         self.total_missed_sales = 0
 
     def get_observation_space(self):
-        return gym.spaces.Box(low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK]))
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(
-            low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK_REQUEST])
-        )
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK_REQUEST, shape=(1,))
 
 
 class SupplyChainEnv(ph.PhantomEnv):
@@ -192,7 +190,7 @@ if sys.argv[1].lower() == "train":
 
 elif sys.argv[1].lower() == "rollout":
     ph.rollout(
-        directory="/home/ubuntu/phantom_results/supply-chain-1/LATEST",
+        directory="supply-chain-1/LATEST",
         algorithm="PPO",
         num_workers=1,
         num_rollouts=10,

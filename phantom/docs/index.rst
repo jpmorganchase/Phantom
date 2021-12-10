@@ -12,6 +12,7 @@ Phantom
     user/tutorial2
     user/design
     user/designpatterns
+    user/fsmdesignpatterns
 
 
 .. toctree::
@@ -23,7 +24,7 @@ Phantom
     api/decoders
     api/encoders
     api/env
-    api/fsm_env
+    api/fsm/index
     api/logging
     api/policy
     api/rewards

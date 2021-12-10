@@ -1,11 +1,10 @@
 import gym
 import mercury as me
 import numpy as np
-import phantom as ph
 from phantom.encoders import DictEncoder, Encoder
 
 
-class TestEncoder(Encoder):
+class MockEncoder(Encoder):
     def __init__(self, id: int):
         self.id = id
 
@@ -21,8 +20,8 @@ class TestEncoder(Encoder):
 
 
 def test_dict_encoder():
-    e1 = TestEncoder(1)
-    e2 = TestEncoder(2)
+    e1 = MockEncoder(1)
+    e2 = MockEncoder(2)
 
     de = DictEncoder({"e1": e1, "e2": e2})
 
@@ -39,12 +38,12 @@ def test_dict_encoder():
 
 
 def test_dict_encoder_reset():
-    e1 = TestEncoder(1)
-    e2 = TestEncoder(2)
+    e1 = MockEncoder(1)
+    e2 = MockEncoder(2)
 
     de = DictEncoder({"e1": e1, "e2": e2})
 
     de.reset()
 
-    assert e1.id == None
-    assert e2.id == None
+    assert e1.id is None
+    assert e2.id is None

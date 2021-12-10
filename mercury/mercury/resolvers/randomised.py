@@ -1,9 +1,12 @@
-import random as _r
-import typing as _t
+import random
+from typing import Mapping, Optional, TYPE_CHECKING
 
-import mercury as _me
-
+from ..core import ID
+from ..message import Batch
 from . import BatchResolver
+
+if TYPE_CHECKING:
+    from ..network import Network
 
 
 class RandomisedActorResolver(BatchResolver):
@@ -15,14 +18,12 @@ class RandomisedActorResolver(BatchResolver):
         seed: Optional seed to initialise the psuedo-random number generator.
     """
 
-    def __init__(self, chain_limit: int = 100, seed: _t.Optional[int] = None) -> None:
+    def __init__(self, chain_limit: int = 100, seed: Optional[int] = None) -> None:
         BatchResolver.__init__(self, chain_limit=chain_limit)
 
-        self._rgen = _r.Random(seed or _r.getstate())
+        self._rgen = random.Random(seed or random.getstate())
 
-    def resolve_batches(
-        self, network: "_me.Network", batches: _t.Mapping[_me.ID, _me.message.Batch]
-    ) -> None:
+    def resolve_batches(self, network: "Network", batches: Mapping[ID, Batch]) -> None:
         keys = list(self._pq.keys())
 
         self._rgen.shuffle(keys)

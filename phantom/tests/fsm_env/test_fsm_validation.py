@@ -3,17 +3,17 @@ from enum import Enum
 
 import mercury as me
 import pytest
-from phantom.fsm_env import (
+from phantom.fsm import (
     FSMStage,
     FiniteStateMachineEnv,
     FSMRuntimeError,
     FSMValidationError,
 )
 
-from . import MinimalAgent
+from . import MockFSMAgent, MockStageHandler
 
 
-class States(Enum):
+class Stages(Enum):
     A = 1
     B = 2
 
@@ -25,7 +25,7 @@ def test_no_stages_registered():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MockFSMAgent("agent", {})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -46,26 +46,26 @@ def test_duplicate_stages():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_stage=States.A,
+                initial_stage=Stages.A,
             )
 
         @FSMStage(
-            stage_id=States.A,
-            next_stages=[States.A],
+            stage_id=Stages.A,
+            next_stages=[Stages.A],
         )
         def handle_1(self):
             pass
 
         @FSMStage(
-            stage_id=States.A,
-            next_stages=[States.A],
+            stage_id=Stages.A,
+            next_stages=[Stages.A],
         )
         def handle_2(self):
             pass
@@ -81,19 +81,19 @@ def test_invalid_initial_stage():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_stage=States.B,
+                initial_stage=Stages.B,
             )
 
         @FSMStage(
-            stage_id=States.A,
-            next_stages=[States.A],
+            stage_id=Stages.A,
+            next_stages=[Stages.A],
         )
         def handle(self):
             pass
@@ -109,22 +109,44 @@ def test_invalid_next_state():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_stage=States.A,
+                initial_stage=Stages.A,
             )
 
         @FSMStage(
-            stage_id=States.A,
-            next_stages=[States.B],
+            stage_id=Stages.A,
+            next_stages=[Stages.B],
         )
         def handle_1(self):
             pass
+
+    with pytest.raises(FSMValidationError):
+        Env()
+
+
+def test_invalid_no_handler_stage_next_stages():
+    """
+    All stages without a provided handler must have exactly one next stage
+    """
+
+    class Env(FiniteStateMachineEnv):
+        def __init__(self):
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
+
+            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+
+            super().__init__(
+                network=network,
+                n_steps=1,
+                initial_stage=Stages.A,
+                stages=[FSMStage(Stages.A, next_stages=[])],
+            )
 
     with pytest.raises(FSMValidationError):
         Env()
@@ -137,25 +159,25 @@ def test_invalid_next_state_runtime():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent")]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
             super().__init__(
                 network=network,
                 n_steps=1,
-                initial_stage=States.A,
+                initial_stage=Stages.A,
             )
 
         @FSMStage(
-            stage_id=States.A,
-            next_stages=[States.A],
+            stage_id=Stages.A,
+            next_stages=[Stages.A],
         )
         def handle_1(self):
-            return States.B
+            return Stages.B
 
     env = Env()
     env.reset()
 
     with pytest.raises(FSMRuntimeError):
-        env.step(actions={"agent": 0})
+        env.step(actions={"agent__Stages.A": 0})

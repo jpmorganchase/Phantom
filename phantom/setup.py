@@ -1,19 +1,53 @@
 #!/usr/bin/env python
-
-from os import path
 from setuptools import setup, find_packages
+import os
+import re
+
+TEST_GLOB_PATTERNS = ["*.tests", "*.tests.*", "tests.*", "tests"]
+
+NAME = "phantom"
 
 
-test_glob_patterns = ["*.tests", "*.tests.*", "tests.*", "tests"]
+def _get_version():
+    with open("../version.txt") as fp:
+        return fp.readlines()[0]
+
+
+def _get_long_description():
+    with open(
+        os.path.join(os.path.abspath(os.path.dirname(__file__)), "README.md"),
+        encoding="utf-8",
+    ) as readme_file:
+        long_description = readme_file.read()
+    return long_description
+
+
+def _get_requirements():
+    with open(
+        os.path.join(os.path.abspath(os.path.dirname(__file__)), "requirements.txt"),
+        encoding="utf-8",
+    ) as requirements_file:
+        requirements = [
+            l.strip()
+            for l in requirements_file.readlines()
+            if not (l.strip().startswith("#") or l.strip().startswith("-"))
+        ]
+    return requirements
+
 
 setup(
-    name="phantom",
-    version="0.1",
-    description="Multi-agent simulator for OTC markets",
-    url="https://us-east-2.console.aws.amazon.com/codesuite/codecommit/repositories/phantom-core/setup",
+    name=NAME,
+    version=_get_version(),
+    description="A Multi-agent reinforcement-learning simulator framework.",
+    long_description=_get_long_description(),
+    url="",
     author="JPM AI Research",
-    scripts=["scripts/phantom"],
-    packages=find_packages(exclude=test_glob_patterns),
-    # install_requires=[x.strip() for x in
-    #                     open(path.join(path.abspath(path.dirname(__file__)), 'requirements.txt')).readlines()],
+    classifiers=[
+        "Development Status :: 5 - Production",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python :: 3",
+    ],
+    keywords="ai research reinforcement learning simulator multi-agent",
+    packages=find_packages(exclude=TEST_GLOB_PATTERNS),
+    install_requires=_get_requirements(),
 )

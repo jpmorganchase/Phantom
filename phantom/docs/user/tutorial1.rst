@@ -501,7 +501,7 @@ command:
 
 .. code-block:: bash
 
-    phantom path/to/config.supply-chain-1.py
+    phantom path/to/config/supply-chain-1.py
 
 Where we substitute ``path/to/config`` for the correct path.
 

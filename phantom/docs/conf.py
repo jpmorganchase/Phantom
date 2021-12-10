@@ -28,6 +28,11 @@ author = "AI Research Group"
 description = "A Multi-agent reinforcement-learning simulator framework."
 
 
+def _get_version():
+    with open("../../version.txt") as fp:
+        return fp.readlines()[0]
+
+
 # -- General configuration ---------------------------------------------------
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -58,7 +63,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # built documents.
 #
 # The short X.Y version.
-version = "2.0"
+version = _get_version()
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
@@ -68,13 +73,14 @@ add_module_names = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "alabaster"
+html_theme = "sphinx_rtd_theme"
+# html_theme = "alabaster"
 
-html_theme_options = {
-    "description": description,
-    "fixed_sidebar": True,
-    "show_powered_by": False,
-}
+# html_theme_options = {
+#     "description": description,
+#     "fixed_sidebar": True,
+#     "show_powered_by": False,
+# }
 
 # html_sidebars = {"**": ["about.html", "localtoc.html", "searchbox.html"]}
 

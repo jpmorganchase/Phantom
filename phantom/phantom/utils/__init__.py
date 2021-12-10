@@ -1,6 +1,5 @@
 import importlib
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Generic, TypeVar, Union
@@ -11,7 +10,7 @@ from termcolor import colored
 T = TypeVar("T")
 
 
-def load_object(path: str, name: str, type: Generic[T]) -> Generic[T]:
+def load_object(path: str, name: str, obj_type: Generic[T]) -> Generic[T]:
     """
     Attempts to load an object with a given type from a file.
 
@@ -36,8 +35,8 @@ def load_object(path: str, name: str, type: Generic[T]) -> Generic[T]:
 
     obj = getattr(module, name)
 
-    if not isinstance(obj, type):
-        raise Exception(f"'{name}' object is not an instance of the {type} class.")
+    if not isinstance(obj, obj_type):
+        raise Exception(f"'{name}' object is not an instance of the {obj_type} class.")
 
     return obj
 

@@ -5,17 +5,25 @@ from typing import cast, Generic, TypeVar
 T = TypeVar("T")
 
 
-class Comparable(Generic[T], ABC):
+class TimeTypeVar(Generic[T], ABC):
     @abstractmethod
-    def __lt__(self, other: T) -> bool:
+    def __ge__(self, other: T) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def __gt__(self, other: T) -> bool:
+    def __add__(self, other: T) -> T:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __sub__(self, other: T) -> T:
+        raise NotImplementedError
+
+    @abstractmethod
+    def __mul__(self, other: int) -> T:
         raise NotImplementedError
 
 
-Time = TypeVar("Time", bound=Comparable)
+Time = TypeVar("Time", bound=TimeTypeVar)
 
 
 class Clock(Generic[Time]):
@@ -61,7 +69,7 @@ class Clock(Generic[Time]):
     @property
     def elapsed(self) -> Time:
         """The total time elasped since :math:`t_0`."""
-        return cast(Time, self._step * self.increment)
+        return cast(Time, self.increment * self._step)
 
     @property
     def n_steps(self) -> int:

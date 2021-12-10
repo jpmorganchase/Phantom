@@ -26,10 +26,8 @@ description = "P2P Network Simulator"
 
 
 def _get_version():
-    with open(os.path.join("..", project, "__init__.py")) as fp:
-        return re.findall(
-            r".*__version__\s*=\s*\"(?P<version>.*)\"", fp.read(), re.MULTILINE
-        )[0]
+    with open("../../version.txt") as fp:
+        return fp.readlines()[0]
 
 
 # -- General configuration ---------------------------------------------------
