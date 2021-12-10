@@ -68,7 +68,7 @@ class PolicyWrapper:
         if len(agent_ids) > 0:
             return str(agent_ids[0])
 
-        raise Exception
+        raise RuntimeError("Could not create policy name")
 
     def __eq__(self, other: "PolicyWrapper") -> bool:
         return self.__dict__ == other.__dict__
