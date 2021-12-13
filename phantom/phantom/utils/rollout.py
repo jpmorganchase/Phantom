@@ -5,7 +5,18 @@ import os
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import cloudpickle
 import mercury as me
@@ -52,34 +63,116 @@ class EpisodeTrajectory:
     actions: List[Dict[me.ID, Any]]
     stages: Optional[List[StageID]]
 
-    def observations_for_agent(self, agent_id: me.ID) -> List[Optional[Any]]:
-        return [step_obs.get(agent_id, None) for step_obs in self.observations]
+    def observations_for_agent(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Optional[Any]]:
+        """
+        Helper method to select all observations taken by a single agent.
 
-    def rewards_for_agent(self, agent_id: me.ID) -> List[Optional[float]]:
-        return [step_rewards.get(agent_id, None) for step_rewards in self.rewards]
+        Arguments:
+            agent_id: The ID of the agent to select observations for.
+            stages: Optionally also filter by multiple stages.
+        """
+        if stages is None:
+            return [step_obs.get(agent_id, None) for step_obs in self.observations]
+        else:
+            return [
+                step_obs.get(agent_id, None)
+                for step_obs, stage in zip(self.observations, self.stages)
+                if stage in stages
+            ]
 
-    def dones_for_agent(self, agent_id: me.ID) -> List[Optional[bool]]:
-        return [step_dones.get(agent_id, None) for step_dones in self.dones]
+    def rewards_for_agent(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Optional[float]]:
+        if stages is None:
+            return [step_rewards.get(agent_id, None) for step_rewards in self.rewards]
+        else:
+            return [
+                step_rewards.get(agent_id, None)
+                for step_rewards, stage in zip(self.rewards, self.stages)
+                if stage in stages
+            ]
 
-    def infos_for_agent(self, agent_id: me.ID) -> List[Optional[Dict[str, Any]]]:
-        return [step_infos.get(agent_id, None) for step_infos in self.infos]
+    def dones_for_agent(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Optional[bool]]:
+        if stages is None:
+            return [step_dones.get(agent_id, None) for step_dones in self.dones]
+        else:
+            return [
+                step_dones.get(agent_id, None)
+                for step_dones, stage in zip(self.dones, self.stages)
+                if stage in stages
+            ]
 
-    def actions_for_agent(self, agent_id: me.ID) -> List[Optional[Any]]:
-        return [step_actions.get(agent_id, None) for step_actions in self.actions]
+    def infos_for_agent(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Optional[Dict[str, Any]]]:
+        if stages is None:
+            return [step_infos.get(agent_id, None) for step_infos in self.infos]
+        else:
+            return [
+                step_infos.get(agent_id, None)
+                for step_infos, stage in zip(self.infos, self.stages)
+                if stage in stages
+            ]
 
-    def count_actions(self) -> List[Tuple[Any, int]]:
-        return Counter(
-            tuple(action)
-            for step_actions in self.actions
-            for action in step_actions.values()
-        ).most_common()
+    def actions_for_agent(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Optional[Any]]:
+        if stages is None:
+            return [step_actions.get(agent_id, None) for step_actions in self.actions]
+        else:
+            return [
+                step_actions.get(agent_id, None)
+                for step_actions, stage in zip(self.actions, self.stages)
+                if stage in stages
+            ]
 
-    def count_agent_actions(self, agent_id: me.ID) -> List[Tuple[Any, int]]:
-        return Counter(
-            tuple(step_actions.get(agent_id, None)) for step_actions in self.actions
-        ).most_common()
+    def count_actions(
+        self, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Tuple[Any, int]]:
+        if stages is None:
+            filtered_actions = (
+                action
+                for step_actions in self.actions
+                for action in step_actions.values()
+            )
+        else:
+            filtered_actions = (
+                action
+                for step_actions, stage in zip(self.actions, self.stages)
+                for action in step_actions.values()
+                if stage in stages
+            )
 
-    def steps_for_agent(self, agent_id: me.ID) -> List[Step]:
+        return Counter(filtered_actions).most_common()
+
+    def count_agent_actions(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Tuple[Any, int]]:
+        if stages is None:
+            filtered_actions = (
+                step_actions.get(agent_id, None) for step_actions in self.actions
+            )
+        else:
+            filtered_actions = (
+                step_actions.get(agent_id, None)
+                for step_actions, stage in zip(self.actions, self.stages)
+                if stage in stages
+            )
+
+        return Counter(filtered_actions).most_common()
+
+    def steps_for_agent(
+        self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
+    ) -> List[Step]:
+        if stages is None:
+            indices = range(len(self.actions))
+        else:
+            indices = (i for i, stage in enumerate(self.stages) if stage in stages)
+
         return [
             Step(
                 self.actions[i].get(agent_id, None),
@@ -89,7 +182,7 @@ class EpisodeTrajectory:
                 self.infos[i].get(agent_id, None),
                 self.stages[i] if self.stages is not None else None,
             )
-            for i in range(len(self.actions))
+            for i in indices
         ]
 
 
