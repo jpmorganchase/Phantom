@@ -68,10 +68,10 @@ class EpisodeTrajectory:
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[Any]]:
         """
-        Helper method to select all observations taken by a single agent.
+        Helper method to filter all observations for a single agent.
 
         Arguments:
-            agent_id: The ID of the agent to select observations for.
+            agent_id: The ID of the agent to filter observations for.
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
@@ -86,6 +86,13 @@ class EpisodeTrajectory:
     def rewards_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[float]]:
+        """
+        Helper method to filter all rewards for a single agent.
+
+        Arguments:
+            agent_id: The ID of the agent to filter rewards for.
+            stages: Optionally also filter by multiple stages.
+        """
         if stages is None:
             return (step_rewards.get(agent_id, None) for step_rewards in self.rewards)
         else:
@@ -98,6 +105,13 @@ class EpisodeTrajectory:
     def dones_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[bool]]:
+        """
+        Helper method to filter all 'dones' for a single agent.
+
+        Arguments:
+            agent_id: The ID of the agent to filter 'dones' for.
+            stages: Optionally also filter by multiple stages.
+        """
         if stages is None:
             return (step_dones.get(agent_id, None) for step_dones in self.dones)
         else:
@@ -110,6 +124,13 @@ class EpisodeTrajectory:
     def infos_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[Dict[str, Any]]]:
+        """
+        Helper method to filter all 'infos' for a single agent.
+
+        Arguments:
+            agent_id: The ID of the agent to filter 'infos' for.
+            stages: Optionally also filter by multiple stages.
+        """
         if stages is None:
             return (step_infos.get(agent_id, None) for step_infos in self.infos)
         else:
@@ -122,6 +143,13 @@ class EpisodeTrajectory:
     def actions_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[Any]]:
+        """
+        Helper method to filter all actions for a single agent.
+
+        Arguments:
+            agent_id: The ID of the agent to filter actions for.
+            stages: Optionally also filter by multiple stages.
+        """
         if stages is None:
             return (step_actions.get(agent_id, None) for step_actions in self.actions)
         else:
@@ -134,6 +162,13 @@ class EpisodeTrajectory:
     def steps_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Step]:
+        """
+        Helper method to filter all steps for a single agent.
+
+        Arguments:
+            agent_id: The ID of the agent to filter steps for.
+            stages: Optionally also filter by multiple stages.
+        """
         if stages is None:
             indices = range(len(self.actions))
         else:
@@ -154,6 +189,12 @@ class EpisodeTrajectory:
     def count_actions(
         self, stages: Optional[Iterable[StageID]] = None
     ) -> List[Tuple[Any, int]]:
+        """
+        Helper method to count the occurances of all actions for all agents.
+
+        Arguments:
+            stages: Optionally filter by multiple stages.
+        """
         if stages is None:
             filtered_actions = (
                 action
@@ -173,6 +214,13 @@ class EpisodeTrajectory:
     def count_agent_actions(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
     ) -> List[Tuple[Any, int]]:
+        """
+        Helper method to count the occurances of all actions for a single agents.
+
+        Arguments:
+            agent_id: The ID of the agent to count actions for.
+            stages: Optionally also filter by multiple stages.
+        """
         if stages is None:
             filtered_actions = (
                 step_actions.get(agent_id, None) for step_actions in self.actions
