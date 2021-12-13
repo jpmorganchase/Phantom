@@ -37,16 +37,30 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Step:
+class AgentStep:
     """
-    Describes a step taken by a single agent.
+    Describes a step taken by a single agent in an episode.
     """
 
-    action: Any
     observation: Any
     reward: float
     done: bool
     info: Dict[str, Any]
+    action: Any
+    stage: Optional[StageID]
+
+
+@dataclass
+class Step:
+    """
+    Describes a step taken in an episode.
+    """
+
+    observations: Dict[me.ID, Any]
+    rewards: Dict[me.ID, float]
+    dones: Dict[me.ID, bool]
+    infos: Dict[me.ID, Dict[str, Any]]
+    actions: Dict[me.ID, Any]
     stage: Optional[StageID]
 
 
@@ -161,7 +175,7 @@ class EpisodeTrajectory:
 
     def steps_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[Step]:
+    ) -> Iterator[AgentStep]:
         """
         Helper method to filter all steps for a single agent.
 
@@ -175,12 +189,12 @@ class EpisodeTrajectory:
             indices = (i for i, stage in enumerate(self.stages) if stage in stages)
 
         return (
-            Step(
-                self.actions[i].get(agent_id, None),
+            AgentStep(
                 self.observations[i].get(agent_id, None),
                 self.rewards[i].get(agent_id, None),
                 self.dones[i].get(agent_id, None),
                 self.infos[i].get(agent_id, None),
+                self.actions[i].get(agent_id, None),
                 self.stages[i] if self.stages is not None else None,
             )
             for i in indices
@@ -233,6 +247,22 @@ class EpisodeTrajectory:
             )
 
         return Counter(filtered_actions).most_common()
+
+    def __getitem__(self, index: int):
+        """
+        Returns a step for a given index in the episode.
+        """
+        try:
+            return Step(
+                self.observations[index],
+                self.rewards[index],
+                self.dones[index],
+                self.infos[index],
+                self.actions[index],
+                self.stages[index],
+            )
+        except:
+            KeyError(f"Index {index} not valid for trajectory")
 
 
 @dataclass
