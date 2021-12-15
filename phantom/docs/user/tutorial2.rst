@@ -173,10 +173,6 @@ To do this we make several modifications to the code:
         def compute_action(self, obs) -> np.ndarray:
             return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
 
-<<<<<<< HEAD
-
-=======
->>>>>>> develop
 * We modify the environment to create multiple shop agents like we did previously with
   the customer agents. We make sure all customers are connected to all shops.
 
