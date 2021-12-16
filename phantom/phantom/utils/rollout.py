@@ -5,7 +5,17 @@ import os
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import cloudpickle
 import mercury as me
@@ -16,8 +26,10 @@ from ray.tune.registry import register_env
 from tqdm import tqdm
 
 from ..env import PhantomEnv
+from ..fsm import FiniteStateMachineEnv, StageID
 from ..logging import Logger, Metric
 from ..supertype import BaseSupertype
+from .episode_trajectory import EpisodeTrajectory
 from .ranges import BaseRange
 from .samplers import BaseSampler
 from . import (
@@ -30,20 +42,6 @@ from . import (
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class EpisodeTrajectory:
-    """
-    Class describing all the actions, observations, rewards, infos and dones of
-    a single episode.
-    """
-
-    observations: List[Dict[me.ID, Any]]
-    rewards: List[Dict[me.ID, float]]
-    dones: List[Dict[me.ID, bool]]
-    infos: List[Dict[me.ID, Dict[str, Any]]]
-    actions: List[Dict[me.ID, Any]]
 
 
 @dataclass
@@ -404,6 +402,7 @@ def _rollout_task_fn(
             dones: List[Dict[me.ID, bool]] = []
             infos: List[Dict[me.ID, Dict[str, Any]]] = []
             actions: List[Dict[me.ID, Any]] = []
+            stages: List[StageID] = []
 
             # Run rollout steps.
             for _ in range(env.clock.n_steps):
@@ -427,6 +426,9 @@ def _rollout_task_fn(
                 infos.append(info)
                 actions.append(step_actions)
 
+                if isinstance(env, FiniteStateMachineEnv):
+                    stages.append(env.previous_stage)
+
             metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
             trajectory = EpisodeTrajectory(
@@ -435,6 +437,7 @@ def _rollout_task_fn(
                 dones,
                 infos,
                 actions,
+                stages if isinstance(env, FiniteStateMachineEnv) else None,
             )
 
             result = Rollout(rollout_config, metrics, trajectory)
