@@ -1,6 +1,5 @@
-import phantom as ph
 import pytest
-from phantom.utils.rollout import AgentStep, EpisodeTrajectory, Step
+from phantom.utils.episode_trajectory import AgentStep, EpisodeTrajectory, Step
 
 
 @pytest.fixture
