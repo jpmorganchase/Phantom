@@ -51,10 +51,10 @@ class CustomerAgent(ph.Agent):
         return np.zeros((1,))
 
     def get_observation_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=0, high=np.inf, shape=(1,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
@@ -143,12 +143,10 @@ class ShopAgent(ph.Agent):
         self.total_missed_sales = 0
 
     def get_observation_space(self):
-        return gym.spaces.Box(low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK]))
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(
-            low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK_REQUEST])
-        )
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK_REQUEST, shape=(1,))
 
 
 class SupplyChainEnv(ph.PhantomEnv):
@@ -180,13 +178,13 @@ class SupplyChainEnv(ph.PhantomEnv):
         super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
 
 
-if sys.argv[1].lower() == "train":
+if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
         experiment_name="supply-chain-1",
         algorithm="PPO",
         num_workers=4,
         num_episodes=100,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config={"n_customers": 5},
     )
 

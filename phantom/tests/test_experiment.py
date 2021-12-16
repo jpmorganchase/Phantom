@@ -73,8 +73,7 @@ def test_experiment():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=MinimalEnv,
-        env_config={},
+        env_class=MinimalEnv,
         policy_grouping={"shared_policy": ["a2", "a3"]},
     )
 
@@ -84,8 +83,7 @@ def test_experiment():
         directory=results_dir,
         algorithm="PPO",
         num_workers=0,
-        num_rollouts=1,
-        env_config={},
+        num_repeats=1,
         save_trajectories=True,
     )
 

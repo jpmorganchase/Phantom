@@ -21,7 +21,7 @@ class MinimalAgent(ph.agent.Agent):
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def get_action_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(-1.0, 1.0, (1,))
 
     def encode_obs(self, ctx: me.Network.Context) -> np.ndarray:
         return np.array([1])
@@ -51,7 +51,7 @@ def test_no_trained_policies():
             algorithm="PPO",
             num_workers=0,
             num_episodes=1,
-            env=MinimalEnv,
+            env_class=MinimalEnv,
             discard_results=True,
         )
 
@@ -73,6 +73,6 @@ def test_fixed_policy():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=MinimalEnv,
+        env_class=MinimalEnv,
         discard_results=True,
     )

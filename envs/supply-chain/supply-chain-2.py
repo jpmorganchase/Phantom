@@ -7,6 +7,8 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
+from phantom.utils.ranges import UniformRange
+from phantom.utils.samplers import UniformSampler
 
 
 coloredlogs.install(
@@ -96,10 +98,10 @@ class CustomerAgent(ph.Agent):
         return np.zeros((1,))
 
     def get_observation_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return gym.spaces.Box(low=0, high=np.inf, shape=(2,))
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
@@ -131,26 +133,13 @@ class ShopRewardFunction(ph.RewardFunction):
 
 
 @dataclass
-class ShopAgentType(ph.AgentType):
-    missed_sales_weight: float
-
-
-class ShopAgentSupertype(ph.Supertype):
-    def __init__(self):
-        self.missed_sales_weight_low = 0.5
-        self.missed_sales_weight_high = 3.0
-
-    def sample(self) -> ShopAgentType:
-        return ShopAgentType(
-            missed_sales_weight=np.random.uniform(
-                self.missed_sales_weight_low, self.missed_sales_weight_high
-            )
-        )
+class ShopAgentSupertype(ph.BaseSupertype):
+    missed_sales_weight: ph.SupertypeField[float]
 
 
 class ShopAgent(ph.Agent):
-    def __init__(self, agent_id: str, warehouse_id: str, supertype: ph.Supertype):
-        super().__init__(agent_id, supertype=supertype)
+    def __init__(self, agent_id: str, warehouse_id: str):
+        super().__init__(agent_id)
 
         # We store the ID of the warehouse so we can send stock requests to it.
         self.warehouse_id: str = warehouse_id
@@ -226,15 +215,13 @@ class ShopAgent(ph.Agent):
         self.total_missed_sales = 0
 
     def get_observation_space(self):
-        return gym.spaces.Box(low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK]))
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(
-            low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK_REQUEST])
-        )
+        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK_REQUEST, shape=(1,))
 
 
-shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
+SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
 
 
 class SupplyChainEnv(ph.PhantomEnv):
@@ -247,15 +234,11 @@ class SupplyChainEnv(ph.PhantomEnv):
 
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
-        shop_agents = [
-            ShopAgent(sid, warehouse_id, ShopAgentSupertype()) for sid in shop_ids
-        ]
+        shop_agents = [ShopAgent(id, warehouse_id) for id in SHOP_IDS]
 
         warehouse_actor = WarehouseActor(warehouse_id)
 
-        customer_agents = [
-            CustomerAgent(cid, shop_ids=shop_ids) for cid in customer_ids
-        ]
+        customer_agents = [CustomerAgent(id, shop_ids=SHOP_IDS) for id in customer_ids]
 
         actors = [warehouse_actor] + shop_agents + customer_agents
 
@@ -263,10 +246,10 @@ class SupplyChainEnv(ph.PhantomEnv):
         network = me.Network(me.resolvers.UnorderedResolver(), actors)
 
         # Connect the shops to the warehouse
-        network.add_connections_between(shop_ids, [warehouse_id])
+        network.add_connections_between(SHOP_IDS, [warehouse_id])
 
         # Connect the shop to the customers
-        network.add_connections_between(shop_ids, customer_ids)
+        network.add_connections_between(SHOP_IDS, customer_ids)
 
         clock = ph.Clock(0, NUM_EPISODE_STEPS, 1)
 
@@ -298,33 +281,29 @@ class MissedSalesMetric(ph.logging.Metric[float]):
 
 
 metrics = {}
-
-metrics.update(
-    {f"stock/SHOP{i+1}": StockMetric(f"SHOP{i+1}") for i in range(NUM_SHOPS)}
-)
-
-metrics.update(
-    {f"sales/SHOP{i+1}": SalesMetric(f"SHOP{i+1}") for i in range(NUM_SHOPS)}
-)
-
-metrics.update(
-    {
-        f"missed_sales/SHOP{i+1}": MissedSalesMetric(f"SHOP{i+1}")
-        for i in range(NUM_SHOPS)
-    }
-)
+metrics.update({f"stock/{id}": StockMetric(id) for id in SHOP_IDS})
+metrics.update({f"sales/{id}": SalesMetric(id) for id in SHOP_IDS})
+metrics.update({f"missed_sales/{id}": MissedSalesMetric(id) for id in SHOP_IDS})
 
 
-if sys.argv[1].lower() == "train":
+if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
         experiment_name="supply-chain-2",
         algorithm="PPO",
-        num_workers=4,
-        num_episodes=100,
-        env=SupplyChainEnv,
-        env_config={"n_customers": NUM_CUSTOMERS},
+        num_workers=1,
+        num_episodes=10,
+        env_class=SupplyChainEnv,
+        env_config=dict(
+            n_customers=NUM_CUSTOMERS,
+        ),
+        agent_supertypes={
+            id: ShopAgentSupertype(
+                missed_sales_weight=UniformSampler(low=0.5, high=3.0)
+            )
+            for id in SHOP_IDS
+        },
         metrics=metrics,
-        policy_grouping={"shared_SHOP_policy": shop_ids},
+        policy_grouping={"shared_SHOP_policy": SHOP_IDS},
     )
 
 elif sys.argv[1].lower() == "rollout":
@@ -332,6 +311,15 @@ elif sys.argv[1].lower() == "rollout":
         directory="supply-chain-2/LATEST",
         algorithm="PPO",
         num_workers=1,
-        num_rollouts=10,
-        env_config={"n_customers": NUM_CUSTOMERS},
+        num_repeats=10,
+        env_config=dict(
+            n_customers=NUM_CUSTOMERS,
+        ),
+        agent_supertypes={
+            id: ShopAgentSupertype(
+                missed_sales_weight=UniformRange(start=0.5, end=3.0, step=0.5)
+            )
+            for id in SHOP_IDS
+        },
+        results_file=None,
     )

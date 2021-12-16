@@ -62,7 +62,7 @@ the agent and the property that is being measured, eg. ``stock/SHOP``.
         algorithm="PPO",
         num_workers=15,
         num_episodes=1000,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(n_customers=5),
         metrics=metrics,
     )
@@ -137,6 +137,9 @@ To do this we make several modifications to the code:
                 return a valid choice.
                 policy_config=dict(n_shops=len(shop_ids)),
             )
+
+            # We need to store the shop IDs so we can send order requests to them.
+            self.shop_ids: List[str] = shop_ids
 
 * We change the ``decode_action`` method to pick a shop at random and place an order at
   that shop each step.
@@ -220,7 +223,7 @@ policy:
                 clock=clock,
                 policy_grouping=dict(
                     shared_SHOP_policy=shop_ids
-                )
+                ),
             )
     #
 
@@ -319,50 +322,36 @@ with a range of reward functions that all slightly modify the weight of the
 ``missed_sales`` factor. Doing this manually would be cumbersome. Instead we can use the
 Phantom supertypes feature.
 
-For the ``ShopAgent`` we define a ``AgentType`` object that defines the type of the
-agent. In our case this only contains the ``missed_sales_weight`` parameter we want to
-vary.
+For the ``ShopAgent`` we define an object that inherits from the ``BaseSupertype`` class
+that defines the type of the agent. In our case this only contains the
+``missed_sales_weight`` parameter we want to vary. When defining our supertype, to
+satisfy the type system, the types of all fields should be wrapped in
+``ph.SupertypeField``.
 
 .. code-block:: python
 
     @dataclass
-    class ShopAgentType(ph.AgentType):
-        missed_sales_weight: float
+    class ShopAgentSupertype(ph.BaseSupertype):
+        missed_sales_weight: ph.SupertypeField[float]
 
-Then we define a ``Supertype`` object that has a ``sample`` method that produces an
-instance of the ``ShopAgentType`` we previously defined. In this we randomly sample a
-value for the ``missed_sales_weight`` parameter.
 
-.. code-block:: python
-
-    class ShopAgentSupertype(ph.Supertype):
-        def __init__(self):
-            self.missed_sales_weight_low = 0.5
-            self.missed_sales_weight_high = 3.0
-
-        def sample(self) -> ShopAgentType:
-            return ShopAgentType(
-                missed_sales_weight=np.random.uniform(
-                    self.missed_sales_weight_low,
-                    self.missed_sales_weight_high
-                )
-            )
-
-We attach this supertype to our agent by passing it in as an initialisation parameter.
-This then gets passed to the base ``Agent``:
+We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgent``:
 
 .. code-block:: python
 
     class ShopAgent(ph.Agent):
-        def __init__(self, agent_id: str, warehouse_id: str, supertype: ph.Supertype):
-            super().__init__(agent_id, supertype=supertype)
+        def __init__(self, agent_id: str, warehouse_id: str):
+            super().__init__(agent_id)
 
             ...
 
-Note how we no longer need to pass in a custom ``RewardFunction`` class in here anymore.
+We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgent``:
 
-However we need to modify our ``ShopRewardFunction`` to take the ``missed_sales_weight``
-parameter:
+We don't even need to provide the ``ShopAgent`` with the new supertype, this is handled
+by the ``ph.train`` and ``ph.rollout`` functions.
+
+However we do need to modify our ``ShopRewardFunction`` to take the\
+``missed_sales_weight`` parameter:
 
 .. code-block:: python
 
@@ -392,9 +381,38 @@ The final step is to modify the ``ShopAgent``'s ``reset`` method to apply the su
             ...
 
 What is happening here is that when we call ``super().reset()``, the ``Agent`` class
-generates a new type instance from the supertype we set earlier. We then make use of the
-type to setup the agent. The ``reset`` method is called by the environment at the start
-of every episode.
+generates a new type instance from the supertype that will be assigned during training
+or rollouts. We then make use of the type to setup the agent. The ``reset`` method is
+called by the environment at the start of every episode.
+
+We can then pass the following to the ``agent_supertypes`` parameter in the ``ph.train``
+function;
+
+.. code-block:: python
+
+    agent_supertypes = {
+        ShopAgentSupertype(
+            missed_sales_weight=UniformSampler(0.0, 1.0)
+        )
+        for sid in shop_ids
+    })
+
+    ph.train(
+        experiment_name="supply-chain",
+        algorithm="PPO",
+        num_workers=2,
+        num_episodes=10000,
+        env_class=SupplyChainEnv,
+        env_config=dict(n_customers=5),
+        agent_supertypes=agent_supertypes,
+    )
+
+At the start of each episode in training, each shop agent's missed_sales_weight type
+value will be independently sampled from a random uniform distribution between 0.0 and
+1.0.
+
+The supertype system in Phantom is very powerful. To see a full guide to its features
+see the :ref:`_supertypes` page.
 
 
 Messages & Custom Handlers

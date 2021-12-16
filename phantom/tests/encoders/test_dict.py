@@ -1,7 +1,6 @@
 import gym
 import mercury as me
 import numpy as np
-import phantom as ph
 from phantom.encoders import DictEncoder, Encoder
 
 
@@ -46,5 +45,5 @@ def test_dict_encoder_reset():
 
     de.reset()
 
-    assert e1.id == None
-    assert e2.id == None
+    assert e1.id is None
+    assert e2.id is None

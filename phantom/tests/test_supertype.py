@@ -1,15 +1,52 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 import numpy as np
 import phantom as ph
 import pytest
 import gym.spaces
+from phantom.supertype import SupertypeField
+from phantom.utils.samplers import BaseSampler
 
 
-def test_agent_type_utilities():
+class StaticSampler(BaseSampler[float]):
+    def __init__(
+        self,
+        value: float,
+    ) -> None:
+        self.value = value
+
+    def sample(self) -> float:
+        return self.value
+
+
+def test_base_supertype_sample():
     @dataclass
-    class Type(ph.AgentType):
+    class TestSupertype(ph.BaseSupertype):
+        a: SupertypeField[float]
+        b: SupertypeField[str]
+
+    s1 = TestSupertype(1.0, "string")
+    t1 = s1.sample()
+
+    assert t1.__class__.__name__ == "TestSupertype_Type"
+    assert t1.__dict__ == {
+        "a": 1.0,
+        "b": "string",
+    }
+
+    s2 = TestSupertype(StaticSampler(1.0), "string")
+    t2 = s2.sample()
+
+    assert t2.__dict__ == {
+        "a": 1.0,
+        "b": "string",
+    }
+
+
+def test_base_type_utilities():
+    @dataclass
+    class Type(ph.BaseType):
         a: int
         b: float
         c: List[int]
@@ -71,7 +108,7 @@ def test_agent_type_utilities():
 
     # String is not currently a supported type
     @dataclass
-    class Type(ph.AgentType):
+    class Type(ph.BaseType):
         s: str = "s"
 
     t = Type()

@@ -10,7 +10,7 @@ from phantom.fsm import (
     FSMValidationError,
 )
 
-from . import MinimalAgent, MinimalStageHandler
+from . import MockFSMAgent, MockStageHandler
 
 
 class Stages(Enum):
@@ -25,7 +25,7 @@ def test_no_stages_registered():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {})]
+            agents = [MockFSMAgent("agent", {})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -46,7 +46,7 @@ def test_duplicate_stages():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -81,7 +81,7 @@ def test_invalid_initial_stage():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -109,7 +109,7 @@ def test_invalid_next_state():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -137,7 +137,7 @@ def test_invalid_no_handler_stage_next_stages():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -159,7 +159,7 @@ def test_invalid_next_state_runtime():
 
     class Env(FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MinimalAgent("agent", {Stages.A: MinimalStageHandler()})]
+            agents = [MockFSMAgent("agent", {Stages.A: MockStageHandler()})]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 

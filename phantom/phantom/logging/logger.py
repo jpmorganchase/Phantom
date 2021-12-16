@@ -14,12 +14,6 @@ class Logger:
     A class for logging metrics extracted from an instance of
     :py:class:`phantom.PhantomEnv`.
 
-    .. todo::
-
-        The efficiency of this class could be drastically improved by
-        pre-allocating memory for the lists. Consider replacing lists with
-        numpy arrays.
-
     Attributes:
         metrics: A key-value store of metrics that are being tracked.
         logs: A key-value store of recorded metric histories.
@@ -32,6 +26,9 @@ class Logger:
         >>> logger.add_metric('mm/spread_pnl', metrics.SpreadPnL('mm'))
         >>> logger.log(env)
     """
+
+    # TODO: The efficiency of this class could be drastically improved by pre-allocating
+    # memory for the lists. Consider replacing lists with numpy arrays.
 
     def __init__(self, metrics: Optional[Mapping[me.ID, Metric]] = None):
         self.metrics: Dict[me.ID, Metric] = dict(metrics or {})

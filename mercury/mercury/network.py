@@ -1,17 +1,31 @@
-import typing as _t
+from itertools import product
+from typing import (
+    cast,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    KeysView,
+    List,
+    Mapping,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
-from functools import reduce
-from itertools import chain, repeat, product, tee
-from collections import deque
+import numpy as np
 
-import numpy as _np
-
-from mercury import ID, Payload, Message, Batch, linalg, graphs
-from mercury.actors import Actor, View
-from mercury.resolvers import Resolver
+from . import linalg, graphs
+from .actors import Actor, View
+from .core import ID
+from .message import Payload
+from .resolvers import Resolver
 
 
-IntoPath = _t.Union[str, _t.Tuple[str, ...], "Path"]
+IntoPath = Union[str, Tuple[str, ...], "Path"]
 
 
 class Path:
@@ -73,8 +87,8 @@ class Groups:
     """
 
     def __init__(self) -> None:
-        self.groups: _t.Dict[int, _t.Set[ID]] = dict()
-        self.subgroups: _t.Dict[int, _t.Set[Path]] = dict()
+        self.groups: Dict[int, Set[ID]] = dict()
+        self.subgroups: Dict[int, Set[Path]] = dict()
 
     def is_group(self, path: IntoPath) -> bool:
         """Return true iff the path corresponds to a defined group.
@@ -84,7 +98,7 @@ class Groups:
         """
         return Path(path) in self.groups
 
-    def add(self, path: IntoPath, aids: _t.Iterable[ID]) -> None:
+    def add(self, path: IntoPath, aids: Iterable[ID]) -> None:
         """Add a new group to the set of groups.
 
         Arguments:
@@ -124,7 +138,7 @@ class Groups:
                     Path(path[:j]) for j in range(i + 1, len(path) + 1)
                 )
 
-    def assign(self, path: IntoPath, aids: _t.Iterable[ID]) -> None:
+    def assign(self, path: IntoPath, aids: Iterable[ID]) -> None:
         """Assig a set of actor IDs to a given group.
 
         Arguments:
@@ -230,36 +244,36 @@ class Network:
         """
 
         def __init__(
-            self, actor: Actor, views: _t.Mapping[ID, View], subnet: "Network"
+            self, actor: Actor, views: Mapping[ID, View], subnet: "Network"
         ) -> None:
             self.actor: Actor = actor
-            self.views: _t.Mapping[ID, View] = views
+            self.views: Mapping[ID, View] = views
 
             self._subnet: "Network" = subnet
 
         @property
-        def neighbour_ids(self) -> _t.Iterator[ID]:
+        def neighbour_ids(self) -> Iterator[ID]:
             """List of IDs of the neighbouring actors."""
             return iter(self.views.keys())
 
-        def __getitem__(self, actor_id: ID) -> _t.Any:
+        def __getitem__(self, actor_id: ID) -> Any:
             return self.views[actor_id]
 
         def __contains__(self, actor_id: ID) -> bool:
             return actor_id in self.views
 
-    def __init__(self, resolver: Resolver, actors: _t.List[Actor] = list()) -> None:
+    def __init__(self, resolver: Resolver, actors: List[Actor] = list()) -> None:
         self.resolver = resolver
 
         self.graph: graphs.DiGraph = graphs.DiGraph()
-        self.actors: _t.Dict[ID, Actor] = dict()
+        self.actors: Dict[ID, Actor] = dict()
 
         self.groups = Groups()
 
         self.add_actors(actors)
 
     @property
-    def actor_ids(self) -> _t.KeysView[ID]:
+    def actor_ids(self) -> KeysView[ID]:
         """Iterator over the IDs of active actors in the network."""
         return self.actors.keys()
 
@@ -273,7 +287,7 @@ class Network:
 
         self.graph.add_node(actor.id)
 
-    def add_actors(self, actors: _t.Iterable[Actor]) -> None:
+    def add_actors(self, actors: Iterable[Actor]) -> None:
         """Add new actor nodes to the network.
 
         Arguments:
@@ -282,7 +296,7 @@ class Network:
         for actor in actors:
             self.add_actor(actor)
 
-    def add_connection(self, u: ID, v: ID, **attr: _t.Any) -> None:
+    def add_connection(self, u: ID, v: ID, **attr: Any) -> None:
         """Connect the actors with IDs :code:`u` and :code:`v`.
 
         Arguments:
@@ -293,7 +307,7 @@ class Network:
         self.graph.add_edge(v, u, *attr)
 
     def add_connections_from(
-        self, ebunch: _t.Iterable[_t.Tuple[ID, ID]], **attrs: _t.Any
+        self, ebunch: Iterable[Tuple[ID, ID]], **attrs: Any
     ) -> None:
         """Connect all actor ID pairs in :code:`ebunch`.
 
@@ -304,7 +318,7 @@ class Network:
             self.add_connection(u, v, **attrs)
 
     def add_connections_between(
-        self, us: _t.Iterable[ID], vs: _t.Iterable[ID], **attrs: _t.Any
+        self, us: Iterable[ID], vs: Iterable[ID], **attrs: Any
     ) -> None:
         """Connect all actors in :code:`us` to all actors in :code:`vs`.
 
@@ -315,7 +329,7 @@ class Network:
         self.add_connections_from(product(us, vs), **attrs)
 
     def add_connections_with_adjmat(
-        self, aids: _t.Sequence[ID], adjacency_matrix: _np.ndarray, **attrs: _t.Any
+        self, aids: Sequence[ID], adjacency_matrix: np.ndarray, **attrs: Any
     ) -> None:
         """Connect a subset of actors to one another via an adjacency matrix.
 
@@ -387,9 +401,7 @@ class Network:
 
         return Network.Context(self.actors[actor_id], views, subnet)
 
-    def send(
-        self, all_payloads: _t.Mapping[ID, _t.Mapping[ID, _t.Iterable[Payload]]]
-    ) -> None:
+    def send(self, all_payloads: Mapping[ID, Mapping[ID, Iterable[Payload]]]) -> None:
         """Send payload batches across the network.
 
         Arguments:
@@ -406,7 +418,7 @@ class Network:
                 self.resolver.push(sender_id, receiver_id, payloads)
 
     def send_from(
-        self, sender_id: ID, payload_map: _t.Mapping[ID, _t.Iterable[Payload]]
+        self, sender_id: ID, payload_map: Mapping[ID, Iterable[Payload]]
     ) -> None:
         """Send payloads across the network from a given actor.
 
@@ -423,7 +435,7 @@ class Network:
             self.resolver.push(sender_id, receiver_id, payloads)
 
     def send_to(
-        self, receiver_id: ID, payload_map: _t.Mapping[ID, _t.Iterable[Payload]]
+        self, receiver_id: ID, payload_map: Mapping[ID, Iterable[Payload]]
     ) -> None:
         """Send payloads across the network to a given actor.
 
@@ -458,7 +470,7 @@ class Network:
 
         self.resolver.reset()
 
-    def get_actors_where(self, pred: _t.Callable[[Actor], bool]) -> _t.Dict[ID, Actor]:
+    def get_actors_where(self, pred: Callable[[Actor], bool]) -> Dict[ID, Actor]:
         """Returns the set of actors in the network that satisfy a predicate.
 
         Arguments:
@@ -472,7 +484,7 @@ class Network:
             if pred(self.actors[actor_id])
         }
 
-    def get_actors_with_type(self, cls: _t.Type) -> _t.Dict[ID, Actor]:
+    def get_actors_with_type(self, cls: Type) -> Dict[ID, Actor]:
         """Returns a collection of actors in the network with a given type.
 
         Arguments:
@@ -480,7 +492,7 @@ class Network:
         """
         return self.get_actors_where(lambda a: isinstance(a, cls))
 
-    def get_actors_without_type(self, cls: _t.Type) -> _t.Dict[ID, Actor]:
+    def get_actors_without_type(self, cls: Type) -> Dict[ID, Actor]:
         """Returns a collection of actors in the network without a given type.
 
         Arguments:
@@ -510,12 +522,12 @@ class StochasticNetwork(Network):
         graph: Directed graph modelling the connections between actors.
     """
 
-    def __init__(self, resolver: Resolver, actors: _t.List[Actor] = list()) -> None:
+    def __init__(self, resolver: Resolver, actors: List[Actor] = list()) -> None:
         Network.__init__(self, resolver, actors)
 
-        self._base_connections: _t.List[_t.Tuple[ID, ID, float, _t.Any]] = list()
+        self._base_connections: List[Tuple[ID, ID, float, Any]] = list()
 
-    def add_connection(self, u: ID, v: ID, rate: float = 1.0, **attr: _t.Any) -> None:
+    def add_connection(self, u: ID, v: ID, rate: float = 1.0, **attr: Any) -> None:
         """Connect the actors with IDs :code:`u` and :code:`v`.
 
         Arguments:
@@ -524,7 +536,7 @@ class StochasticNetwork(Network):
             rate: The connectivity of this connection.
         """
 
-        if _np.random.random() < rate:
+        if np.random.random() < rate:
             self.graph.add_edge(u, v, *attr)
             self.graph.add_edge(v, u, *attr)
 
@@ -532,8 +544,8 @@ class StochasticNetwork(Network):
 
     def add_connections_from(
         self,
-        ebunch: _t.Iterable[_t.Union[_t.Tuple[ID, ID], _t.Tuple[ID, ID, float]]],
-        **attrs: _t.Any,
+        ebunch: Iterable[Union[Tuple[ID, ID], Tuple[ID, ID, float]]],
+        **attrs: Any,
     ) -> None:
         """Connect all actor ID pairs in :code:`ebunch`.
 
@@ -544,12 +556,12 @@ class StochasticNetwork(Network):
             n = len(connection)
 
             if n == 2:
-                u, v = _t.cast(_t.Tuple[ID, ID], connection)
+                u, v = cast(Tuple[ID, ID], connection)
 
                 self.add_connection(u, v, **attrs)
 
             elif n == 3:
-                u, v, r = _t.cast(_t.Tuple[ID, ID, float], connection)
+                u, v, r = cast(Tuple[ID, ID, float], connection)
 
                 self.add_connection(u, v, r, **attrs)
 
@@ -560,10 +572,10 @@ class StochasticNetwork(Network):
 
     def add_connections_between(
         self,
-        us: _t.Iterable[ID],
-        vs: _t.Iterable[ID],
+        us: Iterable[ID],
+        vs: Iterable[ID],
         rate: float = 1.0,
-        **attrs: _t.Any,
+        **attrs: Any,
     ) -> None:
         """Connect all actors in :code:`us` to all actors in :code:`vs`.
 
@@ -580,7 +592,7 @@ class StochasticNetwork(Network):
         self.graph = graphs.DiGraph()
 
         for u, v, rate, attrs in self._base_connections:
-            if _np.random.random() < rate:
+            if np.random.random() < rate:
                 self.graph.add_edge(u, v, *attrs)
                 self.graph.add_edge(v, u, *attrs)
 

@@ -1,13 +1,25 @@
-import typing as _t
-
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import (
+    Callable,
+    DefaultDict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    TYPE_CHECKING,
+)
 
-import mercury as _m
+from .core import ID
+from .message import Batch, Message, Payload, PayloadType
 
+if TYPE_CHECKING:
+    from .network import Network
 
-Payloads = _t.Iterable[_m.Payload]
-Responses = _t.Iterator[_t.Tuple[_m.ID, Payloads]]
+Responses = Iterator[Tuple[ID, Iterable[Payload]]]
 
 
 @dataclass(frozen=True)
@@ -18,10 +30,10 @@ class View:
         actor_id: The unique :class:`mercury.ID` of the agent.
     """
 
-    actor_id: _m.ID
+    actor_id: ID
 
 
-ViewType = _t.TypeVar("ViewType", bound=View)
+ViewType = TypeVar("ViewType", bound=View)
 
 
 class Actor:
@@ -32,24 +44,22 @@ class Actor:
     :class:`View` instances and handling messages.
     """
 
-    def __init__(self, actor_id: _m.ID) -> None:
+    def __init__(self, actor_id: ID) -> None:
         self._id = actor_id
 
     @property
-    def id(self) -> _m.ID:
+    def id(self) -> ID:
         """The unique ID of the actor."""
         return self._id
 
-    def view(self, neighbour_id: _t.Optional[_m.ID] = None) -> View:
+    def view(self, neighbour_id: Optional[ID] = None) -> View:
         """Return an immutable view to the actor's public state."""
         return View(actor_id=self._id)
 
-    def pre_resolution(self, ctx: "_m.Network.Context") -> None:
+    def pre_resolution(self, ctx: "Network.Context") -> None:
         """Perform internal, pre-resolution updates to the actor."""
 
-    def handle_batch(
-        self, ctx: "_m.Network.Context", batch: _m.message.Batch
-    ) -> Responses:
+    def handle_batch(self, ctx: "Network.Context", batch: Batch) -> Responses:
         """Handle a batch of messages from various possible senders.
 
         Arguments:
@@ -61,7 +71,7 @@ class Actor:
         """
         raise NotImplementedError
 
-    def post_resolution(self, ctx: "_m.Network.Context") -> None:
+    def post_resolution(self, ctx: "Network.Context") -> None:
         """Perform internal, post-resolution updates to the actor."""
 
     def reset(self) -> None:
@@ -79,16 +89,12 @@ class SyncActor(Actor):
     treated independently.
     """
 
-    def handle_batch(
-        self, ctx: "_m.Network.Context", batch: _m.message.Batch
-    ) -> Responses:
+    def handle_batch(self, ctx: "Network.Context", batch: Batch) -> Responses:
         for sender_id in batch:
             for message in batch.messages_from(sender_id):
                 yield from self.handle_message(ctx, message)
 
-    def handle_message(
-        self, ctx: "_m.Network.Context", message: _m.Message
-    ) -> Responses:
+    def handle_message(self, ctx: "Network.Context", message: Message) -> Responses:
         """Handle a single message from a given sender.
 
         Arguments:
@@ -101,16 +107,14 @@ class SyncActor(Actor):
         raise NotImplementedError
 
 
-Handler = _t.Callable[["_m.Network.Context", _m.Message], Responses]
+Handler = Callable[["Network.Context", Message], Responses]
 
 
 class SimpleSyncActor(SyncActor):
-    def __init__(self, actor_id: _m.ID) -> None:
+    def __init__(self, actor_id: ID) -> None:
         SyncActor.__init__(self, actor_id)
 
-        self.__handlers: _t.DefaultDict[
-            _t.Type[_m.Payload], _t.List[Handler]
-        ] = defaultdict(list)
+        self.__handlers: DefaultDict[Type[Payload], List[Handler]] = defaultdict(list)
 
         # Register handlers defined via decorator utility:
         fn_names = [attr for attr in dir(self) if callable(getattr(self, attr))]
@@ -121,13 +125,11 @@ class SimpleSyncActor(SyncActor):
                 self.register_handler(fn.payload_type, fn)
 
     def register_handler(
-        self, payload_type: _t.Type[_m.PayloadType], handler: Handler
+        self, payload_type: Type[PayloadType], handler: Handler
     ) -> None:
         self.__handlers[payload_type].append(handler)
 
-    def handle_message(
-        self, ctx: "_m.Network.Context", message: _m.Message
-    ) -> Responses:
+    def handle_message(self, ctx: "Network.Context", message: Message) -> Responses:
         ptype = type(message.payload)
 
         if ptype not in self.__handlers:
@@ -137,7 +139,7 @@ class SimpleSyncActor(SyncActor):
             yield from bound_handler(ctx, message)
 
 
-def handler(payload_type: _t.Type[_m.PayloadType]) -> _t.Callable[[Handler], Handler]:
+def handler(payload_type: Type[PayloadType]) -> Callable[[Handler], Handler]:
     def decorator(fn: Handler) -> Handler:
         setattr(fn, "payload_type", payload_type)
 

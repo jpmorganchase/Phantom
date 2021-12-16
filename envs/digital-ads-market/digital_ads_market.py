@@ -597,7 +597,7 @@ ph.train(
     algorithm="PPO",
     num_workers=0,
     num_episodes=5,
-    env=DigitalAdsEnv,
+    env_class=DigitalAdsEnv,
     env_config={"seed": 0},
     metrics=METRICS,
 )

@@ -19,13 +19,18 @@ sys.path.insert(0, os.path.abspath(".."))
 autodoc_mock_imports = ["ray"]
 
 # -- Project information -----------------------------------------------------
-project = "Phantom"
+project = "Phantom [BETA]"
 year = datetime.datetime.now().year
 copyright = "{}, AI Research, JP Morgan. Some icons used freely from Font Awesome (https://fontawesome.com/license/free)".format(
     year
 )
 author = "AI Research Group"
 description = "A Multi-agent reinforcement-learning simulator framework."
+
+
+def _get_version():
+    with open("../../version.txt") as fp:
+        return fp.readlines()[0]
 
 
 # -- General configuration ---------------------------------------------------
@@ -58,7 +63,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # built documents.
 #
 # The short X.Y version.
-version = "1.0"
+version = _get_version()
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
