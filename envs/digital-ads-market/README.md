@@ -23,6 +23,7 @@ different strategy (typically 1st price or 2nd price auction).
 result of the auction to the Advertisers.
 7. The ad is displayed to the user who will click on it with a certain probability, the
 outcome of the display is fed back to the Advertiser to tweak its strategy.
+
 ### Objective
 
 The main goal of the learning Advertiser is to find the best bidding strategy that will

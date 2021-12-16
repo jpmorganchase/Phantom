@@ -178,13 +178,13 @@ class SupplyChainEnv(ph.PhantomEnv):
         super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
 
 
-if sys.argv[1].lower() == "train":
+if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
         experiment_name="supply-chain-1",
         algorithm="PPO",
         num_workers=4,
         num_episodes=100,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config={"n_customers": 5},
     )
 

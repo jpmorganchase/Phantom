@@ -16,6 +16,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
+from .supertype import BaseSupertype
 
 
 class EnvironmentActor(me.actors.SyncActor):
@@ -35,6 +36,8 @@ class EnvironmentActor(me.actors.SyncActor):
 
     def __init__(self):
         super().__init__(self.ID)
+
+        self.env_type: Optional[BaseSupertype] = None
 
 
 class PhantomEnv(MultiAgentEnv):
@@ -91,6 +94,8 @@ class PhantomEnv(MultiAgentEnv):
             if isinstance(actor, Agent)
         }
         self._dones = set()
+        self._samplers = []
+        self._env_supertype = None
 
         self.environment_actor = environment_actor
 
@@ -152,6 +157,7 @@ class PhantomEnv(MultiAgentEnv):
         """
         # Set clock back to time step 0
         self.clock.reset()
+
         # Reset network and call reset method on all actors in the network.
         # Message samplers should be called here from the respective actor's reset method.
         self.network.reset()
@@ -235,6 +241,14 @@ class PhantomEnv(MultiAgentEnv):
         Implements the logic to decide when the episode is completed
         """
         return self.clock.is_terminal or len(self._dones) == len(self.agents)
+
+    def set_supertypes(
+        self, env_supertype: BaseSupertype, agent_supertypes: Dict[me.ID, BaseSupertype]
+    ) -> None:
+        self._env_supertype = env_supertype
+
+        for agent_id, supertype in agent_supertypes.items():
+            self.agents[agent_id].supertype = supertype
 
     def __getitem__(self, actor_id: me.ID) -> me.actors.Actor:
         return self.network[actor_id]

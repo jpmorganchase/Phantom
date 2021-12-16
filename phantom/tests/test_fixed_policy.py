@@ -51,7 +51,7 @@ def test_no_trained_policies():
             algorithm="PPO",
             num_workers=0,
             num_episodes=1,
-            env=MinimalEnv,
+            env_class=MinimalEnv,
             discard_results=True,
         )
 
@@ -73,6 +73,6 @@ def test_fixed_policy():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=MinimalEnv,
+        env_class=MinimalEnv,
         discard_results=True,
     )

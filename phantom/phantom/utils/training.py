@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import tempfile
+import types
 from pathlib import Path
 from typing import (
     Any,
@@ -29,14 +30,22 @@ from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
-from ..env import PhantomEnv
+from ..env import EnvironmentActor, PhantomEnv
 from ..fsm import FSMAgent, StageID, StagePolicyHandler
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
+from ..supertype import BaseSupertype
 from ..policy import FixedPolicy
 from ..policy_wrapper import PolicyWrapper
 from ..typedefs import PolicyID
-from . import find_most_recent_results_dir, show_pythonhashseed_warning
+from .ranges import BaseRange
+from .samplers import BaseSampler
+from . import (
+    collect_instances_of_type,
+    contains_type,
+    find_most_recent_results_dir,
+    show_pythonhashseed_warning,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -44,14 +53,16 @@ logger = logging.getLogger(__name__)
 
 def train(
     experiment_name: str,
-    env: Type[PhantomEnv],
-    num_episodes: int,
+    env_class: Type[PhantomEnv],
     algorithm: str,
+    num_episodes: int,
     seed: int = 0,
     num_workers: Optional[int] = None,
     checkpoint_freq: Optional[int] = None,
     alg_config: Optional[Mapping[str, Any]] = None,
     env_config: Optional[Mapping[str, Any]] = None,
+    env_supertype: Optional[BaseSupertype] = None,
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
     policy_grouping: Optional[Mapping[str, List[str]]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     callbacks: Optional[Iterable[DefaultCallbacks]] = None,
@@ -64,16 +75,26 @@ def train(
     """
     Performs training of a Phantom experiment.
 
+    Any objects that inherit from BaseSampler in the env_supertype or agent_supertypes
+    parameters will be automatically sampled from and fed back into the environment at
+    the start of each episode.
+
     Arguments:
         experiment_name: Experiment name used for tensorboard logging.
-        env: A PhantomEnv subclass.
-        num_episodes: Number of episodes to train for, distributed over all workers.
+        env_class: A PhantomEnv subclass.
         algorithm: RL algorithm to use.
+        num_episodes: The number of episodes to train for, distributed over all workers.
         seed: Optional seed to pass to environment.
         num_workers: Number of Ray workers to initialise (defaults to NUM CPU - 1).
         checkpoint_freq: Episodic frequency at which to save checkpoints.
         alg_config: Optional algorithm parameters dictionary to pass to RLlib.
         env_config: Configuration parameters to pass to the environment init method.
+        env_supertype: Type object for the environment. Any contained objects that
+            inherit from BaseSampler will be sampled from and automatically applied to
+            the environment (and environment actor).
+        agent_supertypes: Mapping of agent IDs to Type objects for the respective agent.
+            Any contained objects that inherit from BaseSampler will be sampled from and
+            automatically applied to the agent.
         policy_grouping: A mapping between custom policy names and lists of agents
             sharing the same policy.
         metrics: Optional set of metrics to record and log.
@@ -104,10 +125,32 @@ def train(
 
     alg_config = alg_config or {}
     env_config = env_config or {}
+    agent_supertypes = agent_supertypes or {}
     policy_grouping = policy_grouping or {}
+
     metrics = metrics or {}
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
+
+    if contains_type(env_config, BaseSampler):
+        raise Exception(
+            "env_config should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(env_config, BaseRange):
+        raise Exception(
+            "env_config should not contain instances of classes inheriting from BaseRange"
+        )
+
+    if contains_type(env_supertype, BaseRange):
+        raise Exception(
+            "env_supertype should not contain instances of classes inheriting from BaseRange"
+        )
+
+    if contains_type(agent_supertypes, BaseRange):
+        raise Exception(
+            "agent_supertypes should not contain instances of classes inheriting from BaseRange"
+        )
 
     num_workers = os.cpu_count() - 1 if num_workers is None else num_workers
 
@@ -131,10 +174,24 @@ def train(
                     "Could not find file '%s' to copy to results directory", path
                 )
 
+    # Collect all instances of classes that inherit from BaseSampler from the env
+    # supertype and the agent supertypes into a flat list. We make sure that the list
+    # contains only one reference to each sampler instance.
+    samplers = collect_instances_of_type(BaseSampler, env_supertype)
+
+    for agent_supertype in agent_supertypes.values():
+        samplers += collect_instances_of_type(BaseSampler, agent_supertype)
+
+    # Generate initial values from the samplers and store them inside the samplers
+    for sampler in samplers:
+        sampler.value = sampler.sample()
+
     config, policies = create_rllib_config_dict(
-        env,
+        env_class,
         alg_config,
         env_config,
+        env_supertype,
+        agent_supertypes,
         policy_grouping,
         callbacks,
         metrics,
@@ -147,14 +204,53 @@ def train(
             config,
             policies,
             experiment_name,
-            env.env_name,
+            env_class.env_name,
             num_workers,
             num_episodes,
             algorithm,
             checkpoint_freq,
         )
 
-    register_env(env.env_name, lambda config: env(**config))
+    # This is a custom environment 'constructor' function that is called whenever RLlib
+    # needs to create a new environment instance. In this function we ensure that the
+    # supertypes given to this 'train' function are properly applied to the environment
+    # and agents.
+    def reg_env(config):
+        env = env_class(**config)
+
+        # The environment needs access to the list of samplers so it can generate new
+        # values in each step.
+        env._samplers = samplers
+
+        # Give the supertypes to the correct objects in the environment
+        env.set_supertypes(env_supertype, agent_supertypes)
+
+        # Here we override the reset method on the environment class so we can generate
+        # values from the sampler before the main environment reset logic is run.
+        # Ideally in the future we will insert a layer between the env and RLlib to do
+        # this.
+        original_reset = env.reset
+
+        def overridden_reset(self) -> Dict[me.ID, Any]:
+            # Sample from samplers
+            for sampler in self._samplers:
+                sampler.value = sampler.sample()
+
+            # Update and apply env type
+            if self._env_supertype is not None:
+                self.env_type = self._env_supertype.sample()
+
+                if "__ENV" in self.network.actor_ids:
+                    self.network.actors["__ENV"].env_type = self.env_type
+
+            return original_reset()
+
+        env.reset = types.MethodType(overridden_reset, env)
+        env.reset()
+
+        return env
+
+    register_env(env_class.env_name, reg_env)
 
     training_it = int(num_episodes / num_workers) if num_workers > 0 else num_episodes
 
@@ -173,7 +269,7 @@ def train(
             config=config,
             callbacks=[
                 TBXExtendedLoggerCallback(),
-                TrialStartTasksCallback(env, local_dir, local_files_to_copy),
+                TrialStartTasksCallback(env_class, local_dir, local_files_to_copy),
             ],
         )
 
@@ -194,6 +290,8 @@ def create_rllib_config_dict(
     env_class: Type[PhantomEnv],
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
+    env_supertype: Optional[BaseSupertype],
+    agent_supertypes: Mapping[me.ID, BaseSupertype],
     policy_grouping: Mapping[str, List[str]],
     callbacks: Iterable[DefaultCallbacks],
     metrics: Mapping[str, Metric],
@@ -211,10 +309,20 @@ def create_rllib_config_dict(
     # these objects into the environment init. Instead we attempt to create an
     # environment and if this fails we try and create an environment with only
     # the default parameters.
-    try:
-        env = env_class(**env_config)
-    except:
-        env = env_class()
+    env = env_class(**env_config)
+
+    env.set_supertypes(env_supertype, agent_supertypes)
+
+    # Update and apply env type
+    if env_supertype is not None:
+        env.env_type = env_supertype.sample()
+
+        if "__ENV" in env.network.actor_ids:
+            env_actor = env.network.actors["__ENV"]
+            assert isinstance(env_actor, EnvironmentActor)
+            env_actor.env_type = env.env_type
+
+    env.reset()
 
     def is_trained(policy_class=Optional[Type[rllib.Policy]]) -> bool:
         # To find out if policy_class is an subclass of FixedPolicy normally

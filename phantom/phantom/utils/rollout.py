@@ -2,6 +2,7 @@ import logging
 import math
 import multiprocessing
 import os
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Type, Union
@@ -16,7 +17,16 @@ from tqdm import tqdm
 
 from ..env import PhantomEnv
 from ..logging import Logger, Metric
-from . import find_most_recent_results_dir, show_pythonhashseed_warning
+from ..supertype import BaseSupertype
+from .ranges import BaseRange
+from .samplers import BaseSampler
+from . import (
+    collect_instances_of_type_with_paths,
+    contains_type,
+    find_most_recent_results_dir,
+    show_pythonhashseed_warning,
+    update_val,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +50,8 @@ class EpisodeTrajectory:
 class RolloutConfig:
     seed: int
     env_config: Mapping[str, Any]
+    env_supertype: Optional[BaseSupertype]
+    agent_supertypes: Mapping[me.ID, BaseSupertype]
 
 
 @dataclass
@@ -53,10 +65,12 @@ def rollout(
     directory: Union[str, Path],
     algorithm: str,
     num_workers: int = 0,
-    num_rollouts: int = 1,
+    num_repeats: int = 1,
     checkpoint: Optional[int] = None,
     env_class: Optional[Type[PhantomEnv]] = None,
     env_config: Optional[Mapping[str, Any]] = None,
+    env_supertype: Optional[BaseSupertype] = None,
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
@@ -64,6 +78,15 @@ def rollout(
 ) -> List[Rollout]:
     """
     Performs rollouts for a previously trained Phantom experiment.
+
+    Any objects that inherit from BaseRange in the env_supertype or agent_supertypes
+    parameters will be expanded out into a multidimensional space of rollouts.
+
+    For example, if two distinct UniformRanges are used, one with a length of 10 and one
+    with a length of 5, 10 * 5 = 50 rollouts will be performed.
+
+    If num_repeats is also given, say with a value of 2, then each of the 50 rollouts
+    will be repeated twice, each time with a different random seed.
 
     Arguments:
         directory: Phantom results directory containing trained policies. If the default
@@ -73,11 +96,17 @@ def rollout(
             used.
         algorithm: RLlib algorithm to use.
         num_workers: Number of Ray rollout workers to initialise.
-        num_rollouts: Number of rollouts to perform, distributed over all workers.
+        num_repeats: Number of rollout repeats to perform, distributed over all workers.
         checkpoint: Checkpoint to use (defaults to most recent).
         env_class: Optionally pass the Environment class to use. If not give will
             fallback to the copy of the environment class saved during training.
         env_config: Configuration parameters to pass to the environment init method.
+        env_supertype: Type object for the environment. Any contained objects that
+            inherit from BaseRange will be sampled from and automatically applied to
+            the environment (and environment actor).
+        agent_supertypes: Mapping of agent IDs to Type objects for the respective agent.
+            Any contained objects that inherit from BaseRange will be sampled from and
+            automatically applied to the agent.
         metrics: Optional set of metrics to record and log.
         results_file: Name of the results file to save to, if None is given no file
             will be saved (default is "results.pkl").
@@ -102,6 +131,28 @@ def rollout(
 
     metrics = metrics or {}
     env_config = env_config or {}
+    env_supertype = env_supertype or None
+    agent_supertypes = agent_supertypes or {}
+
+    if contains_type(env_config, BaseSampler):
+        raise TypeError(
+            "env_config should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(env_config, BaseRange):
+        raise TypeError(
+            "env_config should not contain instances of classes inheriting from BaseRange"
+        )
+
+    if contains_type(env_supertype, BaseSampler):
+        raise TypeError(
+            "env_supertype should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(agent_supertypes, BaseSampler):
+        raise TypeError(
+            "agent_supertypes should not contain instances of classes inheriting from BaseSampler"
+        )
 
     phantom_dir = os.path.expanduser("~/phantom-results")
 
@@ -154,13 +205,41 @@ def rollout(
     else:
         logger.info("Using checkpoint: %s", checkpoint)
 
+    # We find all instances of objects that inherit from BaseRange in the env supertype
+    # and agent supertypes. We keep a track of where in this structure they came from
+    # so we can easily replace the values at a later stage.
+    # Each Range object can have multiple paths as it can exist at multiple points within
+    # the data structure. Eg. shared across multiple agents.
+    ranges = collect_instances_of_type_with_paths(
+        BaseRange, (env_supertype, agent_supertypes)
+    )
+
+    # This 'variations' list is where we build up every combination of the expanded values
+    # from the list of Ranges.
+    variations = [deepcopy((env_supertype, agent_supertypes))]
+
+    # For each iteration of this outer loop we expand another Range object.
+    for range_obj, paths in reversed(ranges):
+        variations2 = []
+        for value in range_obj.values():
+            for variation in variations:
+                variation = deepcopy(variation)
+                for path in paths:
+                    update_val(variation, path, value)
+                variations2.append(variation)
+
+        variations = variations2
+
     # Apply the number of repeats requested to each 'variation'.
     rollout_configs = [
         RolloutConfig(
-            i,
+            i * num_repeats + j,
             env_config,
+            env_supertype,
+            agent_supertypes,
         )
-        for i in range(num_rollouts)
+        for i, (env_supertype, agent_supertypes) in enumerate(variations)
+        for j in range(num_repeats)
     ]
 
     # Distribute the rollouts evenly amongst the number of workers.
@@ -303,6 +382,15 @@ def _rollout_task_fn(
         for rollout_config in iter_obj:
             # Create environment instance from config from results directory
             env = env_class(**rollout_config.env_config)
+
+            for agent_id, supertype in rollout_config.agent_supertypes.items():
+                env.agents[agent_id].supertype = supertype
+
+            if rollout_config.env_supertype is not None:
+                env.env_type = rollout_config.env_supertype
+
+                if "__ENV" in env.network.actor_ids:
+                    env.network.actors["__ENV"].env_type = env.env_type
 
             # Setting seed needs to come after trainer setup
             np.random.seed(rollout_config.seed)

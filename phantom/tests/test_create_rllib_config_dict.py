@@ -48,10 +48,12 @@ def test_basic_env():
 
     config, policies = create_rllib_config_dict(
         env_class=MockEnv,
+        alg_config={},
         env_config={
             "agents": [agent],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},

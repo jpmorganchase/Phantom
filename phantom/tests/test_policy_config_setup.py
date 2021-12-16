@@ -61,15 +61,28 @@ class MockEnv(ph.PhantomEnv):
         super().__init__(network=network, n_steps=10)
 
 
+class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
+    def __init__(self, agents: List[ph.Agent]):
+        network = me.Network(me.resolvers.UnorderedResolver(), agents)
+        super().__init__(
+            network=network,
+            n_steps=10,
+            initial_stage="stage",
+            stages=[ph.fsm.FSMStage(stage_id="stage", next_stages=["stage"])],
+        )
+
+
 def test_single_agent():
     agent = MockAgent("a1")
 
     _, policies = create_rllib_config_dict(
         env_class=MockEnv,
+        alg_config={},
         env_config={
             "agents": [agent],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
@@ -98,10 +111,12 @@ def test_single_agent_fixed_policy():
 
     _, policies = create_rllib_config_dict(
         env_class=MockEnv,
+        alg_config={},
         env_config={
             "agents": [agent1, agent2],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
@@ -132,10 +147,12 @@ def test_shared_policy():
 
     _, policies = create_rllib_config_dict(
         env_class=MockEnv,
+        alg_config={},
         env_config={
             "agents": [agent1, agent2],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={"shared": ["a1", "a2"]},
         callbacks=[],
         metrics={},
@@ -158,11 +175,13 @@ def test_single_agent_single_stage():
     agent = MockFSMAgent("a1", {"stage1": MockStagePolicyHandler()})
 
     _, policies = create_rllib_config_dict(
-        env_class=MockEnv,
+        env_class=MockFSMEnv,
+        alg_config={},
         env_config={
             "agents": [agent],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
@@ -190,11 +209,13 @@ def test_single_agent_multiple_stages():
     )
 
     _, policies = create_rllib_config_dict(
-        env_class=MockEnv,
+        env_class=MockFSMEnv,
+        alg_config={},
         env_config={
             "agents": [agent],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
@@ -228,11 +249,13 @@ def test_single_agent_shared_multiple_stages():
     )
 
     _, policies = create_rllib_config_dict(
-        env_class=MockEnv,
+        env_class=MockFSMEnv,
+        alg_config={},
         env_config={
             "agents": [agent],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
@@ -268,11 +291,13 @@ def test_single_agent_shared_multiple_shared_stages():
     )
 
     _, policies = create_rllib_config_dict(
-        env_class=MockEnv,
+        env_class=MockFSMEnv,
+        alg_config={},
         env_config={
             "agents": [agent],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
@@ -298,11 +323,13 @@ def test_multiple_agents_shared_stage():
     agent2 = MockFSMAgent("a2", {"stage1": handler})
 
     _, policies = create_rllib_config_dict(
-        env_class=MockEnv,
+        env_class=MockFSMEnv,
+        alg_config={},
         env_config={
             "agents": [agent1, agent2],
         },
-        alg_config={},
+        env_supertype=None,
+        agent_supertypes={},
         policy_grouping={},
         callbacks=[],
         metrics={},
