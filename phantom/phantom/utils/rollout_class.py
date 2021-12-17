@@ -6,13 +6,16 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
     Tuple,
 )
 
 import mercury as me
+import numpy as np
 
 from ..fsm import StageID
+from ..supertype import BaseSupertype
 
 
 @dataclass
@@ -44,18 +47,13 @@ class Step:
 
 
 @dataclass
-class EpisodeTrajectory:
-    """
-    Class describing all the actions, observations, rewards, infos and dones of a single
-    episode.
-    """
-
-    observations: List[Dict[me.ID, Any]]
-    rewards: List[Dict[me.ID, float]]
-    dones: List[Dict[me.ID, bool]]
-    infos: List[Dict[me.ID, Dict[str, Any]]]
-    actions: List[Dict[me.ID, Any]]
-    stages: Optional[List[StageID]]
+class Rollout:
+    seed: int
+    env_config: Mapping[str, Any]
+    env_type: Optional[BaseSupertype]
+    agent_types: Mapping[me.ID, BaseSupertype]
+    steps: Optional[List[Step]]
+    metrics: Dict[str, np.ndarray]
 
     def observations_for_agent(
         self, agent_id: me.ID, stages: Optional[Iterable[StageID]] = None
@@ -68,12 +66,12 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            return (step_obs.get(agent_id, None) for step_obs in self.observations)
+            return (step.observations.get(agent_id, None) for step in self.steps)
         else:
             return (
-                step_obs.get(agent_id, None)
-                for step_obs, stage in zip(self.observations, self.stages)
-                if stage in stages
+                step.observations.get(agent_id, None)
+                for step in self.steps
+                if step.stage in stages
             )
 
     def rewards_for_agent(
@@ -87,12 +85,12 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            return (step_rewards.get(agent_id, None) for step_rewards in self.rewards)
+            return (step.rewards.get(agent_id, None) for step in self.steps)
         else:
             return (
-                step_rewards.get(agent_id, None)
-                for step_rewards, stage in zip(self.rewards, self.stages)
-                if stage in stages
+                step.rewards.get(agent_id, None)
+                for step in self.steps
+                if step.stage in stages
             )
 
     def dones_for_agent(
@@ -106,12 +104,12 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            return (step_dones.get(agent_id, None) for step_dones in self.dones)
+            return (step.dones.get(agent_id, None) for step in self.steps)
         else:
             return (
-                step_dones.get(agent_id, None)
-                for step_dones, stage in zip(self.dones, self.stages)
-                if stage in stages
+                step.dones.get(agent_id, None)
+                for step in self.steps
+                if step.stage in stages
             )
 
     def infos_for_agent(
@@ -125,12 +123,12 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            return (step_infos.get(agent_id, None) for step_infos in self.infos)
+            return (step.infos.get(agent_id, None) for step in self.steps)
         else:
             return (
-                step_infos.get(agent_id, None)
-                for step_infos, stage in zip(self.infos, self.stages)
-                if stage in stages
+                step.infos.get(agent_id, None)
+                for step in self.steps
+                if step.stage in stages
             )
 
     def actions_for_agent(
@@ -144,12 +142,12 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            return (step_actions.get(agent_id, None) for step_actions in self.actions)
+            return (step.actions.get(agent_id, None) for step in self.steps)
         else:
             return (
-                step_actions.get(agent_id, None)
-                for step_actions, stage in zip(self.actions, self.stages)
-                if stage in stages
+                step.actions.get(agent_id, None)
+                for step in self.steps
+                if step.stage in stages
             )
 
     def steps_for_agent(
@@ -163,20 +161,20 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            indices = range(len(self.actions))
+            steps = self.steps
         else:
-            indices = (i for i, stage in enumerate(self.stages) if stage in stages)
+            steps = (step for step in self.steps if step.stage in stages)
 
         return (
             AgentStep(
-                self.observations[i].get(agent_id, None),
-                self.rewards[i].get(agent_id, None),
-                self.dones[i].get(agent_id, None),
-                self.infos[i].get(agent_id, None),
-                self.actions[i].get(agent_id, None),
-                self.stages[i] if self.stages is not None else None,
+                step.observations.get(agent_id, None),
+                step.rewards.get(agent_id, None),
+                step.dones.get(agent_id, None),
+                step.infos.get(agent_id, None),
+                step.actions.get(agent_id, None),
+                step.stage,
             )
-            for i in indices
+            for step in steps
         )
 
     def count_actions(
@@ -190,16 +188,14 @@ class EpisodeTrajectory:
         """
         if stages is None:
             filtered_actions = (
-                action
-                for step_actions in self.actions
-                for action in step_actions.values()
+                action for step in self.steps for action in step.actions.values()
             )
         else:
             filtered_actions = (
                 action
-                for step_actions, stage in zip(self.actions, self.stages)
-                for action in step_actions.values()
-                if stage in stages
+                for step in self.steps
+                for action in step.actions.values()
+                if step.stage in stages
             )
 
         return Counter(filtered_actions).most_common()
@@ -215,14 +211,12 @@ class EpisodeTrajectory:
             stages: Optionally also filter by multiple stages.
         """
         if stages is None:
-            filtered_actions = (
-                step_actions.get(agent_id, None) for step_actions in self.actions
-            )
+            filtered_actions = (step.actions.get(agent_id, None) for step in self.steps)
         else:
             filtered_actions = (
-                step_actions.get(agent_id, None)
-                for step_actions, stage in zip(self.actions, self.stages)
-                if stage in stages
+                step.actions.get(agent_id, None)
+                for step in self.steps
+                if step.stage in stages
             )
 
         return Counter(filtered_actions).most_common()
@@ -232,13 +226,6 @@ class EpisodeTrajectory:
         Returns a step for a given index in the episode.
         """
         try:
-            return Step(
-                self.observations[index],
-                self.rewards[index],
-                self.dones[index],
-                self.infos[index],
-                self.actions[index],
-                self.stages[index],
-            )
+            return self.steps[index]
         except:
             KeyError(f"Index {index} not valid for trajectory")

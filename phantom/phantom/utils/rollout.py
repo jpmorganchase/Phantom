@@ -8,11 +8,9 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
-    Dict,
     List,
     Mapping,
     Optional,
-    Tuple,
     Type,
     Union,
 )
@@ -29,7 +27,7 @@ from ..env import PhantomEnv
 from ..fsm import FiniteStateMachineEnv, StageID
 from ..logging import Logger, Metric
 from ..supertype import BaseSupertype
-from .episode_trajectory import EpisodeTrajectory
+from .rollout_class import Rollout, Step
 from .ranges import BaseRange
 from .samplers import BaseSampler
 from . import (
@@ -42,21 +40,6 @@ from . import (
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class RolloutConfig:
-    seed: int
-    env_config: Mapping[str, Any]
-    env_supertype: Optional[BaseSupertype]
-    agent_supertypes: Mapping[me.ID, BaseSupertype]
-
-
-@dataclass
-class Rollout:
-    config: RolloutConfig
-    metrics: Dict[me.ID, np.ndarray]
-    trajectory: Optional[EpisodeTrajectory]
 
 
 def rollout(
@@ -108,7 +91,7 @@ def rollout(
         metrics: Optional set of metrics to record and log.
         results_file: Name of the results file to save to, if None is given no file
             will be saved (default is "results.pkl").
-        save_trajectories: If True the full set of epsiode trajectories for the
+        save_trajectories: If True the full set of episode trajectories for the
             rollouts will be saved into the results file.
         result_mapping_fn: If given, results from each rollout will be passed to this
             function, with the return values from the function aggregated and saved.
@@ -311,9 +294,12 @@ def rollout(
         if result_mapping_fn is None:
             results_to_save = [
                 Rollout(
-                    rollout.config,
+                    rollout.seed,
+                    rollout.env_config,
+                    rollout.env_type,
+                    rollout.agent_types,
+                    rollout.steps if save_trajectories else None,
                     rollout.metrics,
-                    rollout.trajectory if save_trajectories else None,
                 )
                 for rollout in results
             ]
@@ -333,7 +319,7 @@ def _rollout_task_fn(
     directory: Path,
     checkpoint: int,
     algorithm: str,
-    configs: List[RolloutConfig],
+    configs: List["RolloutConfig"],
     env_class: Optional[Type[PhantomEnv]] = None,
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
@@ -395,14 +381,9 @@ def _rollout_task_fn(
 
             metric_logger = Logger(tracked_metrics)
 
-            observation = env.reset()
+            steps: List[Step] = []
 
-            observations: List[Dict[me.ID, Any]] = [observation]
-            rewards: List[Dict[me.ID, float]] = []
-            dones: List[Dict[me.ID, bool]] = []
-            infos: List[Dict[me.ID, Dict[str, Any]]] = []
-            actions: List[Dict[me.ID, Any]] = []
-            stages: List[StageID] = []
+            observation = env.reset()
 
             # Run rollout steps.
             for _ in range(env.clock.n_steps):
@@ -417,30 +398,34 @@ def _rollout_task_fn(
 
                     step_actions[agent_id] = agent_action
 
-                observation, reward, done, info = env.step(step_actions)
+                new_observation, reward, done, info = env.step(step_actions)
                 metric_logger.log(env)
 
-                observations.append(observation)
-                rewards.append(reward)
-                dones.append(done)
-                infos.append(info)
-                actions.append(step_actions)
+                steps.append(
+                    Step(
+                        observation,
+                        reward,
+                        done,
+                        info,
+                        step_actions,
+                        env.previous_stage
+                        if isinstance(env, FiniteStateMachineEnv)
+                        else None,
+                    )
+                )
 
-                if isinstance(env, FiniteStateMachineEnv):
-                    stages.append(env.previous_stage)
+                observation = new_observation
 
             metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
-            trajectory = EpisodeTrajectory(
-                observations,
-                rewards,
-                dones,
-                infos,
-                actions,
-                stages if isinstance(env, FiniteStateMachineEnv) else None,
+            result = Rollout(
+                rollout_config.seed,
+                rollout_config.env_config,
+                rollout_config.env_supertype,
+                rollout_config.agent_supertypes,
+                steps,
+                metrics,
             )
-
-            result = Rollout(rollout_config, metrics, trajectory)
 
             if result_mapping_fn is not None:
                 result = result_mapping_fn(result)
@@ -460,3 +445,15 @@ def _rollout_task_fn(
 
     # If using multi-processing this will be an empty list
     return results
+
+
+@dataclass
+class RolloutConfig:
+    """
+    Internal class
+    """
+
+    seed: int
+    env_config: Mapping[str, Any]
+    env_supertype: Optional[BaseSupertype]
+    agent_supertypes: Mapping[me.ID, BaseSupertype]
