@@ -17,6 +17,8 @@ from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
 from .supertype import BaseSupertype
+from .utils import collect_instances_of_type
+from .utils.samplers import BaseSampler
 
 
 class EnvironmentActor(me.actors.SyncActor):
@@ -245,6 +247,18 @@ class PhantomEnv(MultiAgentEnv):
     def set_supertypes(
         self, env_supertype: BaseSupertype, agent_supertypes: Dict[me.ID, BaseSupertype]
     ) -> None:
+        # Collect all instances of classes that inherit from BaseSampler from the env
+        # supertype and the agent supertypes into a flat list. We make sure that the list
+        # contains only one reference to each sampler instance.
+        samplers = collect_instances_of_type(BaseSampler, env_supertype)
+        
+        for agent_supertype in agent_supertypes.values():
+            samplers += collect_instances_of_type(BaseSampler, agent_supertype)
+        
+        # The environment needs access to the list of samplers so it can generate new
+        # values in each step.
+        self._samplers = samplers
+
         self._env_supertype = env_supertype
 
         for agent_id, supertype in agent_supertypes.items():

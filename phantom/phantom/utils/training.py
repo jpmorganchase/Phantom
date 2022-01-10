@@ -41,7 +41,6 @@ from ..typedefs import PolicyID
 from .ranges import BaseRange
 from .samplers import BaseSampler
 from . import (
-    collect_instances_of_type,
     contains_type,
     find_most_recent_results_dir,
     show_pythonhashseed_warning,
@@ -174,18 +173,6 @@ def train(
                     "Could not find file '%s' to copy to results directory", path
                 )
 
-    # Collect all instances of classes that inherit from BaseSampler from the env
-    # supertype and the agent supertypes into a flat list. We make sure that the list
-    # contains only one reference to each sampler instance.
-    samplers = collect_instances_of_type(BaseSampler, env_supertype)
-
-    for agent_supertype in agent_supertypes.values():
-        samplers += collect_instances_of_type(BaseSampler, agent_supertype)
-
-    # Generate initial values from the samplers and store them inside the samplers
-    for sampler in samplers:
-        sampler.value = sampler.sample()
-
     config, policies = create_rllib_config_dict(
         env_class,
         alg_config,
@@ -217,10 +204,6 @@ def train(
     # and agents.
     def reg_env(config):
         env = env_class(**config)
-
-        # The environment needs access to the list of samplers so it can generate new
-        # values in each step.
-        env._samplers = samplers
 
         # Give the supertypes to the correct objects in the environment
         env.set_supertypes(env_supertype, agent_supertypes)
