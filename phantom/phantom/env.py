@@ -251,10 +251,10 @@ class PhantomEnv(MultiAgentEnv):
         # supertype and the agent supertypes into a flat list. We make sure that the list
         # contains only one reference to each sampler instance.
         samplers = collect_instances_of_type(BaseSampler, env_supertype)
-        
+
         for agent_supertype in agent_supertypes.values():
             samplers += collect_instances_of_type(BaseSampler, agent_supertype)
-        
+
         # The environment needs access to the list of samplers so it can generate new
         # values in each step.
         self._samplers = samplers
