@@ -379,11 +379,13 @@ class Network:
         """
         network: Network = Network.__new__(Network)
 
-        network.graph = self.graph.subgraph(chain(
-            iter((actor_id,)),
-            self.graph.successors(actor_id),
-            self.graph.predecessors(actor_id)
-        ))
+        network.graph = self.graph.subgraph(
+            chain(
+                iter((actor_id,)),
+                self.graph.successors(actor_id),
+                self.graph.predecessors(actor_id),
+            )
+        )
 
         network.actors = {aid: self.actors[aid] for aid in network.graph.nodes}
         network.resolver = self.resolver
