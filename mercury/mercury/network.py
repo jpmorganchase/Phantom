@@ -1,4 +1,4 @@
-from itertools import product
+from itertools import chain, product
 from typing import (
     cast,
     Any,
@@ -17,8 +17,9 @@ from typing import (
 )
 
 import numpy as np
+import networkx as nx
 
-from . import linalg, graphs
+from . import linalg
 from .actors import Actor, View
 from .core import ID
 from .message import Payload
@@ -265,7 +266,7 @@ class Network:
     def __init__(self, resolver: Resolver, actors: List[Actor] = list()) -> None:
         self.resolver = resolver
 
-        self.graph: graphs.DiGraph = graphs.DiGraph()
+        self.graph: nx.DiGraph = nx.DiGraph()
         self.actors: Dict[ID, Actor] = dict()
 
         self.groups = Groups()
@@ -378,7 +379,14 @@ class Network:
         """
         network: Network = Network.__new__(Network)
 
-        network.graph = self.graph.subgraph_for(actor_id)
+        network.graph = self.graph.subgraph(
+            chain(
+                iter((actor_id,)),
+                self.graph.successors(actor_id),
+                self.graph.predecessors(actor_id),
+            )
+        )
+
         network.actors = {aid: self.actors[aid] for aid in network.graph.nodes}
         network.resolver = self.resolver
 
@@ -589,7 +597,7 @@ class StochasticNetwork(Network):
             self.add_connection(u, v, rate, **attrs)
 
     def resample_connectivity(self) -> None:
-        self.graph = graphs.DiGraph()
+        self.graph = nx.DiGraph()
 
         for u, v, rate, attrs in self._base_connections:
             if np.random.random() < rate:
