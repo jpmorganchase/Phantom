@@ -10,7 +10,13 @@ BLACK			:=$(PYTHON) -m black
 MYPY			:=$(PYTHON) -m mypy
 
 install_deps:  ## Install dependencies
-	$(PIP) install -r requirements.txt -r requirements-dev.txt
+	$(PIP) install -r requirements.txt
+
+install_dev_deps:  ## Install dev dependencies
+	$(PIP) install -r requirements-dev.txt
+
+install: ## Install the package
+	$(PYTHON) setup.py install
 
 test:  ## Run the tests
 	$(PYTEST) tests
