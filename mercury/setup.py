@@ -40,7 +40,8 @@ setup(
     version=_get_version(),
     description="A library for simulating P2P messaging networks.",
     long_description=_get_long_description(),
-    url="",
+    python_requires=">3.7.0",
+    url="https://github.com/jpmorganchase/Phantom",
     author="JPM AI Research",
     classifiers=[
         "Development Status :: 5 - Production",
