@@ -3,13 +3,13 @@
 MERCURY			:=mercury
 PHANTOM			:=phantom
 
-install_deps-mercury:
-	cd $(MERCURY) && make install_deps && cd ..
+install-deps-mercury:
+	cd $(MERCURY) && make install-deps && cd ..
 
-install_deps-phantom:
-	cd $(PHANTOM) && make install_deps && cd ..
+install-deps-phantom:
+	cd $(PHANTOM) && make install-deps && cd ..
 
-install_deps: install_deps-mercury install_deps-phantom ## Install dependencies
+install-deps: install-deps-mercury install-deps-phantom ## Install dependencies
 
 install-mercury:
 	cd $(MERCURY) && make install && cd ..

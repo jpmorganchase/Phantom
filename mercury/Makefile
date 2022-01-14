@@ -11,10 +11,10 @@ BLACK			:=$(PYTHON) -m black
 SPHINXBUILD  	:= sphinx-build
 
 
-install_deps:  ## Install dependencies
+install-deps:  ## Install dependencies
 	$(PIP) install -r requirements.txt
 
-install_dev_deps:  ## Install dev dependencies
+install-dev-deps:  ## Install dev dependencies
 	$(PIP) install -r requirements-dev.txt
 
 install: ## Install the package
