@@ -35,5 +35,4 @@ Phantom
     api/policy
     api/rewards
     api/supertypes
-    api/tracker
     api/utils
