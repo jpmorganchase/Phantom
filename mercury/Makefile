@@ -41,6 +41,9 @@ build:  ## Build the package
 doc:  ## Build the documentation
 	@$(SPHINXBUILD) -M html "docs/" "docs/_build"
 
+host-doc:  ## Host the documentation locally
+	@$(PYTHON) -m http.server --directory docs/_build/html
+
 clean:  ## Clean the worspace
 	@rm -rf $(MODULE).egg-info/ .pytest_cache/ .mypy_cache/ dist/ build/ docs/_build
 

@@ -1,10 +1,10 @@
 <div id="top"></div>
 
-<!-- [![Contributors][contributors-shield]][contributors-url]
+[![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![Apache 2.0 License][license-shield]][license-url] -->
+[![Apache 2.0 License][license-shield]][license-url]
 
 <br />
 <div align="center">
@@ -33,10 +33,8 @@
     <li><a href="#about-mercury">About Mercury</a></li>
     <li><a href="#installation">Installation</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
-    <!-- <li><a href="#contributing">Contributing</a></li> -->
+    <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
-    <!-- <li><a href="#contact">Contact</a></li> -->
-    <!-- <li><a href="#acknowledgments">Acknowledgments</a></li> -->
   </ol>
 </details>
 
@@ -65,44 +63,57 @@ The main requirements for installing Phantom/Mercury are a modern Python install
 (3.7 minimum) and access to the pip Python package manager.
 
 A list of Python packages required by Phantom/Mercury is given in the
-``requirements.txt`` files in each respective directory. The required packages can be
-installed by running::
+`requirements.txt` files in each respective directory. The required packages can be
+installed by running:
 
-    make install_deps
+```sh
+make install-deps
+```
 
 ### Phantom
 
 Phantom and its dependency Mercury can be installed as libraries with the command::
 
-    make install
+```sh
+make install
+```
 
 
 ### Mercury
 
-Mercury can be installed independently as a library with the command::
+Mercury can be installed independently as a library with the command:
 
-    make install-mercury
+```sh
+make install-mercury
+```
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
 ## Getting Started
 
-With Phantom installed you can run the provided ``supply-chain`` sample experiment
-with the command::
+With Phantom installed you can run the provided `supply-chain` sample experiment
+with the command:
 
-    phantom envs/supply-chain/supply-chain-1.py
+```sh
+phantom envs/supply-chain/supply-chain-1.py
+```
 
 Change the script for any of the other provided experiments in the examples directory.
-
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
 ## Contributing
 
-TODO: add terms of CLA
+Thank you for your interest in contributing to Phantom!
 
+We invite you to contribute enhancements. Upon review you will be required to complete
+the [Contributor License Agreement (CLA)](https://github.com/jpmorganchase/cla) before
+we are able to merge.
+
+If you have any questions about the contribution process, please feel free to send an
+email to [open_source@jpmorgan.com](mailto:open_source@jpmorgan.com).
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -114,23 +125,9 @@ Distributed under the Apache 2.0 License. See `LICENSE` for more information.
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
-<!-- ## Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com
-
-Project Link: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
-
-<p align="right">(<a href="#top">back to top</a>)</p> -->
 
 
-<!-- ## Acknowledgments
-
-
-<p align="right">(<a href="#top">back to top</a>)</p> -->
-
-
-
-<!-- [contributors-shield]: https://img.shields.io/github/contributors/jpmorganchase/Phantom.svg?style=for-the-badge
+[contributors-shield]: https://img.shields.io/github/contributors/jpmorganchase/Phantom.svg?style=for-the-badge
 [contributors-url]: https://github.com/jpmorganchase/Phantom/graphs/contributors
 
 [forks-shield]: https://img.shields.io/github/forks/jpmorganchase/Phantom.svg?style=for-the-badge
@@ -144,8 +141,6 @@ Project Link: [https://github.com/your_username/repo_name](https://github.com/yo
 
 [license-shield]: https://img.shields.io/github/license/jpmorganchase/Phantom.svg?style=for-the-badge
 [license-url]: https://github.com/jpmorganchase/Phantom/blob/master/LICENSE.txt
-
-[product-screenshot]: images/screenshot.png -->
 
 
 <!-- README template used: https://github.com/othneildrew/Best-README-Template -->
