@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
     - name: Set up action
       run: |
@@ -40,10 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
     - name: Install dependencies
       run: |
@@ -66,10 +66,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
     - name: Install dependencies
       run: |
@@ -98,10 +98,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
     - name: Install dependencies
       run: |
@@ -124,10 +124,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
     - name: Install dependencies
       run: |
