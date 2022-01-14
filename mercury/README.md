@@ -8,13 +8,18 @@ observability constraints as a first-class feature.
 
 ## Installation
 
-To use this library, clone the repo, install the requirements and use the
-`setup.py` as you would any other project. For example, one can install a local
+To use this library, clone the repo, install the requirements and install the package. For example, one can install a local
 development version for rapid use,
 
-```console
-foo@bar:~$ clone https://git-codecommit.us-east-2.amazonaws.com/v1/repos/mercury-core
-foo@bar:~$ cd mercury-core
-foo@bar:~$ make init
-foo@bar:~$ make dev
+```sh
+make install-deps
+make install
 ```
+
+## Development setup
+
+```sh
+make install-dev-deps
+make dev
+```
+

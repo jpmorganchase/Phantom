@@ -68,20 +68,20 @@ A list of Python packages required by Phantom/Mercury is given in the
 ``requirements.txt`` files in each respective directory. The required packages can be
 installed by running::
 
-    python -m pip install -r phantom/requirements.txt
-
-### Mercury
-
-Mercury can be installed as a library with the command::
-
-    python mercury/setup.py install
+    make install_deps
 
 ### Phantom
 
-Phantom can be installed as a library with the command::
+Phantom and its dependency Mercury can be installed as libraries with the command::
 
-    python phantom/setup.py install
+    make install
 
+
+### Mercury
+
+Mercury can be installed independently as a library with the command::
+
+    make install-mercury
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 

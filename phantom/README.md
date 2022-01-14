@@ -7,8 +7,8 @@
 
 
 ```sh
-pip install -r requirements.txt
-python setup.py install
+make install-deps
+make install
 ```
 
 
@@ -24,6 +24,6 @@ configured to help ensure the production of reproducible results.
 
 
 ```sh
-make install_deps
+make install-dev-deps
 make dev
 ```
