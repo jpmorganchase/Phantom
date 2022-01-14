@@ -33,6 +33,12 @@ format:  ## Format the code
 dev:  ## Build the package in develop mode
 	$(PYTHON) setup.py develop --user -O2
 
+doc:  ## Build the documentation
+	@$(SPHINXBUILD) -M html "docs/" "docs/_build"
+
+host-doc:  ## Host the documentation locally
+	@$(PYTHON) -m http.server --directory docs/_build/html
+
 clean:  ## Clean the worspace
 	rm -rf $(MODULE).egg-info/ .pytest_cache/ .mypy_cache/
 
