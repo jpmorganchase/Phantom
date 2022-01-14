@@ -8,7 +8,6 @@ matplotlib>=3.0
 # TODO: update with mercury pypi package name
 # mercury==0.2
 networkx>=2.5
-numba==0.53.1
 numpy==1.19.3
 pickle5==0.0.11
 profilehooks==1.12.0

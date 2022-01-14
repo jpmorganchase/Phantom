@@ -9,6 +9,5 @@ from .packet import Mutation, Packet
 from .policy import FixedPolicy
 from .rewards import RewardFunction
 from .supertype import BaseSupertype, BaseType, SupertypeField
-from .tracker import Tracker
 from .utils.rollout import rollout
 from .utils.training import train
