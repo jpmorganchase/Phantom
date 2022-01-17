@@ -50,9 +50,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel
 
-    - name: Install dependencies
+    - name: Install Mercury dependencies
       run: |
-        make install-deps-mercury
+        cd mercury
+        make install-deps
+        make install-dev-deps
 
     - name: Install Mercury
       run: |
@@ -86,7 +88,9 @@ jobs:
 
     - name: Install Phantom dependencies
       run: |
-        make install-deps-phantom
+        cd phantom
+        make install-deps
+        make install-dev-deps
 
     - name: Install Phantom
       run: |
@@ -110,9 +114,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel
 
-    - name: Install dependencies
+    - name: Install Mercury dependencies
       run: |
-        make install-deps-mercury
+        cd mercury
+        make install-deps
+        make install-dev-deps
 
     - name: Install Mercury
       run: |
@@ -147,7 +153,9 @@ jobs:
 
     - name: Install Phantom dependencies
       run: |
-        make install-deps-phantom
+        cd phantom
+        make install-deps
+        make install-dev-deps
 
     - name: Install Phantom
       run: |
