@@ -18,7 +18,7 @@ install-dev-deps:  ## Install dev dependencies
 	$(PIP) install -r requirements-dev.txt
 
 install: ## Install the package
-	$(PYTHON) setup.py install
+	$(PIP) install .
 
 test:  ## Run the tests
 	$(PYTEST) tests
@@ -33,7 +33,7 @@ format:  ## Format the code
 	$(BLACK) ${MODULE} tests
 
 dev:  ## Build the package in develop mode
-	$(PYTHON) setup.py develop --user -O2
+	$(PIP) install --editable .
 
 build:  ## Build the package
 	$(PYTHON) setup.py sdist bdist
