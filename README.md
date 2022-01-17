@@ -78,6 +78,12 @@ Phantom and its dependency Mercury can be installed as libraries with the comman
 make install
 ```
 
+To use the network plotting feature for Tensorboard the following additional packages
+are required:
+
+- matplotlib
+- networkx
+
 
 ### Mercury
 
