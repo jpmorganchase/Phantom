@@ -59,7 +59,7 @@ def test_base_type_utilities():
         b=2.0,
         c=[6, 7, 8],
         d=(9, 10, 11),
-        e=np.array([15, 16, 17]),
+        e=np.array([15, 16, 17], dtype=np.float32),
         f={"x": 12, "y": 13, "z": 14},
     )
 
