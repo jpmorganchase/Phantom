@@ -19,18 +19,14 @@ sys.path.insert(0, os.path.abspath(".."))
 autodoc_mock_imports = ["ray"]
 
 # -- Project information -----------------------------------------------------
-project = "Phantom [BETA]"
+project = "Phantom"
+version = "0.2"
 year = datetime.datetime.now().year
 copyright = "{}, AI Research, JP Morgan. Some icons used freely from Font Awesome (https://fontawesome.com/license/free)".format(
     year
 )
 author = "AI Research Group"
 description = "A Multi-agent reinforcement-learning simulator framework."
-
-
-def _get_version():
-    with open("../../version.txt") as fp:
-        return fp.readlines()[0]
 
 
 # -- General configuration ---------------------------------------------------
@@ -57,13 +53,6 @@ master_doc = "index"
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-
-# The version info for the project you're documenting, acts as replacement for
-# |version| and |release|, also used in various other places throughout the
-# built documents.
-#
-# The short X.Y version.
-version = _get_version()
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).

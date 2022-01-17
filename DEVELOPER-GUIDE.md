@@ -58,8 +58,11 @@ Before the merge is made the following should be done:
 
 - The `CHANGELOG.md` file should be checked and updated with the version of the release
   and the date.
-- The `version.txt` file should be updated along with any other references to the 
-  version in the repository.
+- The version should be updated in the following files:
+  - mercury/setup.py
+  - mercury/docs/conf.py
+  - phantom/setup.py
+  - phantom/docs/conf.py
 
 After the merge is made the following should then be done:
 

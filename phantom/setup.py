@@ -6,11 +6,7 @@ import re
 TEST_GLOB_PATTERNS = ["*.tests", "*.tests.*", "tests.*", "tests"]
 
 NAME = "phantom"
-
-
-def _get_version():
-    with open("../version.txt") as fp:
-        return fp.readlines()[0]
+VERSION = "0.2"
 
 
 def _get_long_description():
@@ -37,7 +33,7 @@ def _get_requirements():
 
 setup(
     name=NAME,
-    version=_get_version(),
+    version=VERSION,
     description="A Multi-agent reinforcement-learning simulator framework.",
     long_description=_get_long_description(),
     python_requires=">3.7.0",
