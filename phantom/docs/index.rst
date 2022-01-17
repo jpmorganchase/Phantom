@@ -2,11 +2,6 @@ Phantom
 =======
 
 
-.. warning::
-    These docs are based on a testing branch of the Phantom code (feature/new-supertypes)
-    and do not necessarily reflect the current stable branch of Phantom.
-
-
 .. toctree::
     :caption: User Guide
     :maxdepth: 2
