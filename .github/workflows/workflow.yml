@@ -52,18 +52,15 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r mercury/requirements.txt
-        pip install -r mercury/requirements-dev.txt
+        make install-deps-mercury
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
 
     - name: Run Mercury tests
       run: |
-        cd mercury
-        pytest tests
+        make test-mercury
 
   test-phantom:
     runs-on: ubuntu-latest
@@ -81,27 +78,23 @@ jobs:
 
     - name: Install Mercury dependencies
       run: |
-        pip install -r mercury/requirements.txt
+        make install-deps-mercury
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
 
     - name: Install Phantom dependencies
       run: |
-        pip install -r phantom/requirements.txt
-        pip install -r phantom/requirements-dev.txt
+        make install-deps-phantom
 
     - name: Install Phantom
       run: |
-        cd phantom
-        python setup.py develop --user -O2
+        make install-phantom
 
     - name: Run Phantom tests
       run: |
-        cd phantom
-        pytest tests
+        make test-phantom
 
   build-docs-mercury:
     runs-on: ubuntu-latest
@@ -119,18 +112,16 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r mercury/requirements.txt
-        pip install -r mercury/requirements-dev.txt
+        make install-deps-mercury
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
 
     - name: Build Mercury docs
       run: |
-        cd mercury/docs
-        make html
+        cd mercury
+        make doc
 
   build-docs-phantom:
     runs-on: ubuntu-latest
@@ -148,29 +139,21 @@ jobs:
 
     - name: Install Mercury dependencies
       run: |
-        pip install -r mercury/requirements.txt
+        make install-deps-mercury
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
 
     - name: Install Phantom dependencies
       run: |
-        pip install -r phantom/requirements.txt
-        pip install -r phantom/requirements-dev.txt
-
-    - name: Install Mercury
-      run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-deps-phantom
 
     - name: Install Phantom
       run: |
-        cd phantom
-        python setup.py develop --user -O2
+        make install-phantom
 
     - name: Build Phantom docs
       run: |
-        cd phantom/docs
-        make html
+        cd phantom
+        make doc
