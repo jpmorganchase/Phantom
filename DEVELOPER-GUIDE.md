@@ -63,6 +63,7 @@ Before the merge is made the following should be done:
   - mercury/docs/conf.py
   - phantom/setup.py
   - phantom/docs/conf.py
+  - phantom/requirements.txt
 
 After the merge is made the following should then be done:
 

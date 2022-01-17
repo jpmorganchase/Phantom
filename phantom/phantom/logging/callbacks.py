@@ -102,7 +102,7 @@ class NetworkPlotCallbacks(DefaultCallbacks):
             )
         except ImportError:
             logging.warning(
-                "`networkx` must be installed to be able to log the network"
+                "`networkx` and `matplotlib` must be installed to be able to log the network"
             )
 
 
