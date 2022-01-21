@@ -5,9 +5,11 @@ MYPY_CONF		:=mypy.ini
 
 PYTHON			:=python3
 PYTEST			:=$(PYTHON) -m pytest
+MYPY			:=$(PYTHON) -m mypy
 PIP				:=$(PYTHON) -m pip
 BLACK			:=$(PYTHON) -m black
-MYPY			:=$(PYTHON) -m mypy
+SPHINXBUILD     :=sphinx-build
+
 
 install-deps:  ## Install dependencies
 	$(PIP) install -r requirements.txt
