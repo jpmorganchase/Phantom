@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar
 
 import numpy as np
 
@@ -21,6 +21,24 @@ class BaseSampler(ABC, Generic[T]):
     @abstractmethod
     def sample(self) -> T:
         raise NotImplementedError
+
+    def __lt__(self, other):
+        return self.value < other
+
+    def __le__(self, other):
+        return self.value <= other
+
+    def __gt__(self, other):
+        return self.value > other
+
+    def __ge__(self, other):
+        return self.value >= other
+
+    def __eq__(self, other):
+        return self.value == other
+
+    def __ne__(self, other):
+        return not self == other
 
 
 class UniformSampler(BaseSampler[float]):
@@ -137,3 +155,26 @@ class NormalArraySampler(BaseSampler[np.ndarray]):
             value = np.clip(value, self.clip_low, self.clip_high)
 
         return value
+
+class LambdaSampler(BaseSampler[T]):
+    """
+    Samples using an arbitrary lambda function
+    """
+
+    def __init__(
+        self,
+        *args,
+        func: Callable[..., T] = None,
+        **kwargs
+    ):
+        if func is None:
+            raise ValueError("You must provide a `func`")
+
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+        super().__init__()
+
+    def sample(self) -> T:
+        return self.func(*self.args, **self.kwargs)

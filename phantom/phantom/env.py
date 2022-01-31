@@ -244,9 +244,12 @@ class PhantomEnv(MultiAgentEnv):
         """
         return self.clock.is_terminal or len(self._dones) == len(self.agents)
 
-    def set_supertypes(
-        self, env_supertype: BaseSupertype, agent_supertypes: Dict[me.ID, BaseSupertype]
-    ) -> None:
+    def collect_samplers(
+        self, 
+        env_supertype: BaseSupertype, 
+        agent_supertypes: Dict[me.ID, BaseSupertype], 
+        network: me.Network
+    ):
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the list
         # contains only one reference to each sampler instance.
@@ -255,9 +258,17 @@ class PhantomEnv(MultiAgentEnv):
         for agent_supertype in agent_supertypes.values():
             samplers += collect_instances_of_type(BaseSampler, agent_supertype)
 
+        if isinstance(network, me.StochasticNetwork):
+            samplers += collect_instances_of_type(BaseSampler, network._base_connections)
+
         # The environment needs access to the list of samplers so it can generate new
         # values in each step.
         self._samplers = samplers
+
+    def set_supertypes(
+        self, env_supertype: BaseSupertype, agent_supertypes: Dict[me.ID, BaseSupertype]
+    ) -> None:
+        self.collect_samplers(env_supertype, agent_supertypes, self.network)
 
         self._env_supertype = env_supertype
 
