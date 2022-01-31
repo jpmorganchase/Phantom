@@ -245,10 +245,10 @@ class PhantomEnv(MultiAgentEnv):
         return self.clock.is_terminal or len(self._dones) == len(self.agents)
 
     def collect_samplers(
-        self, 
-        env_supertype: BaseSupertype, 
-        agent_supertypes: Dict[me.ID, BaseSupertype], 
-        network: me.Network
+        self,
+        env_supertype: BaseSupertype,
+        agent_supertypes: Dict[me.ID, BaseSupertype],
+        network: me.Network,
     ):
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the list
@@ -259,7 +259,9 @@ class PhantomEnv(MultiAgentEnv):
             samplers += collect_instances_of_type(BaseSampler, agent_supertype)
 
         if isinstance(network, me.StochasticNetwork):
-            samplers += collect_instances_of_type(BaseSampler, network._base_connections)
+            samplers += collect_instances_of_type(
+                BaseSampler, network._base_connections
+            )
 
         # The environment needs access to the list of samplers so it can generate new
         # values in each step.

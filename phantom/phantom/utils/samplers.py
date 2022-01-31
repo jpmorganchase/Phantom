@@ -156,17 +156,13 @@ class NormalArraySampler(BaseSampler[np.ndarray]):
 
         return value
 
+
 class LambdaSampler(BaseSampler[T]):
     """
     Samples using an arbitrary lambda function
     """
 
-    def __init__(
-        self,
-        *args,
-        func: Callable[..., T] = None,
-        **kwargs
-    ):
+    def __init__(self, *args, func: Callable[..., T] = None, **kwargs):
         if func is None:
             raise ValueError("You must provide a `func`")
 
