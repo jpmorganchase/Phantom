@@ -37,6 +37,7 @@ setup(
     description="A Multi-agent reinforcement-learning simulator framework.",
     long_description=_get_long_description(),
     python_requires=">3.7.0",
+    scripts=["scripts/phantom"],
     url="https://github.com/jpmorganchase/Phantom",
     author="JPM AI Research",
     classifiers=[
