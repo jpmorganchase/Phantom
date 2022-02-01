@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
 
 T = TypeVar("T")
+Numeric = Union[float, int]
 
 
 class BaseSampler(ABC, Generic[T]):
@@ -22,23 +23,23 @@ class BaseSampler(ABC, Generic[T]):
     def sample(self) -> T:
         raise NotImplementedError
 
-    def __lt__(self, other):
+    def __lt__(self, other: Numeric) -> bool:
         return self.value < other
 
-    def __le__(self, other):
+    def __le__(self, other: Numeric) -> bool:
         return self.value <= other
 
-    def __gt__(self, other):
+    def __gt__(self, other: Numeric) -> bool:
         return self.value > other
 
-    def __ge__(self, other):
+    def __ge__(self, other: Numeric) -> bool:
         return self.value >= other
 
-    def __eq__(self, other):
+    def __eq__(self, other: Numeric) -> bool:
         return self.value == other
 
-    def __ne__(self, other):
-        return not self == other
+    def __ne__(self, other: Numeric) -> bool:
+        return not self.value == other
 
 
 class UniformSampler(BaseSampler[float]):
