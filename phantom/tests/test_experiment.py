@@ -62,7 +62,7 @@ class MinimalEnv(ph.PhantomEnv):
     def __init__(self):
         agents = [MinimalAgent("a1"), MinimalAgent("a2"), MinimalAgent("a3")]
 
-        network = me.Network(me.resolvers.UnorderedResolver(), agents)
+        network = me.StochasticNetwork(me.resolvers.UnorderedResolver(), agents)
 
         super().__init__(network=network, n_steps=3)
 
