@@ -1,10 +1,20 @@
 import functools
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar, Union, TYPE_CHECKING
+from typing import (
+    Callable,
+    Generic,
+    Iterable,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    TYPE_CHECKING,
+)
 
 import numpy as np
 
 T = TypeVar("T")
+
 
 class ComparableType(Generic[T], ABC):
     @abstractmethod
@@ -31,7 +41,9 @@ class ComparableType(Generic[T], ABC):
     def __ne__(self, other: object) -> bool:
         raise NotImplementedError
 
-ComparableT = TypeVar('ComparableT', bound=ComparableType)
+
+ComparableT = TypeVar("ComparableT", bound=ComparableType)
+
 
 class BaseSampler(ABC, Generic[T]):
     """
@@ -48,8 +60,8 @@ class BaseSampler(ABC, Generic[T]):
     def sample(self) -> T:
         raise NotImplementedError
 
-class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
 
+class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
     def __lt__(self, other: Union[ComparableT, "ComparableSampler"]) -> bool:
         if self.value is None:
             raise ValueError("`self.value` is None")
@@ -69,6 +81,7 @@ class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
 
     def __ge__(self, other: Union[ComparableT, "ComparableSampler"]) -> bool:
         return self.__gt__(other) or self.__eq__(other)
+
 
 class UniformSampler(ComparableSampler[float]):
     """
@@ -96,6 +109,7 @@ class UniformSampler(ComparableSampler[float]):
             value = np.clip(value, self.clip_low, self.clip_high)
 
         return value
+
 
 class UniformArraySampler(ComparableSampler[np.ndarray]):
     """
@@ -126,6 +140,7 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
 
         return value
 
+
 class NormalSampler(ComparableSampler[float]):
     """
     Samples a single float value from a normal distribution.
@@ -152,6 +167,7 @@ class NormalSampler(ComparableSampler[float]):
             value = np.clip(value, self.clip_low, self.clip_high)
 
         return value
+
 
 class NormalArraySampler(ComparableSampler[np.ndarray]):
     """
@@ -181,6 +197,7 @@ class NormalArraySampler(ComparableSampler[np.ndarray]):
             value = np.clip(value, self.clip_low, self.clip_high)
 
         return value
+
 
 class LambdaSampler(BaseSampler[T]):
     """
