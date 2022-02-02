@@ -58,6 +58,14 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return getattr(env, self.env_property)
 
+    def reduce(self, values: List[SimpleMetricValue]) -> SimpleMetricValue:
+        if self.reduce_action == "last":
+            return values[-1]
+        elif self.reduce_action == "mean":
+            return mean(values)
+        else:
+            return sum(values)
+
 
 class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
     """
