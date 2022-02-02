@@ -7,9 +7,9 @@ import gym
 import mercury as me
 import numpy as np
 import phantom as ph
+from phantom.logging import SimpleAgentMetric
 from phantom.utils.ranges import UniformRange
 from phantom.utils.samplers import UniformSampler
-
 
 coloredlogs.install(
     level="INFO",
@@ -131,8 +131,8 @@ class ShopRewardFunction(ph.RewardFunction):
         # We give a bigger reward for making sales than the penalty for missed sales and
         # unused stock.
         return (
-            5 * ctx.actor.step_sales
-            - self.missed_sales_weight * ctx.actor.step_missed_sales
+            5 * ctx.actor.sales
+            - self.missed_sales_weight * ctx.actor.missed_sales
             - ctx.actor.stock
         )
 
@@ -153,18 +153,15 @@ class ShopAgent(ph.Agent):
         self.stock: int = 0
 
         # ...and how many sales have been made...
-        self.step_sales: int = 0
-        self.total_sales: int = 0
+        self.sales: int = 0
 
-        # ...and how many orders per step the shop has missed due to not having enough
-        # stock.
-        self.step_missed_sales: int = 0
-        self.total_missed_sales: int = 0
+        # ...and how many orders the shop has missed due to not having enough stock.
+        self.missed_sales: int = 0
 
     def pre_resolution(self, ctx: me.Network.Context):
         # At the start of each step we reset the number of missed orders to 0.
-        self.step_sales = 0
-        self.step_missed_sales = 0
+        self.sales = 0
+        self.missed_sales = 0
 
     @me.actors.handler(StockResponse)
     def handle_stock_response(self, ctx: me.Network.Context, msg: me.Message):
@@ -180,16 +177,14 @@ class ShopAgent(ph.Agent):
         amount_requested = msg.payload.size
 
         if amount_requested > self.stock:
-            self.step_missed_sales += amount_requested - self.stock
-            self.total_missed_sales += amount_requested - self.stock
+            self.missed_sales += amount_requested - self.stock
             stock_to_sell = self.stock
             self.stock = 0
         else:
             stock_to_sell = amount_requested
             self.stock -= amount_requested
 
-        self.step_sales += stock_to_sell
-        self.total_sales += stock_to_sell
+        self.sales += stock_to_sell
 
         # Send the customer their order.
         yield (msg.sender_id, [OrderResponse(stock_to_sell)])
@@ -216,8 +211,6 @@ class ShopAgent(ph.Agent):
         )
 
         self.stock = 0
-        self.total_sales = 0
-        self.total_missed_sales = 0
 
     def get_observation_space(self):
         return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
@@ -261,35 +254,19 @@ class SupplyChainEnv(ph.PhantomEnv):
         super().__init__(network=network, clock=clock)
 
 
-class StockMetric(ph.logging.Metric[float]):
-    def __init__(self, agent_id: str) -> None:
-        self.agent_id: str = agent_id
-
-    def extract(self, env: ph.PhantomEnv) -> float:
-        return env[self.agent_id].stock
-
-
-class SalesMetric(ph.logging.Metric[float]):
-    def __init__(self, agent_id: str) -> None:
-        self.agent_id: str = agent_id
-
-    def extract(self, env: ph.PhantomEnv) -> float:
-        return env[self.agent_id].total_sales / NUM_EPISODE_STEPS
-
-
-class MissedSalesMetric(ph.logging.Metric[float]):
-    def __init__(self, agent_id: str) -> None:
-        self.agent_id: str = agent_id
-
-    def extract(self, env: ph.PhantomEnv) -> float:
-        return env[self.agent_id].total_missed_sales / NUM_EPISODE_STEPS
-
-
 metrics = {}
-metrics.update({f"stock/{id}": StockMetric(id) for id in SHOP_IDS})
-metrics.update({f"sales/{id}": SalesMetric(id) for id in SHOP_IDS})
-metrics.update({f"missed_sales/{id}": MissedSalesMetric(id) for id in SHOP_IDS})
-
+metrics.update(
+    {f"avg_stock/{id}": SimpleAgentMetric(id, "stock", "mean") for id in SHOP_IDS}
+)
+metrics.update(
+    {f"avg_sales/{id}": SimpleAgentMetric(id, "sales", "mean") for id in SHOP_IDS}
+)
+metrics.update(
+    {
+        f"avg_missed_sales/{id}": SimpleAgentMetric(id, "missed_sales", "mean")
+        for id in SHOP_IDS
+    }
+)
 
 if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
