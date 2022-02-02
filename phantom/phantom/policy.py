@@ -67,8 +67,15 @@ class FixedPolicy(rllib.Policy, ABC):
         # Workaround due to known issue in RLlib
         # https://github.com/ray-project/ray/issues/10009
         unbatched = [self.compute_action(obs) for obs in obs_batch]
-        actions = tuple(
-            np.array([unbatched[j][i] for j in range(len(unbatched))])
-            for i in range(len(unbatched[0]))
-        )
+        if isinstance(self.action_space, gym.spaces.Tuple):
+            actions = tuple(
+                np.array([unbatched[j][i] for j in range(len(unbatched))])
+                for i in range(len(unbatched[0]))
+            )
+        else:
+            actions = list(
+                np.array([unbatched[j][i] for j in range(len(unbatched))])
+                for i in range(len(unbatched[0]))
+            )
+
         return (actions, [], {})
