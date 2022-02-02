@@ -24,38 +24,36 @@ plots of experiment data. Phantom provides a way to do this through the use of
 ``Metrics``. These provide a way to extract data from the experiment and save it to the
 results directory so it can be loaded by TensorBoard and other offline analysis.
 
+Metric values are recorded at the end of every step. When performing training, a single
+float/integer value must be returned for the whole episode so a reduction operation
+must be performed. The default is to take the most recent metric value, i.e. that of the
+last step in the episode. The values seen in tensorboard are the average of these
+reduced values over each batch of episodes.
+
+When performing rollouts, every value for every step is recorded, giving fine grained
+information on each step in each episode.
+
 In our supply chain example we want to monitor the average amount of stock the shop is
-holding onto as the experiment progresses. To do this we create a new subclass of the
-Phantom ``Metric`` class:
-
-.. code-block:: python
-
-    class StockMetric(ph.logging.Metric[float]):
-        def __init__(self, agent_id: str) -> None:
-            self.agent_id: str = agent_id
-
-        def extract(self, env: ph.PhantomEnv) -> float:
-            return env[self.agent_id].stock
-
-We can see that this metric is designed to record from a single agent as we require an
-``agent_id`` parameter in the initialisation method. This is a commonly used pattern.
-
-Metrics require just one method, called ``extract``, that takes the entire environment,
-takes the desired value from the environment and returns it. Here we take our agent and
-get its ``stock`` property.
-
-Metrics should not make any modification to the environment or any objects within it -
-they should be completely passive.
-
-We then register our metric using the ``metrics`` property on the ``ph.train`` function.
-The name can be whatever the user wants however it is sensible to include the name of
-the agent and the property that is being measured, eg. ``stock/SHOP``.
+holding onto as the experiment progresses. Phantom provides a base ``Metric`` class but
+for a lot of use-cases the provided helper classes ``SimpleAgentMetric`` and
+``SimpleEnvMetric`` are enough.
 
 .. code-block:: python
 
     metrics = {
-        "stock/SHOP": StockMetric("SHOP"),
+        "stock/SHOP": SimpleAgentMetric(agent_id="SHOP", agent_property="stock", reduce_action="last"),
     }
+
+The ``SimpleAgentMetric`` will record the given property on the agent. Similarly the
+``SimpleEnvMetric`` records a given property that exists on the Environment instance.
+
+As well as the 'last' reduction operation, there is also 'sum' and 'mean'.
+
+We register metrics using the ``metrics`` property on the ``ph.train`` function.
+The name can be whatever the user wants however it is sensible to include the name of
+the agent and the property that is being measured, eg. ``stock/SHOP``.
+
+.. code-block:: python
 
     ph.train(
         experiment_name="supply-chain",
