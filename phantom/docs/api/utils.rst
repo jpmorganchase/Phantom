@@ -15,16 +15,17 @@ Rollouts
 .. autofunction:: phantom.utils.rollout.rollout
 
 
-Episode Trajectory & Steps
---------------------------
+Rollout Trajectories & Steps
+----------------------------
 
-.. autoclass:: phantom.utils.episode_trajectory.AgentStep
-   :inherited-members:
+.. autoclass:: phantom.utils.rollout_class.AgentStep
+   :members:
 
-.. autoclass:: phantom.utils.episode_trajectory.Step
-   :inherited-members:
+.. autoclass:: phantom.utils.rollout_class.Step
+   :members:
 
-.. autoclass:: phantom.utils.episode_trajectory.EpisodeTrajectory
+.. autoclass:: phantom.utils.rollout_class.Rollout
+   :members:
 
 
 Samplers
