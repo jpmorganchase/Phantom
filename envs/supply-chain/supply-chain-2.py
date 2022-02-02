@@ -61,7 +61,7 @@ class CustomerPolicy(ph.FixedPolicy):
         self.n_shops = config["n_shops"]
 
     def compute_action(self, obs) -> np.ndarray:
-        return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
+        return (np.random.poisson(5), np.random.randint(self.n_shops))
 
 
 class CustomerAgent(ph.Agent):
@@ -101,7 +101,12 @@ class CustomerAgent(ph.Agent):
         return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,))
 
     def get_action_space(self):
-        return gym.spaces.Box(low=0, high=np.inf, shape=(2,))
+        return gym.spaces.Tuple(
+            (
+                gym.spaces.Discrete(100),
+                gym.spaces.Discrete(len(self.shop_ids)),
+            )
+        )
 
 
 class WarehouseActor(me.actors.SimpleSyncActor):
