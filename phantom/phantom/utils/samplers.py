@@ -19,6 +19,7 @@ class ComparableType(Generic[T], ABC):
     """
     Interface for Types that can be compared.
     """
+
     @abstractmethod
     def __lt__(self, other: T) -> bool:
         raise NotImplementedError
@@ -76,6 +77,7 @@ class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
     >>> s == 1.5
     # False
     """
+
     def __lt__(self, other: Union[ComparableT, "ComparableSampler"]) -> bool:
         if self.value is None:
             raise ValueError("`self.value` is None")
