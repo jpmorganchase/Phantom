@@ -8,7 +8,6 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    TYPE_CHECKING,
 )
 
 import numpy as np
@@ -17,6 +16,9 @@ T = TypeVar("T")
 
 
 class ComparableType(Generic[T], ABC):
+    """
+    Interface for Types that can be compared.
+    """
     @abstractmethod
     def __lt__(self, other: T) -> bool:
         raise NotImplementedError
@@ -62,6 +64,18 @@ class BaseSampler(ABC, Generic[T]):
 
 
 class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
+    """
+    Extension of the `BaseSampler` for ComparableTypes in order
+    to treat the `ComparableSampler` like its actual internal value.
+
+    Example:
+    >>> s = UniformSampler()
+    >>> s.value = s.sample()
+    >>> s <= 1.0
+    # True
+    >>> s == 1.5
+    # False
+    """
     def __lt__(self, other: Union[ComparableT, "ComparableSampler"]) -> bool:
         if self.value is None:
             raise ValueError("`self.value` is None")
