@@ -63,17 +63,40 @@ def test_fixed_policy():
 
         def __init__(self):
             agents = [
-                MinimalAgent("a1", gym.spaces.Box(-1.0, 1.0, (1,))),
+                MinimalAgent("a0", gym.spaces.Box(-1.0, 1.0, (1,))),
                 MinimalAgent(
-                    "a2", gym.spaces.Box(-1.0, 1.0, (1,)), policy=CustomPolicy
+                    "a1", gym.spaces.Box(-1.0, 1.0, (1,)), policy=CustomPolicy
                 ),
                 MinimalAgent(
-                    "a3",
+                    "a2", gym.spaces.Box(-1.0, 1.0, (5,)), policy=CustomPolicy
+                ),
+                MinimalAgent("a3", gym.spaces.Discrete(10), policy=CustomPolicy),
+                MinimalAgent(
+                    "a4",
                     gym.spaces.Tuple(
                         (
                             gym.spaces.Discrete(100),
                             gym.spaces.Discrete(10),
                         )
+                    ),
+                    policy=CustomPolicy,
+                ),
+                MinimalAgent(
+                    "a5",
+                    gym.spaces.Dict(
+                        {
+                            "position": gym.spaces.Box(low=-100, high=100, shape=(3,)),
+                            "velocity": gym.spaces.Box(low=-1, high=1, shape=(3,)),
+                            "front_cam": gym.spaces.Tuple(
+                                (
+                                    gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                                    gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                                )
+                            ),
+                            "rear_cam": gym.spaces.Box(
+                                low=0, high=1, shape=(10, 10, 3)
+                            ),
+                        }
                     ),
                     policy=CustomPolicy,
                 ),
