@@ -21,6 +21,7 @@ autodoc_mock_imports = ["ray"]
 
 def _get_version():
     import phantom
+
     return phantom.__version__
 
 

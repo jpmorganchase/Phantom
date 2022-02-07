@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 def _get_version():
     import mercury
+
     return mercury.__version__
 
 
