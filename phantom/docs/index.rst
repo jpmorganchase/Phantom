@@ -13,8 +13,6 @@ Phantom
     user/design
     user/designpatterns
     user/fsmdesignpatterns
-    user/network
-    user/supertypes
 
 
 .. toctree::
@@ -31,4 +29,5 @@ Phantom
     api/policy
     api/rewards
     api/supertypes
+    api/tracker
     api/utils
