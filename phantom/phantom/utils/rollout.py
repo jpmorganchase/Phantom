@@ -99,9 +99,8 @@ def rollout(
             file when only a specific subset of fields are needed in further analysis.
 
     Returns:
-        - If result_mapping_fn is None: A list of Rollout objects.
-        - If result_mapping_fn is not None: A list of the outputs from the
-            result_mapping_fn function.
+        If result_mapping_fn is None, a list of Rollout objects. If result_mapping_fn is
+        not None, a list of the outputs from the result_mapping_fn function.
 
     NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
     command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting

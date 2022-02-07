@@ -13,6 +13,7 @@ Phantom
     user/design
     user/designpatterns
     user/fsmdesignpatterns
+    user/network
     user/supertypes
 
 
