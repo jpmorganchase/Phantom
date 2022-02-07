@@ -7,12 +7,14 @@ import pytest
 
 class CustomPolicy(ph.FixedPolicy):
     def compute_action(self, obs):
-        return np.array([1])
+        return self.action_space.sample()
 
 
 class MinimalAgent(ph.agent.Agent):
-    def __init__(self, id: str, policy=None) -> None:
+    def __init__(self, id: str, action_space: gym.spaces.Space, policy=None) -> None:
         super().__init__(agent_id=id, policy_class=policy)
+
+        self.action_space = action_space
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
         return 0
@@ -21,14 +23,12 @@ class MinimalAgent(ph.agent.Agent):
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def get_action_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(-1.0, 1.0, (1,))
+        return self.action_space
 
     def encode_obs(self, ctx: me.Network.Context) -> np.ndarray:
         return np.array([1])
 
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray) -> ph.Packet:
-        if self.policy_class is not None:
-            assert action == np.array([1])
         return ph.Packet()
 
 
@@ -51,7 +51,7 @@ def test_no_trained_policies():
             algorithm="PPO",
             num_workers=0,
             num_episodes=1,
-            env=MinimalEnv,
+            env_class=MinimalEnv,
             discard_results=True,
         )
 
@@ -62,7 +62,45 @@ def test_fixed_policy():
         env_name: str = "unit-testing"
 
         def __init__(self):
-            agents = [MinimalAgent("a1"), MinimalAgent("a2", policy=CustomPolicy)]
+            agents = [
+                MinimalAgent("a0", gym.spaces.Box(-1.0, 1.0, (1,))),
+                MinimalAgent(
+                    "a1", gym.spaces.Box(-1.0, 1.0, (1,)), policy=CustomPolicy
+                ),
+                MinimalAgent(
+                    "a2", gym.spaces.Box(-1.0, 1.0, (5,)), policy=CustomPolicy
+                ),
+                MinimalAgent("a3", gym.spaces.Discrete(10), policy=CustomPolicy),
+                MinimalAgent(
+                    "a4",
+                    gym.spaces.Tuple(
+                        (
+                            gym.spaces.Discrete(100),
+                            gym.spaces.Discrete(10),
+                        )
+                    ),
+                    policy=CustomPolicy,
+                ),
+                MinimalAgent(
+                    "a5",
+                    gym.spaces.Dict(
+                        {
+                            "position": gym.spaces.Box(low=-100, high=100, shape=(3,)),
+                            "velocity": gym.spaces.Box(low=-1, high=1, shape=(3,)),
+                            "front_cam": gym.spaces.Tuple(
+                                (
+                                    gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                                    gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                                )
+                            ),
+                            "rear_cam": gym.spaces.Box(
+                                low=0, high=1, shape=(10, 10, 3)
+                            ),
+                        }
+                    ),
+                    policy=CustomPolicy,
+                ),
+            ]
 
             network = me.Network(me.resolvers.UnorderedResolver(), agents)
 
@@ -73,6 +111,6 @@ def test_fixed_policy():
         algorithm="PPO",
         num_workers=0,
         num_episodes=1,
-        env=MinimalEnv,
+        env_class=MinimalEnv,
         discard_results=True,
     )

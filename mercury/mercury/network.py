@@ -599,6 +599,9 @@ class StochasticNetwork(Network):
     def resample_connectivity(self) -> None:
         self.graph = nx.DiGraph()
 
+        for actor in self.actors.values():
+            self.graph.add_node(actor.id)
+
         for u, v, rate, attrs in self._base_connections:
             if np.random.random() < rate:
                 self.graph.add_edge(u, v, *attrs)

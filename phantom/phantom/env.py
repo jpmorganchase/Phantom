@@ -16,6 +16,9 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from .agent import Agent
 from .clock import Clock
 from .packet import Mutation
+from .supertype import BaseSupertype
+from .utils import collect_instances_of_type
+from .utils.samplers import BaseSampler
 
 
 class EnvironmentActor(me.actors.SyncActor):
@@ -35,6 +38,8 @@ class EnvironmentActor(me.actors.SyncActor):
 
     def __init__(self):
         super().__init__(self.ID)
+
+        self.env_type: Optional[BaseSupertype] = None
 
 
 class PhantomEnv(MultiAgentEnv):
@@ -91,6 +96,8 @@ class PhantomEnv(MultiAgentEnv):
             if isinstance(actor, Agent)
         }
         self._dones = set()
+        self._samplers = []
+        self._env_supertype = None
 
         self.environment_actor = environment_actor
 
@@ -152,6 +159,7 @@ class PhantomEnv(MultiAgentEnv):
         """
         # Set clock back to time step 0
         self.clock.reset()
+
         # Reset network and call reset method on all actors in the network.
         # Message samplers should be called here from the respective actor's reset method.
         self.network.reset()
@@ -235,6 +243,39 @@ class PhantomEnv(MultiAgentEnv):
         Implements the logic to decide when the episode is completed
         """
         return self.clock.is_terminal or len(self._dones) == len(self.agents)
+
+    def collect_samplers(
+        self,
+        env_supertype: BaseSupertype,
+        agent_supertypes: Dict[me.ID, BaseSupertype],
+        network: me.Network,
+    ):
+        # Collect all instances of classes that inherit from BaseSampler from the env
+        # supertype and the agent supertypes into a flat list. We make sure that the list
+        # contains only one reference to each sampler instance.
+        samplers = collect_instances_of_type(BaseSampler, env_supertype)
+
+        for agent_supertype in agent_supertypes.values():
+            samplers += collect_instances_of_type(BaseSampler, agent_supertype)
+
+        if isinstance(network, me.StochasticNetwork):
+            samplers += collect_instances_of_type(
+                BaseSampler, network._base_connections
+            )
+
+        # The environment needs access to the list of samplers so it can generate new
+        # values in each step.
+        self._samplers = samplers
+
+    def set_supertypes(
+        self, env_supertype: BaseSupertype, agent_supertypes: Dict[me.ID, BaseSupertype]
+    ) -> None:
+        self.collect_samplers(env_supertype, agent_supertypes, self.network)
+
+        self._env_supertype = env_supertype
+
+        for agent_id, supertype in agent_supertypes.items():
+            self.agents[agent_id].supertype = supertype
 
     def __getitem__(self, actor_id: me.ID) -> me.actors.Actor:
         return self.network[actor_id]

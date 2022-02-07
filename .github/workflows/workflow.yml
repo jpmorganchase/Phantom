@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
     - name: Set up action
       run: |
@@ -40,114 +40,128 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
-    - name: Install dependencies
+    - name: Update Pip
       run: |
         python -m pip install --upgrade pip
         pip install wheel
-        pip install -r mercury/requirements.txt
-        pip install -r mercury/requirements-dev.txt
+
+    - name: Install Mercury dependencies
+      run: |
+        cd mercury
+        make install-deps
+        make install-dev-deps
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
 
     - name: Run Mercury tests
       run: |
-        cd mercury
-        pytest tests
+        make test-mercury
 
   test-phantom:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
-    - name: Install dependencies
+    - name: Update Pip
       run: |
         python -m pip install --upgrade pip
         pip install wheel
-        pip install -r mercury/requirements.txt
-        pip install -r phantom/requirements.txt
-        pip install -r phantom/requirements-dev.txt
+
+    - name: Install Mercury dependencies
+      run: |
+        make install-deps-mercury
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
+
+    - name: Install Phantom dependencies
+      run: |
+        cd phantom
+        make install-deps
+        make install-dev-deps
 
     - name: Install Phantom
       run: |
-        cd phantom
-        python setup.py develop --user -O2
+        make install-phantom
 
     - name: Run Phantom tests
       run: |
-        cd phantom
-        pytest tests
+        make test-phantom
 
   build-docs-mercury:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
-    - name: Install dependencies
+    - name: Update Pip
       run: |
         python -m pip install --upgrade pip
         pip install wheel
-        pip install -r mercury/requirements.txt
-        pip install -r mercury/requirements-dev.txt
+
+    - name: Install Mercury dependencies
+      run: |
+        cd mercury
+        make install-deps
+        make install-dev-deps
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
 
     - name: Build Mercury docs
       run: |
-        cd mercury/docs
-        make html
+        cd mercury
+        make doc
 
   build-docs-phantom:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.7
 
-    - name: Install dependencies
+    - name: Update Pip
       run: |
         python -m pip install --upgrade pip
         pip install wheel
-        pip install -r mercury/requirements.txt
-        pip install -r phantom/requirements.txt
-        pip install -r phantom/requirements-dev.txt
+
+    - name: Install Mercury dependencies
+      run: |
+        make install-deps-mercury
 
     - name: Install Mercury
       run: |
-        cd mercury
-        python setup.py develop --user -O2
+        make install-mercury
+
+    - name: Install Phantom dependencies
+      run: |
+        cd phantom
+        make install-deps
+        make install-dev-deps
 
     - name: Install Phantom
       run: |
-        cd phantom
-        python setup.py develop --user -O2
+        make install-phantom
 
     - name: Build Phantom docs
       run: |
-        cd phantom/docs
-        make html
+        cd phantom
+        make doc

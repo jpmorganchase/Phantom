@@ -1,5 +1,9 @@
-Mercury-Core
-============
+Mercury
+=======
+
+Mercury is a library containing core mechanisms for simulating P2P messaging networks.
+It is all built on networkx primitives and enforces strict observability constraints as
+a first-class feature.
 
 
 User Guide
@@ -9,7 +13,6 @@ User Guide
     :maxdepth: 2
 
     user/install
-    user/quickstart
 
 
 
@@ -19,7 +22,7 @@ Developer API
 .. toctree::
     :maxdepth: 2
 
-    api/core
     api/network
     api/actors
     api/message
+    api/resolvers

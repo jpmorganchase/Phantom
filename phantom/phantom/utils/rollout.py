@@ -2,9 +2,18 @@ import logging
 import math
 import multiprocessing
 import os
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Type, Union
+from typing import (
+    Any,
+    Callable,
+    List,
+    Mapping,
+    Optional,
+    Type,
+    Union,
+)
 
 import cloudpickle
 import mercury as me
@@ -15,48 +24,34 @@ from ray.tune.registry import register_env
 from tqdm import tqdm
 
 from ..env import PhantomEnv
+from ..fsm import FiniteStateMachineEnv, StageID
 from ..logging import Logger, Metric
-from . import find_most_recent_results_dir, show_pythonhashseed_warning
+from ..supertype import BaseSupertype
+from .rollout_class import Rollout, Step
+from .ranges import BaseRange
+from .samplers import BaseSampler
+from . import (
+    collect_instances_of_type_with_paths,
+    contains_type,
+    find_most_recent_results_dir,
+    show_pythonhashseed_warning,
+    update_val,
+)
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class EpisodeTrajectory:
-    """
-    Class describing all the actions, observations, rewards, infos and dones of
-    a single episode.
-    """
-
-    observations: List[Dict[me.ID, Any]]
-    rewards: List[Dict[me.ID, float]]
-    dones: List[Dict[me.ID, bool]]
-    infos: List[Dict[me.ID, Dict[str, Any]]]
-    actions: List[Dict[me.ID, Any]]
-
-
-@dataclass
-class RolloutConfig:
-    seed: int
-    env_config: Mapping[str, Any]
-
-
-@dataclass
-class Rollout:
-    config: RolloutConfig
-    metrics: Dict[me.ID, np.ndarray]
-    trajectory: Optional[EpisodeTrajectory]
 
 
 def rollout(
     directory: Union[str, Path],
     algorithm: str,
     num_workers: int = 0,
-    num_rollouts: int = 1,
+    num_repeats: int = 1,
     checkpoint: Optional[int] = None,
     env_class: Optional[Type[PhantomEnv]] = None,
     env_config: Optional[Mapping[str, Any]] = None,
+    env_supertype: Optional[BaseSupertype] = None,
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
@@ -64,6 +59,15 @@ def rollout(
 ) -> List[Rollout]:
     """
     Performs rollouts for a previously trained Phantom experiment.
+
+    Any objects that inherit from BaseRange in the env_supertype or agent_supertypes
+    parameters will be expanded out into a multidimensional space of rollouts.
+
+    For example, if two distinct UniformRanges are used, one with a length of 10 and one
+    with a length of 5, 10 * 5 = 50 rollouts will be performed.
+
+    If num_repeats is also given, say with a value of 2, then each of the 50 rollouts
+    will be repeated twice, each time with a different random seed.
 
     Arguments:
         directory: Phantom results directory containing trained policies. If the default
@@ -73,15 +77,21 @@ def rollout(
             used.
         algorithm: RLlib algorithm to use.
         num_workers: Number of Ray rollout workers to initialise.
-        num_rollouts: Number of rollouts to perform, distributed over all workers.
+        num_repeats: Number of rollout repeats to perform, distributed over all workers.
         checkpoint: Checkpoint to use (defaults to most recent).
         env_class: Optionally pass the Environment class to use. If not give will
             fallback to the copy of the environment class saved during training.
         env_config: Configuration parameters to pass to the environment init method.
+        env_supertype: Type object for the environment. Any contained objects that
+            inherit from BaseRange will be sampled from and automatically applied to
+            the environment (and environment actor).
+        agent_supertypes: Mapping of agent IDs to Type objects for the respective agent.
+            Any contained objects that inherit from BaseRange will be sampled from and
+            automatically applied to the agent.
         metrics: Optional set of metrics to record and log.
         results_file: Name of the results file to save to, if None is given no file
             will be saved (default is "results.pkl").
-        save_trajectories: If True the full set of epsiode trajectories for the
+        save_trajectories: If True the full set of episode trajectories for the
             rollouts will be saved into the results file.
         result_mapping_fn: If given, results from each rollout will be passed to this
             function, with the return values from the function aggregated and saved.
@@ -89,9 +99,8 @@ def rollout(
             file when only a specific subset of fields are needed in further analysis.
 
     Returns:
-        - If result_mapping_fn is None: A list of Rollout objects.
-        - If result_mapping_fn is not None: A list of the outputs from the
-            result_mapping_fn function.
+        If result_mapping_fn is None, a list of Rollout objects. If result_mapping_fn is
+        not None, a list of the outputs from the result_mapping_fn function.
 
     NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
     command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
@@ -102,6 +111,28 @@ def rollout(
 
     metrics = metrics or {}
     env_config = env_config or {}
+    env_supertype = env_supertype or None
+    agent_supertypes = agent_supertypes or {}
+
+    if contains_type(env_config, BaseSampler):
+        raise TypeError(
+            "env_config should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(env_config, BaseRange):
+        raise TypeError(
+            "env_config should not contain instances of classes inheriting from BaseRange"
+        )
+
+    if contains_type(env_supertype, BaseSampler):
+        raise TypeError(
+            "env_supertype should not contain instances of classes inheriting from BaseSampler"
+        )
+
+    if contains_type(agent_supertypes, BaseSampler):
+        raise TypeError(
+            "agent_supertypes should not contain instances of classes inheriting from BaseSampler"
+        )
 
     phantom_dir = os.path.expanduser("~/phantom-results")
 
@@ -154,13 +185,41 @@ def rollout(
     else:
         logger.info("Using checkpoint: %s", checkpoint)
 
+    # We find all instances of objects that inherit from BaseRange in the env supertype
+    # and agent supertypes. We keep a track of where in this structure they came from
+    # so we can easily replace the values at a later stage.
+    # Each Range object can have multiple paths as it can exist at multiple points within
+    # the data structure. Eg. shared across multiple agents.
+    ranges = collect_instances_of_type_with_paths(
+        BaseRange, (env_supertype, agent_supertypes)
+    )
+
+    # This 'variations' list is where we build up every combination of the expanded values
+    # from the list of Ranges.
+    variations = [deepcopy((env_supertype, agent_supertypes))]
+
+    # For each iteration of this outer loop we expand another Range object.
+    for range_obj, paths in reversed(ranges):
+        variations2 = []
+        for value in range_obj.values():
+            for variation in variations:
+                variation = deepcopy(variation)
+                for path in paths:
+                    update_val(variation, path, value)
+                variations2.append(variation)
+
+        variations = variations2
+
     # Apply the number of repeats requested to each 'variation'.
     rollout_configs = [
         RolloutConfig(
-            i,
+            i * num_repeats + j,
             env_config,
+            env_supertype,
+            agent_supertypes,
         )
-        for i in range(num_rollouts)
+        for i, (env_supertype, agent_supertypes) in enumerate(variations)
+        for j in range(num_repeats)
     ]
 
     # Distribute the rollouts evenly amongst the number of workers.
@@ -234,9 +293,12 @@ def rollout(
         if result_mapping_fn is None:
             results_to_save = [
                 Rollout(
-                    rollout.config,
+                    rollout.seed,
+                    rollout.env_config,
+                    rollout.env_type,
+                    rollout.agent_types,
+                    rollout.steps if save_trajectories else None,
                     rollout.metrics,
-                    rollout.trajectory if save_trajectories else None,
                 )
                 for rollout in results
             ]
@@ -256,7 +318,7 @@ def _rollout_task_fn(
     directory: Path,
     checkpoint: int,
     algorithm: str,
-    configs: List[RolloutConfig],
+    configs: List["RolloutConfig"],
     env_class: Optional[Type[PhantomEnv]] = None,
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
@@ -304,18 +366,23 @@ def _rollout_task_fn(
             # Create environment instance from config from results directory
             env = env_class(**rollout_config.env_config)
 
+            for agent_id, supertype in rollout_config.agent_supertypes.items():
+                env.agents[agent_id].supertype = supertype
+
+            if rollout_config.env_supertype is not None:
+                env.env_type = rollout_config.env_supertype
+
+                if "__ENV" in env.network.actor_ids:
+                    env.network.actors["__ENV"].env_type = env.env_type
+
             # Setting seed needs to come after trainer setup
             np.random.seed(rollout_config.seed)
 
             metric_logger = Logger(tracked_metrics)
 
-            observation = env.reset()
+            steps: List[Step] = []
 
-            observations: List[Dict[me.ID, Any]] = [observation]
-            rewards: List[Dict[me.ID, float]] = []
-            dones: List[Dict[me.ID, bool]] = []
-            infos: List[Dict[me.ID, Dict[str, Any]]] = []
-            actions: List[Dict[me.ID, Any]] = []
+            observation = env.reset()
 
             # Run rollout steps.
             for _ in range(env.clock.n_steps):
@@ -330,26 +397,34 @@ def _rollout_task_fn(
 
                     step_actions[agent_id] = agent_action
 
-                observation, reward, done, info = env.step(step_actions)
+                new_observation, reward, done, info = env.step(step_actions)
                 metric_logger.log(env)
 
-                observations.append(observation)
-                rewards.append(reward)
-                dones.append(done)
-                infos.append(info)
-                actions.append(step_actions)
+                steps.append(
+                    Step(
+                        observation,
+                        reward,
+                        done,
+                        info,
+                        step_actions,
+                        env.previous_stage
+                        if isinstance(env, FiniteStateMachineEnv)
+                        else None,
+                    )
+                )
+
+                observation = new_observation
 
             metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
-            trajectory = EpisodeTrajectory(
-                observations,
-                rewards,
-                dones,
-                infos,
-                actions,
+            result = Rollout(
+                rollout_config.seed,
+                rollout_config.env_config,
+                rollout_config.env_supertype,
+                rollout_config.agent_supertypes,
+                steps,
+                metrics,
             )
-
-            result = Rollout(rollout_config, metrics, trajectory)
 
             if result_mapping_fn is not None:
                 result = result_mapping_fn(result)
@@ -369,3 +444,15 @@ def _rollout_task_fn(
 
     # If using multi-processing this will be an empty list
     return results
+
+
+@dataclass
+class RolloutConfig:
+    """
+    Internal class
+    """
+
+    seed: int
+    env_config: Mapping[str, Any]
+    env_supertype: Optional[BaseSupertype]
+    agent_supertypes: Mapping[me.ID, BaseSupertype]

@@ -484,7 +484,7 @@ There are more fields available in ``ph.train`` function than what is shown here
         algorithm="PPO",
         num_workers=2,
         num_episodes=10000,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(n_customers=5),
     )
 
@@ -513,7 +513,7 @@ In a new terminal we can monitor the progress of the experiment live with Tensor
 
 .. code-block:: bash
 
-    tensorboard --logdir ~/phantom_results/supply-chain
+    tensorboard --logdir ~/phantom-results/supply-chain
 
 Note the last element of the path matches the name we gave to our experiment in the
 ``ph.train`` function.

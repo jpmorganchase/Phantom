@@ -1,26 +1,17 @@
 .. _install:
 
-Installing Mercury-Core
-=======================
+Installing Mercury
+==================
 
-This part of the documentation covers the installation of Requests.
-The first step to using any software package is getting it properly installed.
+The main requirements for installing Mercury are a modern Python installation (3.7
+minimum) and access to the pip Python package manager.
 
+A list of Python packages required by Mercury is given in the requirements.txt file.
+The required packages can be installed by running::
 
-Get the Source Code
--------------------
+    make install_deps
 
-Mercury-Core is actively developed on CodeCommit, where the code is `available
-<https://us-east-2.console.aws.amazon.com/codesuite/codecommit/repositories/mercury/browse>`_
-internally to JP Morgan employees.
+To use this library, clone the repo, install the requirements and install the package.
+For example, one can install a local development version for rapid use::
 
-You can clone the public repository using the command::
-
-    $ git clone https://<AWS-CC>/v1/repos/mercury-core
-
-Once you have a copy of the source, you can install it however you like using
-setup.py. For convenience, we provide a Makefile with some helpers for
-installing a local development instance (recommended)::
-
-    $ cd phantom
-    $ make dev
+    make install

@@ -5,12 +5,20 @@ MYPY_CONF		:=mypy.ini
 
 PYTHON			:=python3
 PYTEST			:=$(PYTHON) -m pytest
+MYPY			:=$(PYTHON) -m mypy
 PIP				:=$(PYTHON) -m pip
 BLACK			:=$(PYTHON) -m black
-MYPY			:=$(PYTHON) -m mypy
+SPHINXBUILD     :=sphinx-build
 
-install_deps:  ## Install dependencies
-	$(PIP) install -r requirements.txt -r requirements-dev.txt
+
+install-deps:  ## Install dependencies
+	$(PIP) install -r requirements.txt
+
+install-dev-deps:  ## Install dev dependencies
+	$(PIP) install -r requirements-dev.txt
+
+install: ## Install the package
+	$(PIP) install .
 
 test:  ## Run the tests
 	$(PYTEST) tests
@@ -25,7 +33,13 @@ format:  ## Format the code
 	$(BLACK) ${MODULE} tests
 
 dev:  ## Build the package in develop mode
-	$(PYTHON) setup.py develop --user -O2
+	$(PIP) install --editable .
+
+doc:  ## Build the documentation
+	@$(SPHINXBUILD) -M html "docs/" "docs/_build"
+
+host-doc:  ## Host the documentation locally
+	@$(PYTHON) -m http.server --directory docs/_build/html
 
 clean:  ## Clean the worspace
 	rm -rf $(MODULE).egg-info/ .pytest_cache/ .mypy_cache/

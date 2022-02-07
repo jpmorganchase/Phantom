@@ -24,45 +24,43 @@ plots of experiment data. Phantom provides a way to do this through the use of
 ``Metrics``. These provide a way to extract data from the experiment and save it to the
 results directory so it can be loaded by TensorBoard and other offline analysis.
 
+Metric values are recorded at the end of every step. When performing training, a single
+float/integer value must be returned for the whole episode so a reduction operation
+must be performed. The default is to take the most recent metric value, i.e. that of the
+last step in the episode. The values seen in tensorboard are the average of these
+reduced values over each batch of episodes.
+
+When performing rollouts, every value for every step is recorded, giving fine grained
+information on each step in each episode.
+
 In our supply chain example we want to monitor the average amount of stock the shop is
-holding onto as the experiment progresses. To do this we create a new subclass of the
-Phantom ``Metric`` class:
-
-.. code-block:: python
-
-    class StockMetric(ph.logging.Metric[float]):
-        def __init__(self, agent_id: str) -> None:
-            self.agent_id: str = agent_id
-
-        def extract(self, env: ph.PhantomEnv) -> float:
-            return env[self.agent_id].stock
-
-We can see that this metric is designed to record from a single agent as we require an
-``agent_id`` parameter in the initialisation method. This is a commonly used pattern.
-
-Metrics require just one method, called ``extract``, that takes the entire environment,
-takes the desired value from the environment and returns it. Here we take our agent and
-get its ``stock`` property.
-
-Metrics should not make any modification to the environment or any objects within it -
-they should be completely passive.
-
-We then register our metric using the ``metrics`` property on the ``ph.train`` function.
-The name can be whatever the user wants however it is sensible to include the name of
-the agent and the property that is being measured, eg. ``stock/SHOP``.
+holding onto as the experiment progresses. Phantom provides a base ``Metric`` class but
+for a lot of use-cases the provided helper classes ``SimpleAgentMetric`` and
+``SimpleEnvMetric`` are enough.
 
 .. code-block:: python
 
     metrics = {
-        "stock/SHOP": StockMetric("SHOP"),
+        "stock/SHOP": SimpleAgentMetric(agent_id="SHOP", agent_property="stock", reduce_action="last"),
     }
+
+The ``SimpleAgentMetric`` will record the given property on the agent. Similarly the
+``SimpleEnvMetric`` records a given property that exists on the Environment instance.
+
+As well as the 'last' reduction operation, there is also 'sum' and 'mean'.
+
+We register metrics using the ``metrics`` property on the ``ph.train`` function.
+The name can be whatever the user wants however it is sensible to include the name of
+the agent and the property that is being measured, eg. ``stock/SHOP``.
+
+.. code-block:: python
 
     ph.train(
         experiment_name="supply-chain",
         algorithm="PPO",
         num_workers=15,
         num_episodes=1000,
-        env=SupplyChainEnv,
+        env_class=SupplyChainEnv,
         env_config=dict(n_customers=5),
         metrics=metrics,
     )
@@ -137,6 +135,9 @@ To do this we make several modifications to the code:
                 return a valid choice.
                 policy_config=dict(n_shops=len(shop_ids)),
             )
+
+            # We need to store the shop IDs so we can send order requests to them.
+            self.shop_ids: List[str] = shop_ids
 
 * We change the ``decode_action`` method to pick a shop at random and place an order at
   that shop each step.
@@ -220,7 +221,7 @@ policy:
                 clock=clock,
                 policy_grouping=dict(
                     shared_SHOP_policy=shop_ids
-                )
+                ),
             )
     #
 
@@ -319,50 +320,36 @@ with a range of reward functions that all slightly modify the weight of the
 ``missed_sales`` factor. Doing this manually would be cumbersome. Instead we can use the
 Phantom supertypes feature.
 
-For the ``ShopAgent`` we define a ``AgentType`` object that defines the type of the
-agent. In our case this only contains the ``missed_sales_weight`` parameter we want to
-vary.
+For the ``ShopAgent`` we define an object that inherits from the ``BaseSupertype`` class
+that defines the type of the agent. In our case this only contains the
+``missed_sales_weight`` parameter we want to vary. When defining our supertype, to
+satisfy the type system, the types of all fields should be wrapped in
+``ph.SupertypeField``.
 
 .. code-block:: python
 
     @dataclass
-    class ShopAgentType(ph.AgentType):
-        missed_sales_weight: float
+    class ShopAgentSupertype(ph.BaseSupertype):
+        missed_sales_weight: ph.SupertypeField[float]
 
-Then we define a ``Supertype`` object that has a ``sample`` method that produces an
-instance of the ``ShopAgentType`` we previously defined. In this we randomly sample a
-value for the ``missed_sales_weight`` parameter.
 
-.. code-block:: python
-
-    class ShopAgentSupertype(ph.Supertype):
-        def __init__(self):
-            self.missed_sales_weight_low = 0.5
-            self.missed_sales_weight_high = 3.0
-
-        def sample(self) -> ShopAgentType:
-            return ShopAgentType(
-                missed_sales_weight=np.random.uniform(
-                    self.missed_sales_weight_low,
-                    self.missed_sales_weight_high
-                )
-            )
-
-We attach this supertype to our agent by passing it in as an initialisation parameter.
-This then gets passed to the base ``Agent``:
+We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgent``:
 
 .. code-block:: python
 
     class ShopAgent(ph.Agent):
-        def __init__(self, agent_id: str, warehouse_id: str, supertype: ph.Supertype):
-            super().__init__(agent_id, supertype=supertype)
+        def __init__(self, agent_id: str, warehouse_id: str):
+            super().__init__(agent_id)
 
             ...
 
-Note how we no longer need to pass in a custom ``RewardFunction`` class in here anymore.
+We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgent``:
 
-However we need to modify our ``ShopRewardFunction`` to take the ``missed_sales_weight``
-parameter:
+We don't even need to provide the ``ShopAgent`` with the new supertype, this is handled
+by the ``ph.train`` and ``ph.rollout`` functions.
+
+However we do need to modify our ``ShopRewardFunction`` to take the\
+``missed_sales_weight`` parameter:
 
 .. code-block:: python
 
@@ -392,9 +379,38 @@ The final step is to modify the ``ShopAgent``'s ``reset`` method to apply the su
             ...
 
 What is happening here is that when we call ``super().reset()``, the ``Agent`` class
-generates a new type instance from the supertype we set earlier. We then make use of the
-type to setup the agent. The ``reset`` method is called by the environment at the start
-of every episode.
+generates a new type instance from the supertype that will be assigned during training
+or rollouts. We then make use of the type to setup the agent. The ``reset`` method is
+called by the environment at the start of every episode.
+
+We can then pass the following to the ``agent_supertypes`` parameter in the ``ph.train``
+function;
+
+.. code-block:: python
+
+    agent_supertypes = {
+        ShopAgentSupertype(
+            missed_sales_weight=UniformSampler(0.0, 1.0)
+        )
+        for sid in shop_ids
+    })
+
+    ph.train(
+        experiment_name="supply-chain",
+        algorithm="PPO",
+        num_workers=2,
+        num_episodes=10000,
+        env_class=SupplyChainEnv,
+        env_config=dict(n_customers=5),
+        agent_supertypes=agent_supertypes,
+    )
+
+At the start of each episode in training, each shop agent's missed_sales_weight type
+value will be independently sampled from a random uniform distribution between 0.0 and
+1.0.
+
+The supertype system in Phantom is very powerful. To see a full guide to its features
+see the :ref:`_supertypes` page.
 
 
 Messages & Custom Handlers

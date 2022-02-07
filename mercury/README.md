@@ -8,13 +8,27 @@ observability constraints as a first-class feature.
 
 ## Installation
 
-To use this library, clone the repo, install the requirements and use the
-`setup.py` as you would any other project. For example, one can install a local
-development version for rapid use,
+The main requirements for installing Mercury are a modern Python installation
+(3.7 minimum) and access to the pip Python package manager.
 
-```console
-foo@bar:~$ clone https://git-codecommit.us-east-2.amazonaws.com/v1/repos/mercury-core
-foo@bar:~$ cd mercury-core
-foo@bar:~$ make init
-foo@bar:~$ make dev
+A list of Python packages required by Mercury is given in the `requirements.txt` file.
+The required packages can be installed by running:
+
+```sh
+make install_deps
 ```
+
+To use this library, clone the repo, install the requirements and install the package.
+For example, one can install a local development version for rapid use,
+
+```sh
+make install
+```
+
+## Development Setup
+
+```sh
+make install-dev-deps
+make dev
+```
+
