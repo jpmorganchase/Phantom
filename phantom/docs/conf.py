@@ -18,9 +18,15 @@ sys.path.insert(0, os.path.abspath(".."))
 
 autodoc_mock_imports = ["ray"]
 
+
+def _get_version():
+    import phantom
+    return phantom.__version__
+
+
 # -- Project information -----------------------------------------------------
 project = "Phantom"
-version = "0.2"
+version = _get_version()
 year = datetime.datetime.now().year
 copyright = "{}, AI Research, JP Morgan. Some icons used freely from Font Awesome (https://fontawesome.com/license/free)".format(
     year

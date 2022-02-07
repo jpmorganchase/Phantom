@@ -1,3 +1,5 @@
+__version__='1.0.0'
+
 from . import decoders, encoders, fsm, logging, rewards, utils
 
 from .agent import Agent

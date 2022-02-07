@@ -6,7 +6,13 @@ import re
 TEST_GLOB_PATTERNS = ["*.tests", "*.tests.*", "tests.*", "tests"]
 
 NAME = "phantom"
-VERSION = "0.2"
+
+
+def _get_version():
+    with open(
+        os.path.join(NAME, "__init__.py")
+    ) as fp:
+        return re.match(r"__version__\s*=\s*[\"\'](?P<version>.*)[\",\']", fp.read()).group("version")
 
 
 def _get_long_description():
@@ -20,7 +26,9 @@ def _get_long_description():
 
 def _get_requirements():
     with open(
-        os.path.join(os.path.abspath(os.path.dirname(__file__)), "requirements.txt"),
+        os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "requirements.txt"
+        ),
         encoding="utf-8",
     ) as requirements_file:
         requirements = [
@@ -33,7 +41,7 @@ def _get_requirements():
 
 setup(
     name=NAME,
-    version=VERSION,
+    version=_get_version(),
     description="A Multi-agent reinforcement-learning simulator framework.",
     long_description=_get_long_description(),
     python_requires=">3.7.0",

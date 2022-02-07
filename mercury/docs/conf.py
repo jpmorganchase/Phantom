@@ -16,9 +16,15 @@ import sys
 
 sys.path.insert(0, os.path.abspath(".."))
 
+
+def _get_version():
+    import mercury
+    return mercury.__version__
+
+
 # -- Project information -----------------------------------------------------
 project = "mercury"
-version = "0.2"
+version = _get_version()
 year = datetime.datetime.now().year
 copyright = "{}, AI Research, JP Morgan".format(year)
 author = "AI Research Group"
