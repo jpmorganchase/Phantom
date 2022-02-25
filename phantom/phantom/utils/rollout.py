@@ -55,6 +55,7 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
+    save_messages: bool = False,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
 ) -> List[Rollout]:
     """
@@ -91,8 +92,11 @@ def rollout(
         metrics: Optional set of metrics to record and log.
         results_file: Name of the results file to save to, if None is given no file
             will be saved (default is "results.pkl").
-        save_trajectories: If True the full set of episode trajectories for the
+        save_trajectories: If True the full set of episode trajectories for each of the
             rollouts will be saved into the results file.
+        save_messages: If True the full list of episode messages for each of the
+            rollouts will be saved into the results file. Only applies if
+            `save_trajectories` is also True.
         result_mapping_fn: If given, results from each rollout will be passed to this
             function, with the return values from the function aggregated and saved.
             This can be useful when wanting to cut down on the size of rollout results
@@ -243,6 +247,7 @@ def rollout(
             metrics,
             result_mapping_fn,
             None,
+            save_messages,
         )
 
     else:
@@ -261,6 +266,7 @@ def rollout(
                 metrics,
                 result_mapping_fn,
                 result_queue,
+                save_messages,
             )
             for i in range(0, len(rollout_configs), rollouts_per_worker)
         ]
@@ -323,6 +329,7 @@ def _rollout_task_fn(
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     result_queue: Optional[multiprocessing.Queue] = None,
+    save_messages: bool = False,
 ) -> List[Rollout]:
     """
     Internal function.
@@ -375,6 +382,9 @@ def _rollout_task_fn(
                 if "__ENV" in env.network.actor_ids:
                     env.network.actors["__ENV"].env_type = env.env_type
 
+            if save_messages:
+                env.network.resolver.enable_tracking = True
+
             # Setting seed needs to come after trainer setup
             np.random.seed(rollout_config.seed)
 
@@ -400,6 +410,12 @@ def _rollout_task_fn(
                 new_observation, reward, done, info = env.step(step_actions)
                 metric_logger.log(env)
 
+                if save_messages:
+                    messages = deepcopy(env.network.resolver.tracked_messages)
+                    env.network.resolver.clear_tracked_messages()
+                else:
+                    messages = None
+
                 steps.append(
                     Step(
                         observation,
@@ -407,6 +423,7 @@ def _rollout_task_fn(
                         done,
                         info,
                         step_actions,
+                        messages,
                         env.previous_stage
                         if isinstance(env, FiniteStateMachineEnv)
                         else None,

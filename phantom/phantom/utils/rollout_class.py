@@ -29,7 +29,7 @@ class AgentStep:
     done: bool
     info: Dict[str, Any]
     action: Any
-    stage: Optional[StageID]
+    stage: Optional[StageID] = None
 
 
 @dataclass
@@ -43,7 +43,8 @@ class Step:
     dones: Dict[me.ID, bool]
     infos: Dict[me.ID, Dict[str, Any]]
     actions: Dict[me.ID, Any]
-    stage: Optional[StageID]
+    messages: Optional[List[me.Message]] = None
+    stage: Optional[StageID] = None
 
 
 @dataclass

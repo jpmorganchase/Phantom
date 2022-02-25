@@ -33,6 +33,7 @@ def rollout() -> Rollout:
                     "agent1": i % 2,
                     "agent2": (i + 1) % 2,
                 },
+                messages=None,
                 stage="even" if i % 2 == 0 else "odd",
             )
             for i in range(10)
@@ -168,5 +169,6 @@ def test_getitem(rollout: Rollout):
             "agent1": 1,
             "agent2": 0,
         },
+        messages=None,
         stage="odd",
     )
