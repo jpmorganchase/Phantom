@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
+    Dict,
     List,
     Mapping,
     Optional,
@@ -24,7 +25,7 @@ from ray.tune.registry import register_env
 from tqdm import tqdm
 
 from ..env import PhantomEnv
-from ..fsm import FiniteStateMachineEnv, StageID
+from ..fsm import FiniteStateMachineEnv
 from ..logging import Logger, Metric
 from ..supertype import BaseSupertype
 from .rollout_class import Rollout, Step
@@ -57,7 +58,7 @@ def rollout(
     save_trajectories: bool = False,
     save_messages: bool = False,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
-) -> List[Rollout]:
+) -> Union[List[Rollout], List[Any]]:
     """
     Performs rollouts for a previously trained Phantom experiment.
 
@@ -195,19 +196,29 @@ def rollout(
     # Each Range object can have multiple paths as it can exist at multiple points within
     # the data structure. Eg. shared across multiple agents.
     ranges = collect_instances_of_type_with_paths(
-        BaseRange, (env_supertype, agent_supertypes)
+        BaseRange, ({}, env_supertype, agent_supertypes)
     )
 
     # This 'variations' list is where we build up every combination of the expanded values
     # from the list of Ranges.
-    variations = [deepcopy((env_supertype, agent_supertypes))]
+    variations = [deepcopy(({}, env_supertype, agent_supertypes))]
+
+    unamed_range_count = 0
 
     # For each iteration of this outer loop we expand another Range object.
     for range_obj, paths in reversed(ranges):
+        values = range_obj.values()
+
+        name = range_obj.name
+        if name is None:
+            name = f"range-{unamed_range_count}"
+            unamed_range_count += 1
+
         variations2 = []
-        for value in range_obj.values():
+        for value in values:
             for variation in variations:
                 variation = deepcopy(variation)
+                variation[0][name] = value
                 for path in paths:
                     update_val(variation, path, value)
                 variations2.append(variation)
@@ -216,13 +227,16 @@ def rollout(
 
     # Apply the number of repeats requested to each 'variation'.
     rollout_configs = [
-        RolloutConfig(
+        _RolloutConfig(
             i * num_repeats + j,
             env_config,
+            top_level_params,
             env_supertype,
             agent_supertypes,
         )
-        for i, (env_supertype, agent_supertypes) in enumerate(variations)
+        for i, (top_level_params, env_supertype, agent_supertypes) in enumerate(
+            variations
+        )
         for j in range(num_repeats)
     ]
 
@@ -301,6 +315,7 @@ def rollout(
                 Rollout(
                     rollout.seed,
                     rollout.env_config,
+                    rollout.top_level_params,
                     rollout.env_type,
                     rollout.agent_types,
                     rollout.steps if save_trajectories else None,
@@ -324,7 +339,7 @@ def _rollout_task_fn(
     directory: Path,
     checkpoint: int,
     algorithm: str,
-    configs: List["RolloutConfig"],
+    configs: List["_RolloutConfig"],
     env_class: Optional[Type[PhantomEnv]] = None,
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
@@ -437,6 +452,7 @@ def _rollout_task_fn(
             result = Rollout(
                 rollout_config.seed,
                 rollout_config.env_config,
+                rollout_config.top_level_params,
                 rollout_config.env_supertype,
                 rollout_config.agent_supertypes,
                 steps,
@@ -464,12 +480,13 @@ def _rollout_task_fn(
 
 
 @dataclass
-class RolloutConfig:
+class _RolloutConfig:
     """
     Internal class
     """
 
     seed: int
     env_config: Mapping[str, Any]
+    top_level_params: Dict[str, Any]
     env_supertype: Optional[BaseSupertype]
     agent_supertypes: Mapping[me.ID, BaseSupertype]

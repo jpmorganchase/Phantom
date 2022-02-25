@@ -51,6 +51,7 @@ class Step:
 class Rollout:
     seed: int
     env_config: Mapping[str, Any]
+    top_level_params: Dict[str, Any]
     env_type: Optional[BaseSupertype]
     agent_types: Mapping[me.ID, BaseSupertype]
     steps: Optional[List[Step]]
