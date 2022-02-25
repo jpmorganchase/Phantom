@@ -294,6 +294,7 @@ elif sys.argv[1].lower() == "rollout":
         algorithm="PPO",
         num_workers=1,
         num_repeats=10,
+        env_class=SupplyChainEnv,
         env_config=dict(
             n_customers=NUM_CUSTOMERS,
         ),
