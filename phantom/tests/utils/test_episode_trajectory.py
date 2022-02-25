@@ -7,6 +7,7 @@ def rollout() -> Rollout:
     return Rollout(
         seed=0,
         env_config={},
+        top_level_params={},
         env_type={},
         agent_types={},
         steps=[
