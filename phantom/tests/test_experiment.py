@@ -148,7 +148,9 @@ def test_experiment():
             num_repeats=1,
             save_trajectories=True,
             save_messages=True,
-            env_supertype=EnvSupertype(weight=ph.utils.ranges.LinspaceRange(0.0, 1.0, 2, name="EnvRange")),
+            env_supertype=EnvSupertype(
+                weight=ph.utils.ranges.LinspaceRange(0.0, 1.0, 2, name="EnvRange")
+            ),
         )
 
         rollouts_2 = cloudpickle.load(open(Path(results_dir, "results.pkl"), "rb"))
