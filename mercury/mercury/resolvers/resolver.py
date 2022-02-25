@@ -34,7 +34,7 @@ class Resolver(abc.ABC):
         self.handle_push(from_id, to_id, payloads)
 
     def clear_tracked_messages(self) -> None:
-        self.tracked_messages = []
+        self.tracked_messages.clear()
 
     @abc.abstractmethod
     def handle_push(self, from_id: ID, to_id: ID, payloads: Iterable[Payload]) -> None:
