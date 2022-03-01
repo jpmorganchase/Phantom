@@ -49,7 +49,8 @@ class Step:
 
 @dataclass
 class Rollout:
-    seed: int
+    rollout_id: int
+    repeat_id: int
     env_config: Mapping[str, Any]
     top_level_params: Dict[str, Any]
     env_type: Optional[BaseSupertype]

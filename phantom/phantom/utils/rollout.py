@@ -229,6 +229,7 @@ def rollout(
     rollout_configs = [
         _RolloutConfig(
             i * num_repeats + j,
+            j,
             env_config,
             top_level_params,
             env_supertype,
@@ -313,7 +314,8 @@ def rollout(
         if result_mapping_fn is None:
             results_to_save = [
                 Rollout(
-                    rollout.seed,
+                    rollout.rollout_id,
+                    rollout.repeat_id,
                     rollout.env_config,
                     rollout.top_level_params,
                     rollout.env_type,
@@ -401,7 +403,7 @@ def _rollout_task_fn(
                 env.network.resolver.enable_tracking = True
 
             # Setting seed needs to come after trainer setup
-            np.random.seed(rollout_config.seed)
+            np.random.seed(rollout_config.rollout_id)
 
             metric_logger = Logger(tracked_metrics)
 
@@ -450,7 +452,8 @@ def _rollout_task_fn(
             metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
             result = Rollout(
-                rollout_config.seed,
+                rollout_config.rollout_id,
+                rollout_config.repeat_id,
                 rollout_config.env_config,
                 rollout_config.top_level_params,
                 rollout_config.env_supertype,
@@ -485,7 +488,8 @@ class _RolloutConfig:
     Internal class
     """
 
-    seed: int
+    rollout_id: int
+    repeat_id: int
     env_config: Mapping[str, Any]
     top_level_params: Dict[str, Any]
     env_supertype: Optional[BaseSupertype]

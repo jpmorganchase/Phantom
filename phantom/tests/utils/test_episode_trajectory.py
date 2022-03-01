@@ -5,7 +5,8 @@ from phantom.utils.rollout_class import AgentStep, Step, Rollout
 @pytest.fixture
 def rollout() -> Rollout:
     return Rollout(
-        seed=0,
+        rollout_id=0,
+        repeat_id=0,
         env_config={},
         top_level_params={},
         env_type={},
