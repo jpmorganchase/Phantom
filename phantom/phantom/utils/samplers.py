@@ -79,11 +79,15 @@ class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
     """
 
     def __lt__(self, other: Union[ComparableT, "ComparableSampler"]) -> bool:
+        if isinstance(other, ComparableSampler):
+            return super().__lt__(other)
         if self.value is None:
             raise ValueError("`self.value` is None")
         return self.value < other
 
     def __eq__(self, other: object) -> bool:
+        if isinstance(other, ComparableSampler):
+            return super().__eq__(other)
         return self.value == other
 
     def __ne__(self, other: object) -> bool:
