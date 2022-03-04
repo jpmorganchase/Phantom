@@ -122,7 +122,7 @@ def test_experiment():
             assert type(rollouts) == list
             assert len(rollouts) == 1
             assert type(rollouts[0]) == ph.utils.rollout.Rollout
-            assert rollouts[0].top_level_params == {}
+            assert rollouts[0].rollout_params == {}
             assert len(rollouts[0].steps) == 3
             assert rollouts[0].steps[0].messages == [
                 me.Message(sender_id="a1", receiver_id="a2", payload=10),
@@ -135,7 +135,7 @@ def test_experiment():
 
         ################################################################################
 
-        # Perform rollouts with EnvSupertype (to test Ranges, top_level_params, etc.)
+        # Perform rollouts with EnvSupertype (to test Ranges, rollout_params, etc.)
 
         @dataclass
         class EnvSupertype(ph.BaseSupertype):
@@ -159,5 +159,5 @@ def test_experiment():
             assert type(rollouts) == list
             assert len(rollouts) == 2
             assert type(rollouts[0]) == ph.utils.rollout.Rollout
-            assert rollouts[0].top_level_params == {"EnvRange": 0.0}
-            assert rollouts[1].top_level_params == {"EnvRange": 1.0}
+            assert rollouts[0].rollout_params == {"EnvRange": 0.0}
+            assert rollouts[1].rollout_params == {"EnvRange": 1.0}

@@ -231,11 +231,11 @@ def rollout(
             i * num_repeats + j,
             j,
             env_config,
-            top_level_params,
+            rollout_params,
             env_supertype,
             agent_supertypes,
         )
-        for i, (top_level_params, env_supertype, agent_supertypes) in enumerate(
+        for i, (rollout_params, env_supertype, agent_supertypes) in enumerate(
             variations
         )
         for j in range(num_repeats)
@@ -317,7 +317,7 @@ def rollout(
                     rollout.rollout_id,
                     rollout.repeat_id,
                     rollout.env_config,
-                    rollout.top_level_params,
+                    rollout.rollout_params,
                     rollout.env_type,
                     rollout.agent_types,
                     rollout.steps if save_trajectories else None,
@@ -455,7 +455,7 @@ def _rollout_task_fn(
                 rollout_config.rollout_id,
                 rollout_config.repeat_id,
                 rollout_config.env_config,
-                rollout_config.top_level_params,
+                rollout_config.rollout_params,
                 rollout_config.env_supertype,
                 rollout_config.agent_supertypes,
                 steps,
@@ -491,6 +491,6 @@ class _RolloutConfig:
     rollout_id: int
     repeat_id: int
     env_config: Mapping[str, Any]
-    top_level_params: Dict[str, Any]
+    rollout_params: Dict[str, Any]
     env_supertype: Optional[BaseSupertype]
     agent_supertypes: Mapping[me.ID, BaseSupertype]

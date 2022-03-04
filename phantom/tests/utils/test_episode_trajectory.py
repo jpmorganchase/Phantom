@@ -8,7 +8,7 @@ def rollout() -> Rollout:
         rollout_id=0,
         repeat_id=0,
         env_config={},
-        top_level_params={},
+        rollout_params={},
         env_type={},
         agent_types={},
         steps=[
