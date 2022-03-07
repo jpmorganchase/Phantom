@@ -4,8 +4,7 @@ import gym.spaces
 import mercury as me
 from ray import rllib
 
-# TODO: upgrade to latest Ray and use PolicySpec
-# from ray.rllib.policy.policy import PolicySpec
+from ray.rllib.policy.policy import PolicySpec
 
 from .fsm.typedefs import StageID
 
@@ -44,8 +43,7 @@ class PolicyWrapper:
         gym.spaces.Space,
         Mapping[Any, Any],
     ]:
-        # TODO: upgrade to latest Ray and use PolicySpec
-        return (
+        return PolicySpec(
             self.policy_class,
             self.obs_space,
             self.action_space,
