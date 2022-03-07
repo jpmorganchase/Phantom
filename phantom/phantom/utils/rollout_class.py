@@ -29,7 +29,7 @@ class AgentStep:
     done: bool
     info: Dict[str, Any]
     action: Any
-    stage: Optional[StageID]
+    stage: Optional[StageID] = None
 
 
 @dataclass
@@ -43,13 +43,16 @@ class Step:
     dones: Dict[me.ID, bool]
     infos: Dict[me.ID, Dict[str, Any]]
     actions: Dict[me.ID, Any]
-    stage: Optional[StageID]
+    messages: Optional[List[me.Message]] = None
+    stage: Optional[StageID] = None
 
 
 @dataclass
 class Rollout:
-    seed: int
+    rollout_id: int
+    repeat_id: int
     env_config: Mapping[str, Any]
+    rollout_params: Dict[str, Any]
     env_type: Optional[BaseSupertype]
     agent_types: Mapping[me.ID, BaseSupertype]
     steps: Optional[List[Step]]
