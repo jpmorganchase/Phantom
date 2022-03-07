@@ -35,14 +35,7 @@ class PolicyWrapper:
         self.action_space = action_space
         self.shared_policy_name = shared_policy_name
 
-    def get_spec(
-        self,
-    ) -> Tuple[
-        Optional[Type[rllib.policy.Policy]],
-        gym.spaces.Space,
-        gym.spaces.Space,
-        Mapping[Any, Any],
-    ]:
+    def get_spec(self) -> PolicySpec:
         return PolicySpec(
             self.policy_class,
             self.obs_space,
