@@ -418,8 +418,13 @@ def _rollout_task_fn(
                 for agent_id, agent_obs in observation.items():
                     policy_id = config["multiagent"]["policy_mapping"][agent_id]
 
-                    agent_action = trainer.compute_action(
-                        agent_obs, policy_id=policy_id, explore=False
+                    # TODO: test and remove 'unsquash_action' parameter when upgrading
+                    # to next Ray/RLlib release with https://github.com/ray-project/ray/pull/21553
+                    agent_action = trainer.compute_single_action(
+                        agent_obs,
+                        policy_id=policy_id,
+                        explore=False,
+                        unsquash_action=True,
                     )
 
                     step_actions[agent_id] = agent_action
