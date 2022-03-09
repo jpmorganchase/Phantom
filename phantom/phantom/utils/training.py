@@ -279,19 +279,6 @@ def create_rllib_config_dict(
 
     env.reset()
 
-    # env.set_supertypes(env_supertype, agent_supertypes)
-
-    # # Update and apply env type
-    # if env_supertype is not None:
-    #     env.env_type = env_supertype.sample()
-
-    #     if "__ENV" in env.network.actor_ids:
-    #         env_actor = env.network.actors["__ENV"]
-    #         assert isinstance(env_actor, EnvironmentActor)
-    #         env_actor.env_type = env.env_type
-
-    # env.reset()
-
     def is_fixed(policy_class=Optional[Type[rllib.Policy]]) -> bool:
         # To find out if policy_class is an subclass of FixedPolicy normally
         # would use isinstance() but since policy_class is a class and not
