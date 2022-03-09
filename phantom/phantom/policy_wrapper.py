@@ -4,8 +4,6 @@ import gym.spaces
 import mercury as me
 from ray import rllib
 
-from ray.rllib.policy.policy import PolicySpec
-
 from .fsm.typedefs import StageID
 
 
@@ -34,14 +32,6 @@ class PolicyWrapper:
         self.obs_space = obs_space
         self.action_space = action_space
         self.shared_policy_name = shared_policy_name
-
-    def get_spec(self) -> PolicySpec:
-        return PolicySpec(
-            self.policy_class,
-            self.obs_space,
-            self.action_space,
-            self.policy_config,
-        )
 
     def get_name(self) -> str:
         if self.shared_policy_name is not None:

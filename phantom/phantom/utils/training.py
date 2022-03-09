@@ -26,6 +26,7 @@ import ray
 from ray import tune
 from ray import rllib
 from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
+from ray.rllib.policy.policy import PolicySpec
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
@@ -447,7 +448,13 @@ def create_rllib_config_dict(
             policy_mapping[f"{agent_id}__{stage_id}"] = policy_id
 
     ma_config["policies"] = {
-        policy.get_name(): policy.get_spec() for policy in policies
+        policy.get_name(): PolicySpec(
+            policy.policy_class,
+            policy.obs_space,
+            policy.action_space,
+            policy.policy_config,
+        )
+        for policy in policies
     }
     ma_config["policies_to_train"] = [
         policy.get_name() for policy in policies if not policy.fixed
