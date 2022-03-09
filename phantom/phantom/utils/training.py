@@ -307,11 +307,11 @@ def create_rllib_config_dict(
 
     env.reset()
 
-    def is_trained(policy_class=Optional[Type[rllib.Policy]]) -> bool:
+    def is_fixed(policy_class=Optional[Type[rllib.Policy]]) -> bool:
         # To find out if policy_class is an subclass of FixedPolicy normally
         # would use isinstance() but since policy_class is a class and not
         # an instance this doesn't work.
-        return policy_class is None or FixedPolicy not in policy_class.__mro__
+        return policy_class is not None and FixedPolicy in policy_class.__mro__
 
     ma_config: Dict[str, Any] = {}
 
@@ -372,7 +372,7 @@ def create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=used_by,
-            trained=is_trained(policy_classes[0]),
+            fixed=is_fixed(policy_classes[0]),
             obs_space=obs_spaces[0],
             action_space=action_spaces[0],
             policy_class=policy_classes[0],
@@ -410,7 +410,7 @@ def create_rllib_config_dict(
             # This is a standard agent, not part of a shared policy and with no stages
             policy_wrapper = PolicyWrapper(
                 used_by=[agent_id],
-                trained=is_trained(agent.policy_class),
+                fixed=is_fixed(agent.policy_class),
                 obs_space=agent.get_observation_space(),
                 action_space=agent.get_action_space(),
                 policy_class=agent.policy_class,
@@ -431,7 +431,7 @@ def create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=agent_and_stage_ids,
-            trained=is_trained(agent.policy_class),
+            fixed=is_fixed(agent.policy_class),
             obs_space=stage_policy_handler.get_observation_space(agent),
             action_space=stage_policy_handler.get_action_space(agent),
             policy_class=stage_policy_handler.policy_class,
@@ -450,7 +450,7 @@ def create_rllib_config_dict(
         policy.get_name(): policy.get_spec() for policy in policies
     }
     ma_config["policies_to_train"] = [
-        policy.get_name() for policy in policies if policy.trained
+        policy.get_name() for policy in policies if not policy.fixed
     ]
     ma_config["policy_mapping"] = policy_mapping
     ma_config["policy_mapping_fn"] = lambda id, **kwargs: str(policy_mapping[id])

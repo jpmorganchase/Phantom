@@ -17,7 +17,7 @@ class PolicyWrapper:
     def __init__(
         self,
         used_by: Sequence[Union[me.ID, Tuple[me.ID, StageID]]],
-        trained: bool,
+        fixed: bool,
         obs_space: gym.spaces.Space,
         action_space: gym.spaces.Space,
         policy_class: Optional[Type[rllib.policy.Policy]] = None,
@@ -28,7 +28,7 @@ class PolicyWrapper:
             raise ValueError("Duplicate stages found in PolicyWrapper")
 
         self.used_by = used_by
-        self.trained = trained
+        self.fixed = fixed
         self.policy_class = policy_class
         self.policy_config = policy_config or {}
         self.obs_space = obs_space

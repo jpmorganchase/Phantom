@@ -93,7 +93,7 @@ def test_single_agent():
     assert policies == [
         PolicyWrapper(
             used_by=["a1"],
-            trained=True,
+            fixed=False,
             obs_space=agent.get_observation_space(),
             action_space=agent.get_action_space(),
         )
@@ -127,13 +127,13 @@ def test_single_agent_fixed_policy():
     assert policies == [
         PolicyWrapper(
             used_by=["a1"],
-            trained=True,
+            fixed=False,
             obs_space=agent1.get_observation_space(),
             action_space=agent1.get_action_space(),
         ),
         PolicyWrapper(
             used_by=["a2"],
-            trained=False,
+            fixed=True,
             obs_space=agent2.get_observation_space(),
             action_space=agent2.get_action_space(),
             policy_class=CustomPolicy,
@@ -163,7 +163,7 @@ def test_shared_policy():
     assert policies == [
         PolicyWrapper(
             used_by=["a1", "a2"],
-            trained=True,
+            fixed=False,
             obs_space=agent1.get_observation_space(),
             action_space=agent1.get_action_space(),
             shared_policy_name="shared",
@@ -192,7 +192,7 @@ def test_single_agent_single_stage():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         )
@@ -226,13 +226,13 @@ def test_single_agent_multiple_stages():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         ),
         PolicyWrapper(
             used_by=[("a1", "stage2")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         ),
@@ -266,13 +266,13 @@ def test_single_agent_shared_multiple_stages():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         ),
         PolicyWrapper(
             used_by=[("a1", "stage2")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage2"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage2"].get_action_space(agent),
         ),
@@ -308,7 +308,7 @@ def test_single_agent_shared_multiple_shared_stages():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1"), ("a1", "stage2")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
             shared_policy_name="fsm_shared_policy_1",
@@ -340,7 +340,7 @@ def test_multiple_agents_shared_stage():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1"), ("a2", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent1.stage_handlers["stage1"].get_observation_space(agent1),
             action_space=agent1.stage_handlers["stage1"].get_action_space(agent1),
             shared_policy_name="fsm_shared_policy_1",
