@@ -3,7 +3,6 @@ import logging
 import os
 import shutil
 import tempfile
-import types
 from pathlib import Path
 from typing import (
     Any,
@@ -31,7 +30,8 @@ from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
-from ..env import EnvironmentActor, PhantomEnv
+from ..env import PhantomEnv
+from ..env_wrappers import SharedSupertypeEnvWrapper
 from ..fsm import FSMAgent, StageID, StagePolicyHandler
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
@@ -206,30 +206,9 @@ def train(
     def reg_env(config):
         env = env_class(**config)
 
-        # Give the supertypes to the correct objects in the environment
-        env.set_supertypes(env_supertype, agent_supertypes)
+        if env_supertype is not None or len(agent_supertypes) > 0:
+            env = SharedSupertypeEnvWrapper(env, env_supertype, agent_supertypes)
 
-        # Here we override the reset method on the environment class so we can generate
-        # values from the sampler before the main environment reset logic is run.
-        # Ideally in the future we will insert a layer between the env and RLlib to do
-        # this.
-        original_reset = env.reset
-
-        def overridden_reset(self) -> Dict[me.ID, Any]:
-            # Sample from samplers
-            for sampler in self._samplers:
-                sampler.value = sampler.sample()
-
-            # Update and apply env type
-            if self._env_supertype is not None:
-                self.env_type = self._env_supertype.sample()
-
-                if "__ENV" in self.network.actor_ids:
-                    self.network.actors["__ENV"].env_type = self.env_type
-
-            return original_reset()
-
-        env.reset = types.MethodType(overridden_reset, env)
         env.reset()
 
         return env
@@ -295,18 +274,23 @@ def create_rllib_config_dict(
     # the default parameters.
     env = env_class(**env_config)
 
-    env.set_supertypes(env_supertype, agent_supertypes)
-
-    # Update and apply env type
-    if env_supertype is not None:
-        env.env_type = env_supertype.sample()
-
-        if "__ENV" in env.network.actor_ids:
-            env_actor = env.network.actors["__ENV"]
-            assert isinstance(env_actor, EnvironmentActor)
-            env_actor.env_type = env.env_type
+    if env_supertype is not None or len(agent_supertypes) > 0:
+        env = SharedSupertypeEnvWrapper(env, env_supertype, agent_supertypes)
 
     env.reset()
+
+    # env.set_supertypes(env_supertype, agent_supertypes)
+
+    # # Update and apply env type
+    # if env_supertype is not None:
+    #     env.env_type = env_supertype.sample()
+
+    #     if "__ENV" in env.network.actor_ids:
+    #         env_actor = env.network.actors["__ENV"]
+    #         assert isinstance(env_actor, EnvironmentActor)
+    #         env_actor.env_type = env.env_type
+
+    # env.reset()
 
     def is_fixed(policy_class=Optional[Type[rllib.Policy]]) -> bool:
         # To find out if policy_class is an subclass of FixedPolicy normally
