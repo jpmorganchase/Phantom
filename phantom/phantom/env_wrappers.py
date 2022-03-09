@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, Optional
 
 import mercury as me
 from ray.rllib import MultiAgentEnv
@@ -35,13 +35,15 @@ class SharedSupertypeEnvWrapper(BaseEnvWrapper):
     def __init__(
         self,
         env: PhantomEnv,
-        env_supertype: BaseSupertype,
-        agent_supertypes: Dict[me.ID, BaseSupertype],
+        env_supertype: Optional[BaseSupertype] = None,
+        agent_supertypes: Optional[Dict[me.ID, BaseSupertype]] = None,
     ) -> None:
         super().__init__(env)
 
+        agent_supertypes = agent_supertypes or {}
+
         self._samplers = self._collect_samplers(
-            env_supertype, agent_supertypes, self.env.network
+            env_supertype, agent_supertypes  # , self.env.network
         )
         self._env_supertype = env_supertype
         self._agent_supertypes = agent_supertypes
@@ -67,7 +69,7 @@ class SharedSupertypeEnvWrapper(BaseEnvWrapper):
         self,
         env_supertype: BaseSupertype,
         agent_supertypes: Dict[me.ID, BaseSupertype],
-        network: me.Network,
+        # network: me.Network,
     ):
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the list
