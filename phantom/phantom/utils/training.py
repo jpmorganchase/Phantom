@@ -187,7 +187,7 @@ def train(
                     "Could not find file '%s' to copy to results directory", path
                 )
 
-    config, policies = create_rllib_config_dict(
+    config, policies = _create_rllib_config_dict(
         env_class,
         alg_config,
         env_config,
@@ -202,7 +202,7 @@ def train(
     )
 
     if print_info:
-        print_experiment_info(
+        _print_experiment_info(
             config,
             policies,
             experiment_name,
@@ -285,7 +285,7 @@ def train(
     return find_most_recent_results_dir(Path(results_dir, experiment_name))
 
 
-def create_rllib_config_dict(
+def _create_rllib_config_dict(
     env_class: Type[PhantomEnv],
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
@@ -510,7 +510,7 @@ def create_rllib_config_dict(
     return config, policies
 
 
-def print_experiment_info(
+def _print_experiment_info(
     config: Dict[str, Any],
     policies: List[PolicyWrapper],
     experiment_name: str,

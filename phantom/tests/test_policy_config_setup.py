@@ -5,7 +5,7 @@ import mercury as me
 import numpy as np
 import phantom as ph
 from phantom.policy_wrapper import PolicyWrapper
-from phantom.utils.training import create_rllib_config_dict
+from phantom.utils.training import _create_rllib_config_dict
 
 
 class MockAgent(ph.Agent):
@@ -75,7 +75,7 @@ class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
 def test_single_agent():
     agent = MockAgent("a1")
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
         alg_config={},
         env_config={
@@ -110,7 +110,7 @@ def test_single_agent_fixed_policy():
     agent2 = MockAgent("a2")
     agent2.policy_class = CustomPolicy
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
         alg_config={},
         env_config={
@@ -147,7 +147,7 @@ def test_shared_policy():
     agent1 = MockAgent("a1")
     agent2 = MockAgent("a2")
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
         alg_config={},
         env_config={
@@ -177,7 +177,7 @@ def test_shared_policy():
 def test_single_agent_single_stage():
     agent = MockFSMAgent("a1", {"stage1": MockStagePolicyHandler()})
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
         alg_config={},
         env_config={
@@ -212,7 +212,7 @@ def test_single_agent_multiple_stages():
         },
     )
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
         alg_config={},
         env_config={
@@ -253,7 +253,7 @@ def test_single_agent_shared_multiple_stages():
         },
     )
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
         alg_config={},
         env_config={
@@ -296,7 +296,7 @@ def test_single_agent_shared_multiple_shared_stages():
         },
     )
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
         alg_config={},
         env_config={
@@ -329,7 +329,7 @@ def test_multiple_agents_shared_stage():
     agent1 = MockFSMAgent("a1", {"stage1": handler})
     agent2 = MockFSMAgent("a2", {"stage1": handler})
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
         alg_config={},
         env_config={
