@@ -452,7 +452,6 @@ def create_rllib_config_dict(
     ma_config["policies_to_train"] = [
         policy.get_name() for policy in policies if policy.trained
     ]
-    ma_config["policy_mapping"] = policy_mapping
     ma_config["policy_mapping_fn"] = lambda id, **kwargs: str(policy_mapping[id])
 
     if len(ma_config["policies_to_train"]) == 0:
