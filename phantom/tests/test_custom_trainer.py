@@ -4,7 +4,7 @@ import numpy as np
 import phantom as ph
 from phantom.decoders import Decoder, DictDecoder
 from phantom.encoders import DictEncoder, Encoder
-from ray.rllib.agents.ppo.ppo_torch_policy import PPOTorchPolicy
+from ray.rllib.agents.ppo.ppo_tf_policy import PPOTFPolicy
 from ray.rllib.agents.trainer_template import build_trainer
 from ray.rllib.evaluation.worker_set import WorkerSet
 from ray.rllib.execution.metric_ops import StandardMetricsReporting
@@ -113,7 +113,7 @@ def test_experiment():
 
     trainer = build_trainer(
         name="PPO_MultiAgent",
-        default_policy=PPOTorchPolicy,
+        default_policy=PPOTFPolicy,
         execution_plan=custom_training_workflow,
     )
 
