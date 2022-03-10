@@ -59,6 +59,7 @@ def test_basic_env():
         metrics={},
         seed=SEED,
         num_workers=NUM_WORKERS,
+        using_custom_trainer=False,
     )
 
     assert config["env"] == ENV_NAME
