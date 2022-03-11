@@ -279,12 +279,6 @@ def create_rllib_config_dict(
 
     env.reset()
 
-    def is_fixed(policy_class=Optional[Type[rllib.Policy]]) -> bool:
-        # To find out if policy_class is an subclass of FixedPolicy normally
-        # would use isinstance() but since policy_class is a class and not
-        # an instance this doesn't work.
-        return policy_class is not None and FixedPolicy in policy_class.__mro__
-
     ma_config: Dict[str, Any] = {}
 
     policies: List[PolicyWrapper] = []
@@ -344,7 +338,7 @@ def create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=used_by,
-            fixed=is_fixed(policy_classes[0]),
+            fixed=issubclass(policy_classes[0] or object, FixedPolicy),
             obs_space=obs_spaces[0],
             action_space=action_spaces[0],
             policy_class=policy_classes[0],
@@ -382,7 +376,7 @@ def create_rllib_config_dict(
             # This is a standard agent, not part of a shared policy and with no stages
             policy_wrapper = PolicyWrapper(
                 used_by=[agent_id],
-                fixed=is_fixed(agent.policy_class),
+                fixed=issubclass(agent.policy_class or object, FixedPolicy),
                 obs_space=agent.get_observation_space(),
                 action_space=agent.get_action_space(),
                 policy_class=agent.policy_class,
@@ -403,7 +397,7 @@ def create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=agent_and_stage_ids,
-            fixed=is_fixed(agent.policy_class),
+            fixed=issubclass(agent.policy_class or object, FixedPolicy),
             obs_space=stage_policy_handler.get_observation_space(agent),
             action_space=stage_policy_handler.get_action_space(agent),
             policy_class=stage_policy_handler.policy_class,
