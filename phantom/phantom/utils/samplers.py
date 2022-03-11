@@ -87,11 +87,13 @@ class ComparableSampler(BaseSampler[ComparableT], Generic[ComparableT]):
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, ComparableSampler):
-            return super().__eq__(other)
+            return object.__eq__(self, other)
         return self.value == other
 
     def __ne__(self, other: object) -> bool:
-        return not self.__eq__(other)
+        if isinstance(other, ComparableSampler):
+            return object.__ne__(self, other)
+        return self.value != other
 
     def __le__(self, other: Union[ComparableT, "ComparableSampler"]) -> bool:
         return self.__lt__(other) or self.__eq__(other)
