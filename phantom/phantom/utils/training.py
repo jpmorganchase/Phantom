@@ -53,9 +53,10 @@ logger = logging.getLogger(__name__)
 def train(
     experiment_name: str,
     env_class: Type[PhantomEnv],
-    algorithm: str,
     num_episodes: int,
     seed: int = 0,
+    algorithm: Optional[str] = None,
+    trainer: Optional[rllib.agents.Trainer] = None,
     num_workers: Optional[int] = None,
     checkpoint_freq: Optional[int] = None,
     alg_config: Optional[Mapping[str, Any]] = None,
@@ -81,7 +82,10 @@ def train(
     Arguments:
         experiment_name: Experiment name used for tensorboard logging.
         env_class: A PhantomEnv subclass.
-        algorithm: RL algorithm to use.
+        algorithm: RL algorithm to use (optional - one of 'algorithm' or 'trainer' must
+            be provided).
+        trainer: RLlib Trainer class instance to use (optional - one of 'algorithm' or
+            'trainer' must be provided).
         num_episodes: The number of episodes to train for, distributed over all workers.
         seed: Optional seed to pass to environment.
         num_workers: Number of Ray workers to initialise (defaults to NUM CPU - 1).
@@ -131,6 +135,16 @@ def train(
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
 
+    if algorithm is None and trainer is None:
+        raise ValueError(
+            "One of the 'algorithm' or 'trainer' arguments must be provided"
+        )
+
+    if algorithm is not None and trainer is not None:
+        raise ValueError(
+            "Only one of the 'algorithm' or 'trainer' arguments must be provided"
+        )
+
     if contains_type(env_config, BaseSampler):
         raise Exception(
             "env_config should not contain instances of classes inheriting from BaseSampler"
@@ -173,7 +187,7 @@ def train(
                     "Could not find file '%s' to copy to results directory", path
                 )
 
-    config, policies = create_rllib_config_dict(
+    config, policies = _create_rllib_config_dict(
         env_class,
         alg_config,
         env_config,
@@ -184,10 +198,11 @@ def train(
         metrics,
         seed,
         num_workers,
+        trainer is not None,
     )
 
     if print_info:
-        print_experiment_info(
+        _print_experiment_info(
             config,
             policies,
             experiment_name,
@@ -195,6 +210,7 @@ def train(
             num_workers,
             num_episodes,
             algorithm,
+            trainer,
             checkpoint_freq,
         )
 
@@ -243,7 +259,7 @@ def train(
 
     try:
         tune.run(
-            algorithm,
+            algorithm or trainer,
             name=experiment_name,
             local_dir=results_dir,
             checkpoint_freq=checkpoint_freq,
@@ -269,7 +285,7 @@ def train(
     return find_most_recent_results_dir(Path(results_dir, experiment_name))
 
 
-def create_rllib_config_dict(
+def _create_rllib_config_dict(
     env_class: Type[PhantomEnv],
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
@@ -280,6 +296,7 @@ def create_rllib_config_dict(
     metrics: Mapping[str, Metric],
     seed: int,
     num_workers: int,
+    using_custom_trainer: bool,
 ) -> Tuple[Dict[str, Any], List[PolicyWrapper]]:
     """
     Converts a TrainingParams object into a config dictionary compatible with
@@ -472,7 +489,9 @@ def create_rllib_config_dict(
         else config["rollout_fragment_length"]
     )
 
-    config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
+    # TODO: in a future release remove this as it is algorithm specific.
+    if not using_custom_trainer:
+        config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
     if callbacks is not None:
         config["callbacks"] = MultiCallbacks(callbacks)
@@ -490,15 +509,16 @@ def create_rllib_config_dict(
     return config, policies
 
 
-def print_experiment_info(
+def _print_experiment_info(
     config: Dict[str, Any],
     policies: List[PolicyWrapper],
     experiment_name: str,
     env_name: str,
     num_workers: int,
     num_episodes: int,
-    algorithm: str,
-    checkpoint_freq: Optional[int],
+    algorithm: Optional[str] = None,
+    trainer: Optional[rllib.agents.Trainer] = None,
+    checkpoint_freq: Optional[int] = None,
 ) -> None:
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):
@@ -523,7 +543,11 @@ def print_experiment_info(
     print(f"Environment name : {env_name}")
     print(f"Num workers      : {num_workers}")
     print(f"Num episodes     : {num_episodes}")
-    print(f"Algorithm        : {algorithm}")
+    if algorithm is not None:
+        print(f"Algorithm        : {algorithm}")
+    if trainer is not None:
+        print(f"Trainer class    : {trainer.__class__.__name__}")
+
     print(f"Num steps        : {config['rollout_fragment_length']}")
     print(f"Checkpoint freq. : {checkpoint_freq}")
     print()

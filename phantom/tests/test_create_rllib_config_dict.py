@@ -5,7 +5,7 @@ import mercury as me
 import numpy as np
 import phantom as ph
 from phantom.policy_wrapper import PolicyWrapper
-from phantom.utils.training import create_rllib_config_dict
+from phantom.utils.training import _create_rllib_config_dict
 
 ENV_NAME = "test-env"
 AGENT_ID = "a1"
@@ -46,7 +46,7 @@ def test_basic_env():
     agent = MockAgent(AGENT_ID)
     agent.policy_config = {"config": "option"}
 
-    config, policies = create_rllib_config_dict(
+    config, policies = _create_rllib_config_dict(
         env_class=MockEnv,
         alg_config={},
         env_config={
@@ -59,6 +59,7 @@ def test_basic_env():
         metrics={},
         seed=SEED,
         num_workers=NUM_WORKERS,
+        using_custom_trainer=False,
     )
 
     assert config["env"] == ENV_NAME
