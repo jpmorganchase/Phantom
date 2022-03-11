@@ -4,8 +4,9 @@ instance. These types are used primarily for logging and tracking performance an
 behaviour.
 """
 from abc import abstractmethod, ABC
-from statistics import mean
 from typing import Generic, List, TypeVar, TYPE_CHECKING
+
+import numpy as np
 
 if TYPE_CHECKING:
     from ..env import PhantomEnv
@@ -62,9 +63,9 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
         if self.reduce_action == "last":
             return values[-1]
         elif self.reduce_action == "mean":
-            return mean(values)
+            return np.mean(values)
         else:
-            return sum(values)
+            return np.sum(values)
 
 
 class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):

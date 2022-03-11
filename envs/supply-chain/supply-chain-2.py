@@ -255,18 +255,12 @@ class SupplyChainEnv(ph.PhantomEnv):
 
 
 metrics = {}
-metrics.update(
-    {f"avg_stock/{id}": SimpleAgentMetric(id, "stock", "mean") for id in SHOP_IDS}
-)
-metrics.update(
-    {f"avg_sales/{id}": SimpleAgentMetric(id, "sales", "mean") for id in SHOP_IDS}
-)
-metrics.update(
-    {
-        f"avg_missed_sales/{id}": SimpleAgentMetric(id, "missed_sales", "mean")
-        for id in SHOP_IDS
-    }
-)
+
+for id in SHOP_IDS:
+    metrics[f"stock/{id}"] = SimpleAgentMetric(id, "stock", "mean")
+    metrics[f"sales/{id}"] = SimpleAgentMetric(id, "sales", "mean")
+    metrics[f"missed_sales/{id}"] = SimpleAgentMetric(id, "missed_sales", "mean")
+
 
 if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
@@ -294,14 +288,19 @@ elif sys.argv[1].lower() == "rollout":
         algorithm="PPO",
         num_workers=1,
         num_repeats=10,
+        env_class=SupplyChainEnv,
         env_config=dict(
             n_customers=NUM_CUSTOMERS,
         ),
         agent_supertypes={
             id: ShopAgentSupertype(
-                missed_sales_weight=UniformRange(start=0.5, end=3.0, step=0.5)
+                missed_sales_weight=UniformRange(
+                    start=0.5, end=3.0, step=0.5, name=f"{id} Missed Sales Weight"
+                )
             )
             for id in SHOP_IDS
         },
-        results_file=None,
+        metrics=metrics,
+        save_messages=True,
+        save_trajectories=True,
     )

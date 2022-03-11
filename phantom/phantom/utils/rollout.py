@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
+    Dict,
     List,
     Mapping,
     Optional,
@@ -24,7 +25,7 @@ from ray.tune.registry import register_env
 from tqdm import tqdm
 
 from ..env import PhantomEnv
-from ..fsm import FiniteStateMachineEnv, StageID
+from ..fsm import FiniteStateMachineEnv
 from ..logging import Logger, Metric
 from ..supertype import BaseSupertype
 from .rollout_class import Rollout, Step
@@ -55,8 +56,9 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     results_file: Optional[Union[str, Path]] = "results.pkl",
     save_trajectories: bool = False,
+    save_messages: bool = False,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
-) -> List[Rollout]:
+) -> Union[List[Rollout], List[Any]]:
     """
     Performs rollouts for a previously trained Phantom experiment.
 
@@ -91,8 +93,11 @@ def rollout(
         metrics: Optional set of metrics to record and log.
         results_file: Name of the results file to save to, if None is given no file
             will be saved (default is "results.pkl").
-        save_trajectories: If True the full set of episode trajectories for the
+        save_trajectories: If True the full set of episode trajectories for each of the
             rollouts will be saved into the results file.
+        save_messages: If True the full list of episode messages for each of the
+            rollouts will be saved into the results file. Only applies if
+            `save_trajectories` is also True.
         result_mapping_fn: If given, results from each rollout will be passed to this
             function, with the return values from the function aggregated and saved.
             This can be useful when wanting to cut down on the size of rollout results
@@ -191,19 +196,29 @@ def rollout(
     # Each Range object can have multiple paths as it can exist at multiple points within
     # the data structure. Eg. shared across multiple agents.
     ranges = collect_instances_of_type_with_paths(
-        BaseRange, (env_supertype, agent_supertypes)
+        BaseRange, ({}, env_supertype, agent_supertypes)
     )
 
     # This 'variations' list is where we build up every combination of the expanded values
     # from the list of Ranges.
-    variations = [deepcopy((env_supertype, agent_supertypes))]
+    variations = [deepcopy(({}, env_supertype, agent_supertypes))]
+
+    unamed_range_count = 0
 
     # For each iteration of this outer loop we expand another Range object.
     for range_obj, paths in reversed(ranges):
+        values = range_obj.values()
+
+        name = range_obj.name
+        if name is None:
+            name = f"range-{unamed_range_count}"
+            unamed_range_count += 1
+
         variations2 = []
-        for value in range_obj.values():
+        for value in values:
             for variation in variations:
                 variation = deepcopy(variation)
+                variation[0][name] = value
                 for path in paths:
                     update_val(variation, path, value)
                 variations2.append(variation)
@@ -212,13 +227,17 @@ def rollout(
 
     # Apply the number of repeats requested to each 'variation'.
     rollout_configs = [
-        RolloutConfig(
+        _RolloutConfig(
             i * num_repeats + j,
+            j,
             env_config,
+            rollout_params,
             env_supertype,
             agent_supertypes,
         )
-        for i, (env_supertype, agent_supertypes) in enumerate(variations)
+        for i, (rollout_params, env_supertype, agent_supertypes) in enumerate(
+            variations
+        )
         for j in range(num_repeats)
     ]
 
@@ -243,6 +262,7 @@ def rollout(
             metrics,
             result_mapping_fn,
             None,
+            save_messages,
         )
 
     else:
@@ -261,6 +281,7 @@ def rollout(
                 metrics,
                 result_mapping_fn,
                 result_queue,
+                save_messages,
             )
             for i in range(0, len(rollout_configs), rollouts_per_worker)
         ]
@@ -293,8 +314,10 @@ def rollout(
         if result_mapping_fn is None:
             results_to_save = [
                 Rollout(
-                    rollout.seed,
+                    rollout.rollout_id,
+                    rollout.repeat_id,
                     rollout.env_config,
+                    rollout.rollout_params,
                     rollout.env_type,
                     rollout.agent_types,
                     rollout.steps if save_trajectories else None,
@@ -318,11 +341,12 @@ def _rollout_task_fn(
     directory: Path,
     checkpoint: int,
     algorithm: str,
-    configs: List["RolloutConfig"],
+    configs: List["_RolloutConfig"],
     env_class: Optional[Type[PhantomEnv]] = None,
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     result_queue: Optional[multiprocessing.Queue] = None,
+    save_messages: bool = False,
 ) -> List[Rollout]:
     """
     Internal function.
@@ -375,8 +399,11 @@ def _rollout_task_fn(
                 if "__ENV" in env.network.actor_ids:
                     env.network.actors["__ENV"].env_type = env.env_type
 
+            if save_messages:
+                env.network.resolver.enable_tracking = True
+
             # Setting seed needs to come after trainer setup
-            np.random.seed(rollout_config.seed)
+            np.random.seed(rollout_config.rollout_id)
 
             metric_logger = Logger(tracked_metrics)
 
@@ -400,6 +427,12 @@ def _rollout_task_fn(
                 new_observation, reward, done, info = env.step(step_actions)
                 metric_logger.log(env)
 
+                if save_messages:
+                    messages = deepcopy(env.network.resolver.tracked_messages)
+                    env.network.resolver.clear_tracked_messages()
+                else:
+                    messages = None
+
                 steps.append(
                     Step(
                         observation,
@@ -407,6 +440,7 @@ def _rollout_task_fn(
                         done,
                         info,
                         step_actions,
+                        messages,
                         env.previous_stage
                         if isinstance(env, FiniteStateMachineEnv)
                         else None,
@@ -418,8 +452,10 @@ def _rollout_task_fn(
             metrics = {k: np.array(v) for k, v in metric_logger.to_dict().items()}
 
             result = Rollout(
-                rollout_config.seed,
+                rollout_config.rollout_id,
+                rollout_config.repeat_id,
                 rollout_config.env_config,
+                rollout_config.rollout_params,
                 rollout_config.env_supertype,
                 rollout_config.agent_supertypes,
                 steps,
@@ -447,12 +483,14 @@ def _rollout_task_fn(
 
 
 @dataclass
-class RolloutConfig:
+class _RolloutConfig:
     """
     Internal class
     """
 
-    seed: int
+    rollout_id: int
+    repeat_id: int
     env_config: Mapping[str, Any]
+    rollout_params: Dict[str, Any]
     env_supertype: Optional[BaseSupertype]
     agent_supertypes: Mapping[me.ID, BaseSupertype]
