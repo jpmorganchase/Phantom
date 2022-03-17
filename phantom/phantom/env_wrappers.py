@@ -18,6 +18,9 @@ class BaseEnvWrapper(MultiAgentEnv):
             raise AttributeError(f"attempted to get missing private attribute '{name}'")
         return getattr(self.env, name)
 
+    def __getitem__(self, actor_id: me.ID) -> me.actors.Actor:
+        return self.env.__getitem__(actor_id)
+
     def step(self, actions: Mapping[me.ID, Any]) -> PhantomEnv.Step:
         return self.env.step(actions)
 
