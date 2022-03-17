@@ -1,3 +1,6 @@
+from tempfile import TemporaryDirectory
+from typing import Optional
+
 import gym.spaces
 import mercury as me
 import numpy as np
@@ -11,22 +14,29 @@ class CustomPolicy(ph.FixedPolicy):
 
 
 class MinimalAgent(ph.agent.Agent):
-    def __init__(self, id: str, action_space: gym.spaces.Space, policy=None) -> None:
+    def __init__(
+        self,
+        id: str,
+        action_space: Optional[gym.spaces.Space] = None,
+        obs_space: Optional[gym.spaces.Space] = None,
+        policy=None,
+    ) -> None:
         super().__init__(agent_id=id, policy_class=policy)
 
-        self.action_space = action_space
+        self.action_space = action_space or gym.spaces.Box(-1.0, 1.0, (1,))
+        self.obs_space = obs_space or gym.spaces.Box(-1.0, 1.0, (1,))
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
         return 0
 
     def get_observation_space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
+        return self.obs_space
 
     def get_action_space(self) -> gym.spaces.Space:
         return self.action_space
 
     def encode_obs(self, ctx: me.Network.Context) -> np.ndarray:
-        return np.array([1])
+        return self.obs_space.sample()
 
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray) -> ph.Packet:
         return ph.Packet()
@@ -56,24 +66,30 @@ def test_no_trained_policies():
         )
 
 
-def test_fixed_policy():
+def test_fixed_policy_action_spaces():
     class MinimalEnv(ph.PhantomEnv):
 
         env_name: str = "unit-testing"
 
         def __init__(self):
             agents = [
-                MinimalAgent("a0", gym.spaces.Box(-1.0, 1.0, (1,))),
+                MinimalAgent("a0", action_space=gym.spaces.Box(-1.0, 1.0, (1,))),
                 MinimalAgent(
-                    "a1", gym.spaces.Box(-1.0, 1.0, (1,)), policy=CustomPolicy
+                    "a1",
+                    action_space=gym.spaces.Box(-1.0, 1.0, (1,)),
+                    policy=CustomPolicy,
                 ),
                 MinimalAgent(
-                    "a2", gym.spaces.Box(-1.0, 1.0, (5,)), policy=CustomPolicy
+                    "a2",
+                    action_space=gym.spaces.Box(-1.0, 1.0, (5,)),
+                    policy=CustomPolicy,
                 ),
-                MinimalAgent("a3", gym.spaces.Discrete(10), policy=CustomPolicy),
+                MinimalAgent(
+                    "a3", action_space=gym.spaces.Discrete(10), policy=CustomPolicy
+                ),
                 MinimalAgent(
                     "a4",
-                    gym.spaces.Tuple(
+                    action_space=gym.spaces.Tuple(
                         (
                             gym.spaces.Discrete(100),
                             gym.spaces.Discrete(10),
@@ -83,19 +99,17 @@ def test_fixed_policy():
                 ),
                 MinimalAgent(
                     "a5",
-                    gym.spaces.Dict(
+                    action_space=gym.spaces.Dict(
                         {
-                            "position": gym.spaces.Box(low=-100, high=100, shape=(3,)),
-                            "velocity": gym.spaces.Box(low=-1, high=1, shape=(3,)),
-                            "front_cam": gym.spaces.Tuple(
+                            "a": gym.spaces.Box(low=-100, high=100, shape=(3,)),
+                            "b": gym.spaces.Box(low=-1, high=1, shape=(3,)),
+                            "c": gym.spaces.Tuple(
                                 (
                                     gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
                                     gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
                                 )
                             ),
-                            "rear_cam": gym.spaces.Box(
-                                low=0, high=1, shape=(10, 10, 3)
-                            ),
+                            "d": gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
                         }
                     ),
                     policy=CustomPolicy,
@@ -106,11 +120,86 @@ def test_fixed_policy():
 
             super().__init__(network=network, n_steps=3)
 
-    ph.train(
-        experiment_name="unit-testing",
-        algorithm="PPO",
-        num_workers=0,
-        num_episodes=1,
-        env_class=MinimalEnv,
-        discard_results=True,
-    )
+    with TemporaryDirectory() as temp_dir:
+        results_dir = ph.train(
+            experiment_name="unit-testing",
+            algorithm="PPO",
+            num_workers=0,
+            num_episodes=1,
+            env_class=MinimalEnv,
+            results_dir=temp_dir,
+        )
+
+        ph.rollout(
+            directory=results_dir,
+            algorithm="PPO",
+            num_workers=0,
+            num_repeats=1,
+        )
+
+
+def test_fixed_policy_observations_spaces():
+    class MinimalEnv(ph.PhantomEnv):
+
+        env_name: str = "unit-testing"
+
+        def __init__(self):
+            agents = [
+                MinimalAgent("a0", obs_space=gym.spaces.Box(-1.0, 1.0, (1,))),
+                MinimalAgent(
+                    "a1", obs_space=gym.spaces.Box(-1.0, 1.0, (1,)), policy=CustomPolicy
+                ),
+                MinimalAgent(
+                    "a2", obs_space=gym.spaces.Box(-1.0, 1.0, (5,)), policy=CustomPolicy
+                ),
+                MinimalAgent(
+                    "a3", obs_space=gym.spaces.Discrete(10), policy=CustomPolicy
+                ),
+                MinimalAgent(
+                    "a4",
+                    obs_space=gym.spaces.Tuple(
+                        (
+                            gym.spaces.Discrete(100),
+                            gym.spaces.Discrete(10),
+                        )
+                    ),
+                    policy=CustomPolicy,
+                ),
+                MinimalAgent(
+                    "a5",
+                    obs_space=gym.spaces.Dict(
+                        {
+                            "a": gym.spaces.Box(low=-100, high=100, shape=(3,)),
+                            "b": gym.spaces.Box(low=-1, high=1, shape=(3,)),
+                            "c": gym.spaces.Tuple(
+                                (
+                                    gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                                    gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                                )
+                            ),
+                            "d": gym.spaces.Box(low=0, high=1, shape=(10, 10, 3)),
+                        }
+                    ),
+                    policy=CustomPolicy,
+                ),
+            ]
+
+            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+
+            super().__init__(network=network, n_steps=3)
+
+    with TemporaryDirectory() as temp_dir:
+        results_dir = ph.train(
+            experiment_name="unit-testing",
+            algorithm="PPO",
+            num_workers=0,
+            num_episodes=1,
+            env_class=MinimalEnv,
+        )
+
+        ph.rollout(
+            directory=results_dir,
+            algorithm="PPO",
+            num_workers=0,
+            num_repeats=1,
+        )
