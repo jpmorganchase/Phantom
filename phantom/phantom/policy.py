@@ -4,7 +4,8 @@ from typing import Dict, List, Optional, Mapping, Tuple, Union
 import gym
 import numpy as np
 from ray import rllib
-from ray.rllib.evaluation import MultiAgentEpisode
+from ray.rllib.evaluation import Episode, MultiAgentEpisode
+from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.typing import TensorStructType, TensorType
 
 
@@ -52,6 +53,27 @@ class FixedPolicy(rllib.Policy, ABC):
     def learn_on_batch(self, samples):
         return {}
 
+    # The following methods are used to interface with RLlib and do not need to be
+    # modified. If the features of the following methods are needed the RLlib Policy
+    # class should be subclassed directly.
+
+    def compute_single_action(
+        self,
+        obs: Optional[TensorStructType] = None,
+        state: Optional[List[TensorType]] = None,
+        *,
+        prev_action: Optional[TensorStructType] = None,
+        prev_reward: Optional[TensorStructType] = None,
+        info: dict = None,
+        input_dict: Optional[SampleBatch] = None,
+        episode: Optional[Episode] = None,
+        explore: Optional[bool] = None,
+        timestep: Optional[int] = None,
+        # Kwars placeholder for future compatibility.
+        **kwargs
+    ) -> Tuple[TensorStructType, List[TensorType], Dict[str, TensorType]]:
+        return self.compute_action(obs), [], {}
+
     def compute_actions(
         self,
         obs_batch: Union[List[TensorStructType], TensorStructType],
@@ -59,7 +81,7 @@ class FixedPolicy(rllib.Policy, ABC):
         prev_action_batch: Union[List[TensorStructType], TensorStructType] = None,
         prev_reward_batch: Union[List[TensorStructType], TensorStructType] = None,
         info_batch: Optional[Dict[str, list]] = None,
-        episodes: Optional[List["MultiAgentEpisode"]] = None,
+        episodes: Optional[List[MultiAgentEpisode]] = None,
         explore: Optional[bool] = None,
         timestep: Optional[int] = None,
         **kwargs
