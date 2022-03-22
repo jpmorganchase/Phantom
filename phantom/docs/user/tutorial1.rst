@@ -495,8 +495,8 @@ There are more fields available in ``ph.train`` function than what is shown here
     )
 
 
-Running The Experiment
-----------------------
+Training the Policy
+-------------------
 
 .. figure:: /img/icons/vial.svg
    :width: 15%
@@ -534,3 +534,50 @@ running in TensorBoard.
 
 The next part of the tutorial will describe how to add your own plots to TensorBoard
 through Phantom.
+
+
+Performing Rollouts
+-------------------
+
+Once we have our trained policy we can perform rollouts using it to test the simulation.
+
+The following gives a brief example on how rollouts are performed and some of the ways
+the rollout data can be accessed and analysed:
+
+.. code-block:: python
+
+    results = ph.rollout(
+        directory="supply-chain-1/LATEST",
+        algorithm="PPO",
+        num_workers=1,
+        num_repeats=10,
+        env_config=dict(n_customers=NUM_CUSTOMERS),
+        metrics=metrics,
+        save_trajectories=True,
+        save_messages=True,
+    )
+
+    import matplotlib.pyplot as plt
+
+    # Plot distribution of shop sales per step for all rollouts
+    shop_sales_made = []
+
+    for rollout in results:
+        shop_sales_made += list(rollout.metrics["SHOP/sales"])
+
+    plt.hist(shop_sales_made, bins=20)
+    plt.xlabel("Shop Sales Made")
+    plt.ylabel("Frequency")
+    plt.show()
+
+    # Plot distribution of shop action (stock request) per step for all rollouts
+    shop_actions = []
+
+    for rollout in results:
+        shop_actions += list(rollout.actions_for_agent("SHOP"))
+
+    plt.hist(shop_actions, bins=100)
+    plt.xlabel("Shop Quantity Requested")
+    plt.ylabel("Frequency")
+    plt.yscale("log")
+    plt.show()
