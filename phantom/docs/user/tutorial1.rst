@@ -343,7 +343,7 @@ the agents current state in the environment and send it to the policy so it can 
         def compute_reward(self, ctx: me.Network.Context) -> float:
             # We reward the agent for making sales.
             # We penalise the agent for holding onto stock and for missing orders.
-            return self.step_sales - self.step_missed_sales - self.stock * 5
+            return self.step_sales - self.step_missed_sales - self.stock
     #
 
 Each episode can be thought of as a completely independent trial for the environment.
@@ -557,27 +557,89 @@ the rollout data can be accessed and analysed:
         save_messages=True,
     )
 
+
+Here we show some basic examples of how the rollout episode data can be used to perform
+analysis on the behaviour of the environment and agents.
+
+First we collect all the metrics and actions we are interested in across all steps in
+all rollouts:
+
+.. code-block:: python
+
     import matplotlib.pyplot as plt
 
-    # Plot distribution of shop sales per step for all rollouts
-    shop_sales_made = []
-
-    for rollout in results:
-        shop_sales_made += list(rollout.metrics["SHOP/sales"])
-
-    plt.hist(shop_sales_made, bins=20)
-    plt.xlabel("Shop Sales Made")
-    plt.ylabel("Frequency")
-    plt.show()
-
-    # Plot distribution of shop action (stock request) per step for all rollouts
     shop_actions = []
+    shop_stock = []
+    shop_sales = []
+    shop_missed_sales = []
 
     for rollout in results:
         shop_actions += list(rollout.actions_for_agent("SHOP"))
+        shop_stock += list(rollout.metrics["SHOP/stock"])
+        shop_sales += list(rollout.metrics["SHOP/sales"])
+        shop_missed_sales += list(rollout.metrics["SHOP/missed_sales"])
 
-    plt.hist(shop_actions, bins=100)
-    plt.xlabel("Shop Quantity Requested")
+
+Here we see that the shop most commonly requests just over 25 units of stock each step.
+
+This is a logical value as the 5 customers each requesting 5 units of product each step
+gives an average order rate of 25.
+
+.. code-block:: python
+
+    # Plot distribution of shop action (stock request) per step for all rollouts
+    plt.hist(shop_actions, bins=10)
+    plt.title("Distribution of Shop Action Values (Stock Requested Per Step)")
+    plt.xlabel("Shop Action (Stock Requested Per Step)")
     plt.ylabel("Frequency")
-    plt.yscale("log")
     plt.show()
+
+.. figure:: /img/tut-plot-0.png
+   :width: 70%
+   :figclass: align-center
+
+
+Here we see that the stock held by shop is most commonly just over 25 units.
+
+Depending on the variation in size of recent orders it may be less or more.
+
+.. code-block:: python
+
+    plt.hist(shop_stock, bins=20)
+    plt.title("Distribution of Shop Held Stock")
+    plt.xlabel("Shop Held Stock (Per Step)")
+    plt.ylabel("Frequency")
+    plt.show()
+
+.. figure:: /img/tut-plot-1.png
+   :width: 70%
+   :figclass: align-center
+
+In the next plot we see that the average shop sales per step is just under the average
+of 25 orders placed per step.
+
+In the second plot we see that as a result of this there is a small amount of steps in
+which the shop fails to fulfil all orders.
+
+.. code-block:: python
+
+    plt.hist(shop_sales, bins=20)
+    plt.axvline(np.mean(shop_sales), c="k")
+    plt.title("Distribution of Shop Sales Made")
+    plt.xlabel("Shop Sales Made (Per Step)")
+    plt.ylabel("Frequency")
+    plt.show()
+
+    plt.hist(shop_missed_sales, bins=20)
+    plt.title("Distribution of Shop Missed Sales")
+    plt.xlabel("Shop Missed Sales (Per Step)")
+    plt.ylabel("Frequency")
+    plt.show()
+
+.. figure:: /img/tut-plot-2.png
+   :width: 70%
+   :figclass: align-center
+
+.. figure:: /img/tut-plot-3.png
+   :width: 70%
+   :figclass: align-center

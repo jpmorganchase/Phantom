@@ -265,11 +265,11 @@ with one:
 
     class ShopRewardFunction(ph.RewardFunction):
         def reward(self, ctx: me.Network.Context) -> float:
-            return 5 * ctx.actor.step_sales - ctx.actor.step_missed_sales - ctx.actor.stock
+            return ctx.actor.step_sales - ctx.actor.step_missed_sales - ctx.actor.stock
 
     class SimpleShopRewardFunction(ph.RewardFunction):
         def reward(self, ctx: me.Network.Context) -> float:
-            return 5 * ctx.actor.step_sales - ctx.actor.stock
+            return ctx.actor.step_sales - ctx.actor.stock
 
 Note that we now access the ``ShopAgent``'s state through the ``ctx.actor`` variable.
 

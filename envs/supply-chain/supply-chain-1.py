@@ -132,7 +132,7 @@ class ShopAgent(ph.Agent):
         # We penalise the agent for holding onto stock and for missing orders.
         # We give a bigger reward for making sales than the penalty for missed sales and
         # unused stock.
-        return self.sales - self.missed_sales - self.stock * 5
+        return self.sales - self.missed_sales - self.stock
 
     def reset(self):
         self.stock = 0
@@ -196,35 +196,10 @@ elif sys.argv[1].lower() == "rollout":
     results = ph.rollout(
         directory="supply-chain-1/LATEST",
         algorithm="PPO",
-        num_workers=1,
-        num_repeats=10,
+        num_workers=0,
+        num_repeats=100,
         env_config=dict(n_customers=NUM_CUSTOMERS),
         metrics=metrics,
         save_trajectories=True,
         save_messages=True,
     )
-
-    import matplotlib.pyplot as plt
-
-    # Plot distribution of shop sales per step for all rollouts
-    shop_sales_made = []
-
-    for rollout in results:
-        shop_sales_made += list(rollout.metrics["SHOP/sales"])
-
-    plt.hist(shop_sales_made, bins=20)
-    plt.xlabel("Shop Sales Made")
-    plt.ylabel("Frequency")
-    plt.show()
-
-    # Plot distribution of shop action (stock request) per step for all rollouts
-    shop_actions = []
-
-    for rollout in results:
-        shop_actions += list(rollout.actions_for_agent("SHOP"))
-
-    plt.hist(shop_actions, bins=100)
-    plt.xlabel("Shop Quantity Requested")
-    plt.ylabel("Frequency")
-    plt.yscale("log")
-    plt.show()
