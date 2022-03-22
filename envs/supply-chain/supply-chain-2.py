@@ -1,6 +1,6 @@
 import sys
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 
 import coloredlogs
 import gym
@@ -20,8 +20,8 @@ NUM_EPISODE_STEPS = 100
 NUM_SHOPS = 2
 NUM_CUSTOMERS = 5
 
-SHOP_MAX_STOCK = 100_000
-SHOP_MAX_STOCK_REQUEST = 1000
+SHOP_MAX_STOCK = 1000
+SHOP_MAX_STOCK_REQUEST = 100
 
 
 @dataclass
@@ -40,14 +40,14 @@ class OrderResponse:
 
 @dataclass
 class StockRequest:
-    """Shop --> Warehouse"""
+    """Shop --> Factory"""
 
     size: int
 
 
 @dataclass
 class StockResponse:
-    """Warehouse --> Shop"""
+    """Factory --> Shop"""
 
     size: int
 
@@ -60,7 +60,7 @@ class CustomerPolicy(ph.FixedPolicy):
 
         self.n_shops = config["n_shops"]
 
-    def compute_action(self, obs) -> np.ndarray:
+    def compute_action(self, obs) -> Tuple[int, int]:
         return (np.random.poisson(5), np.random.randint(self.n_shops))
 
 
@@ -78,27 +78,27 @@ class CustomerAgent(ph.Agent):
         self.shop_ids: List[str] = shop_ids
 
     def handle_message(self, ctx: me.Network.Context, msg: me.Message):
-        # The customer will receive it's order from the shop but we do not need
-        # to take any actions on it.
+        # The customer will receive it's order from the shop but we do not need to take
+        # any actions on it.
         yield from ()
 
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # At the start of each step we generate an order with a random size to
-        # send to a random shop.
+        # At the start of each step we generate an order with a random size to send to a
+        # random shop.
         order_size = action[0]
         shop_id = self.shop_ids[int(action[1])]
 
-        # We perform this action by sending a stock request message to the warehouse.
+        # We perform this action by sending a stock request message to the factory.
         return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
 
     def compute_reward(self, ctx: me.Network.Context) -> float:
         return 0.0
 
     def encode_obs(self, ctx: me.Network.Context):
-        return np.zeros((1,))
+        return 0
 
     def get_observation_space(self):
-        return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,))
+        return gym.spaces.Discrete(1)
 
     def get_action_space(self):
         return gym.spaces.Tuple(
@@ -109,15 +109,15 @@ class CustomerAgent(ph.Agent):
         )
 
 
-class WarehouseActor(me.actors.SimpleSyncActor):
+class FactoryActor(me.actors.SimpleSyncActor):
     def __init__(self, actor_id: str):
         super().__init__(actor_id)
 
     @me.actors.handler(StockRequest)
     def handle_stock_request(self, ctx: me.Network.Context, msg: me.Message):
-        # The warehouse receives stock request messages from shop agents. We
-        # simply reflect the amount of stock requested back to the shop as the
-        # warehouse has unlimited stock.
+        # The factory receives stock request messages from shop agents. We simply
+        # reflect the amount of stock requested back to the shop as the factory can
+        # produce unlimited stock.
         yield (msg.sender_id, [StockResponse(msg.payload.size)])
 
 
@@ -128,10 +128,8 @@ class ShopRewardFunction(ph.RewardFunction):
     def reward(self, ctx: me.Network.Context) -> float:
         # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
-        # We give a bigger reward for making sales than the penalty for missed sales and
-        # unused stock.
         return (
-            5 * ctx.actor.sales
+            ctx.actor.sales
             - self.missed_sales_weight * ctx.actor.missed_sales
             - ctx.actor.stock
         )
@@ -143,11 +141,11 @@ class ShopAgentSupertype(ph.BaseSupertype):
 
 
 class ShopAgent(ph.Agent):
-    def __init__(self, agent_id: str, warehouse_id: str):
+    def __init__(self, agent_id: str, factory_id: str):
         super().__init__(agent_id)
 
-        # We store the ID of the warehouse so we can send stock requests to it.
-        self.warehouse_id: str = warehouse_id
+        # We store the ID of the factory so we can send stock requests to it.
+        self.factory_id: str = factory_id
 
         # We keep track of how much stock the shop has...
         self.stock: int = 0
@@ -165,8 +163,8 @@ class ShopAgent(ph.Agent):
 
     @me.actors.handler(StockResponse)
     def handle_stock_response(self, ctx: me.Network.Context, msg: me.Message):
-        # Messages received from the warehouse contain stock.
-        self.stock += msg.payload.size
+        # Messages received from the factory contain stock.
+        self.stock = min(self.stock + msg.payload.size, SHOP_MAX_STOCK)
 
         # We do not need to respond to these messages.
         yield from ()
@@ -190,17 +188,22 @@ class ShopAgent(ph.Agent):
         yield (msg.sender_id, [OrderResponse(stock_to_sell)])
 
     def encode_obs(self, ctx: me.Network.Context):
-        # We encode the shop's current stock as the observation.
-        return np.array([self.stock])
+        return [
+            # We include the agent's type in it's observation space to allow it to learn
+            # a generalised policy.
+            self.type.to_obs_space_compatible_type(),
+            # We also encode the shop's current stock in the observation.
+            self.stock,
+        ]
 
     def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # The action the shop takes is the amount of new stock to request from
-        # the warehouse.
-        stock_to_request = action[0]
+        # The action the shop takes is the amount of new stock to request from the
+        # factory.
+        stock_to_request = action
 
-        # We perform this action by sending a stock request message to the warehouse.
+        # We perform this action by sending a stock request message to the factory.
         return ph.packet.Packet(
-            messages={self.warehouse_id: [StockRequest(stock_to_request)]}
+            messages={self.factory_id: [StockRequest(stock_to_request)]}
         )
 
     def reset(self):
@@ -213,10 +216,18 @@ class ShopAgent(ph.Agent):
         self.stock = 0
 
     def get_observation_space(self):
-        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
+        return gym.spaces.Tuple(
+            [
+                # We include the agent's type in it's observation space to allow it to
+                # learn a generalised policy.
+                self.type.to_obs_space(),
+                # We also encode the shop's current stock in the observation.
+                gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+            ]
+        )
 
     def get_action_space(self):
-        return gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK_REQUEST, shape=(1,))
+        return gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST)
 
 
 SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
@@ -228,23 +239,23 @@ class SupplyChainEnv(ph.PhantomEnv):
 
     def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
-        warehouse_id = "WAREHOUSE"
+        factory_id = "WAREHOUSE"
 
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
-        shop_agents = [ShopAgent(id, warehouse_id) for id in SHOP_IDS]
+        shop_agents = [ShopAgent(id, factory_id) for id in SHOP_IDS]
 
-        warehouse_actor = WarehouseActor(warehouse_id)
+        factory_actor = FactoryActor(factory_id)
 
         customer_agents = [CustomerAgent(id, shop_ids=SHOP_IDS) for id in customer_ids]
 
-        actors = [warehouse_actor] + shop_agents + customer_agents
+        actors = [factory_actor] + shop_agents + customer_agents
 
         # Define Network and create connections between Actors
         network = me.Network(me.resolvers.UnorderedResolver(), actors)
 
-        # Connect the shops to the warehouse
-        network.add_connections_between(SHOP_IDS, [warehouse_id])
+        # Connect the shops to the factory
+        network.add_connections_between(SHOP_IDS, [factory_id])
 
         # Connect the shop to the customers
         network.add_connections_between(SHOP_IDS, customer_ids)
@@ -266,15 +277,15 @@ if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
     ph.train(
         experiment_name="supply-chain-2",
         algorithm="PPO",
-        num_workers=1,
-        num_episodes=10,
+        num_workers=8,
+        num_episodes=5000,
         env_class=SupplyChainEnv,
         env_config=dict(
             n_customers=NUM_CUSTOMERS,
         ),
         agent_supertypes={
             id: ShopAgentSupertype(
-                missed_sales_weight=UniformSampler(low=0.5, high=3.0)
+                missed_sales_weight=UniformSampler(low=0.0, high=8.0)
             )
             for id in SHOP_IDS
         },
@@ -286,8 +297,8 @@ elif sys.argv[1].lower() == "rollout":
     ph.rollout(
         directory="supply-chain-2/LATEST",
         algorithm="PPO",
-        num_workers=1,
-        num_repeats=10,
+        num_workers=8,
+        num_repeats=20,
         env_class=SupplyChainEnv,
         env_config=dict(
             n_customers=NUM_CUSTOMERS,
@@ -295,7 +306,7 @@ elif sys.argv[1].lower() == "rollout":
         agent_supertypes={
             id: ShopAgentSupertype(
                 missed_sales_weight=UniformRange(
-                    start=0.5, end=3.0, step=0.5, name=f"{id} Missed Sales Weight"
+                    start=0.0, end=8.0, step=1.0, name=f"{id} Missed Sales Weight"
                 )
             )
             for id in SHOP_IDS

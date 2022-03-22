@@ -16,7 +16,7 @@ Experiment Goals
    :figclass: align-center
 
 We want to model a very simple supply chain consisting of three types of agents:
-warehouses, shops and customers. Our supply chain has one product that is available in
+factories, shops and customers. Our supply chain has one product that is available in
 whole units. We do not concern ourselves with prices or profits here.
 
 .. figure:: /img/supply-chain.svg
@@ -24,16 +24,16 @@ whole units. We do not concern ourselves with prices or profits here.
    :figclass: align-center
 
 
-Warehouse Actor
+Factory Actor
 ^^^^^^^^^^^^^^^
 
-The warehouse is an actor in the experiment. This is because, unlike customers or the
-shop, the warehouse does not need to take any actions - it is purely reactive.
+The factory is an actor in the experiment. This is because, unlike customers or the
+shop, the factory does not need to take any actions - it is purely reactive.
 
-The shop can make unlimitec requests for stock to the warehouse. The warehouse holds
+The shop can make unlimitec requests for stock to the factory. The factory holds
 unlimited stock and can dispatch unlimited stock to the shop if requested.
 
-.. figure:: /img/supply-chain-warehouse.svg
+.. figure:: /img/supply-chain-factory.svg
    :width: 60%
    :figclass: align-center
 
@@ -57,15 +57,15 @@ Shop Agent
 ^^^^^^^^^^
 
 The shop is the only learning agent in this experiment. It can hold infinite stock and
-can request infinite stock from the warehouse. It receives orders from customers and
+can request infinite stock from the factory. It receives orders from customers and
 tries to fulfil these orders as best it can.
 
 The shop takes one action each step - the request for more stock that it sends to the
-warehouse. The amount it requests is decided by the policy. The policy is informed by
+factory. The amount it requests is decided by the policy. The policy is informed by
 one observation: the amount of stock currently held by the shop.
 
 The goal is for the shop to learn a policy where it makes the right amount of stock
-requests to the warehouse so it can fulfil all it's orders without holding onto too much
+requests to the factory so it can fulfil all it's orders without holding onto too much
 unecessary stock. This goal is implemented in the shop agent's reward function.
 
 .. figure:: /img/supply-chain-shop.svg
@@ -88,8 +88,9 @@ First we import the libraries we require and define some constants.
 
     NUM_EPISODE_STEPS = 100
 
-    SHOP_MAX_STOCK = 100_000
-    SHOP_MAX_STOCK_REQUEST = 1000
+    NUM_CUSTOMERS = 5
+    SHOP_MAX_STOCK = 1000
+    SHOP_MAX_STOCK_REQUEST = 100
 
 Phantom uses the ``Mercury`` library for handling the network of agents and actors and
 the message passing between them and `Ray + RLlib <https://docs.ray.io/en/master/index.html>`_
@@ -103,27 +104,27 @@ Next, for each of our agent/actor types we define a new Python class that encaps
 all the functionality the given agent/actor needs:
 
 
-Warehouse Actor
+Factory Actor
 ^^^^^^^^^^^^^^^
 
-.. figure:: /img/icons/warehouse.svg
+.. figure:: /img/icons/factory.svg
    :width: 15%
    :figclass: align-center
 
-The warehouse is the simplest to implement as it does not take actions and does not
+The factory is the simplest to implement as it does not take actions and does not
 store state. We inherit from Mercury's ``SimpleSyncActor`` class. The ``SimpleSyncActor``
 is an actor that handles the message it receives in a synchronous order.
 
 .. code-block:: python
 
-    class WarehouseActor(me.actors.SimpleSyncActor):
+    class FactoryActor(me.actors.SimpleSyncActor):
         def __init__(self, actor_id: str):
             super().__init__(actor_id)
 
 
 The ``SimpleSyncActor`` class requires that we implement a ``handle_message`` method in
 our sub-class. Here we take any stock request we receive from the shop (the ``payload``
-of the message) and reflect it back to the shop as the warehouse will always fulfils
+of the message) and reflect it back to the shop as the factory will always fulfils
 stock requests.
 
 The ``handle_message`` method must return messages as an iterator and hence we use the
@@ -133,9 +134,9 @@ The ``handle_message`` method must return messages as an iterator and hence we u
 .. code-block:: python
 
         def handle_message(self, ctx: me.Network.Context, msg: me.Message):
-            # The warehouse receives stock request messages from shop agents. We
+            # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
-            # warehouse has unlimited stock.
+            # factory has unlimited stock.
             yield (msg.sender_id, [msg.payload])
     #
 
@@ -156,8 +157,8 @@ learn - and so we can use a ``FixedPolicy`` derived class to define this simple 
 
     class CustomerPolicy(ph.FixedPolicy):
         # The size of the order made for each customer is determined by this fixed policy.
-        def compute_action(self, obs) -> np.ndarray:
-            return np.random.poisson(5, size=(1,))
+        def compute_action(self, obs) -> int:
+            return np.random.poisson(5)
 
 Next we define the customer agent class. We make sure to set the policy to be our
 custom fixed policy.
@@ -183,9 +184,9 @@ varying order sizes.
         def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
             # At the start of each step we generate an order with a random size to
             # send to the shop.
-            order_size = np.random.poisson(5)
+            order_size = action
 
-            # We perform this action by sending a stock request message to the warehouse.
+            # We perform this action by sending a stock request message to the factory.
             return ph.packet.Packet(messages={self.shop_id: [order_size]})
     #
 
@@ -198,7 +199,7 @@ list of message payloads. This allows multiple messages to be send to a single
 agent/actor. In our case we are sending a single message containing a numeric value
 (the order size) to the shop.
 
-As before with the warehouse actor, we have to define a ``handle_message`` method. The
+As before with the factory actor, we have to define a ``handle_message`` method. The
 customer receives messages from the shop containing the products the customer requested.
 The customer does not need to take any action with these messages and so we return an
 empty iterator using the ``yield from ()`` syntactic sugar.
@@ -220,14 +221,13 @@ we do need to still return a value to satisfy RLlib:
             return 0.0
 
         def encode_obs(self, ctx: me.Network.Context):
-            return np.zeros((1,))
+            return 0
 
         def get_observation_space(self):
-            return gym.spaces.Box(-np.inf, np.inf, (1,))
+            return gym.spaces.Discrete(1)
 
         def get_action_space(self):
-            return gym.spaces.Box(-np.inf, np.inf, (1,))
-
+            return gym.spaces.Discrete(100)
     #
 
 
@@ -242,29 +242,26 @@ As the learning agent in our experiment, the shop agent is the most complex and
 introduces some new features of Phantom. As seen below, we store more local state than
 before.
 
-We keep track of sales and missed sales over two time spans: for each step (to guide the
-policy) and for each episode (for logging purposes).
+We keep track of sales and missed sales for each step.
 
 .. code-block:: python
 
     class ShopAgent(ph.Agent):
-        def __init__(self, agent_id: str, warehouse_id: str):
+        def __init__(self, agent_id: str, factory_id: str):
             super().__init__(agent_id)
 
-            # We store the ID of the warehouse so we can send stock requests to it.
-            self.warehouse_id: str = warehouse_id
+            # We store the ID of the factory so we can send stock requests to it.
+            self.factory_id: str = factory_id
 
             # We keep track of how much stock the shop has...
             self.stock: int = 0
 
             # ...and how many sales have been made...
-            self.step_sales: int = 0
-            self.total_sales: int = 0
+            self.sales: int = 0
 
             # ...and how many sales per step the shop has missed due to not having enough
             # stock.
-            self.step_missed_sales: int = 0
-            self.total_missed_sales: int = 0
+            self.missed_sales: int = 0
 
 
 We want to keep track of how many sales and missed sales we made in the step. When
@@ -274,42 +271,40 @@ called directly before messages are sent across the network in each step.
 
 .. code-block:: python
 
-    def pre_resolution(self, ctx: me.Network.Context):
-        # At the start of each step we reset the number of missed orders to 0.
-        self.step_sales = 0
-        self.step_missed_sales = 0
+        def pre_resolution(self, ctx: me.Network.Context):
+            # At the start of each step we reset the number of missed orders to 0.
+            self.sales = 0
+            self.missed_sales = 0
     #
 
 The ``handle_message`` method is logically split into two parts: handling messages
-received from the warehouse and handling messages received from the customer.
+received from the factory and handling messages received from the customer.
 
 .. code-block:: python
 
-    def handle_message(self, ctx: me.Network.Context, msg: me.Message):
-        if msg.sender_id == self.warehouse_id:
-            # Messages received from the warehouse contain stock.
-            self.stock += msg.payload
+        def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+            if msg.sender_id == self.factory_id:
+                # Messages received from the factory contain stock.
+                self.stock = min(self.stock + msg.payload, SHOP_MAX_STOCK)
 
-            # We do not need to respond to these messages.
-            yield from ()
-        else:
-            # All other messages are from customers and contain orders.
-            amount_requested = msg.payload
-
-            if amount_requested > self.stock:
-                self.step_missed_sales += amount_requested - self.stock
-                self.total_missed_sales += amount_requested - self.stock
-                stock_to_sell = self.stock
-                self.stock = 0
+                # We do not need to respond to these messages.
+                yield from ()
             else:
-                stock_to_sell = amount_requested
-                self.stock -= amount_requested
+                # All other messages are from customers and contain orders.
+                amount_requested = msg.payload
 
-            self.step_sales += stock_to_sell
-            self.total_sales += stock_to_sell
+                if amount_requested > self.stock:
+                    self.missed_sales += amount_requested - self.stock
+                    stock_to_sell = self.stock
+                    self.stock = 0
+                else:
+                    stock_to_sell = amount_requested
+                    self.stock -= amount_requested
 
-            # Send the customer their order.
-            yield (msg.sender_id, [stock_to_sell])
+                self.sales += stock_to_sell
+
+                # Send the customer their order.
+                yield (msg.sender_id, [stock_to_sell])
     #
 
 
@@ -319,25 +314,25 @@ method:
 
 .. code-block:: python
 
-    def encode_obs(self, ctx: me.Network.Context):
-        # We encode the shop's current stock as the observation.
-        return np.array([self.stock])
+        def encode_obs(self, ctx: me.Network.Context):
+            # We encode the shop's current stock as the observation.
+            return self.stock
     #
 
 We define a ``decode_action`` method for taking the action from the policy and
 translating it into messages to send in the environment. Here the action taken is making
-requests to the warehouse for more stock. We place the messages we want to send in a
+requests to the factory for more stock. We place the messages we want to send in a
 ``Packet`` container.
 
 .. code-block:: python
 
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
-        # The action the shop takes is the amount of new stock to request from
-        # the warehouse.
-        stock_to_request = action[0]
+        def decode_action(self, ctx: me.Network.Context, action: int):
+            # The action the shop takes is the amount of new stock to request from
+            # the factory.
+            stock_to_request = action
 
-        # We perform this action by sending a stock request message to the warehouse.
-        return ph.packet.Packet(messages={self.warehouse_id: [stock_to_request]})
+            # We perform this action by sending a stock request message to the factory.
+            return ph.packet.Packet(messages={self.factory_id: [stock_to_request]})
     #
 
 Next we define a ``compute_reward`` method. Every step we calculate a reward based on
@@ -345,12 +340,10 @@ the agents current state in the environment and send it to the policy so it can 
 
 .. code-block:: python
 
-    def compute_reward(self, ctx: me.Network.Context) -> float:
-        # We reward the agent for making sales.
-        # We penalise the agent for holding onto stock and for missing orders.
-        # We give a bigger reward for making sales than the penalty for missed sales and
-        # unused stock.
-        return 5 * self.step_sales - self.step_missed_sales - self.stock
+        def compute_reward(self, ctx: me.Network.Context) -> float:
+            # We reward the agent for making sales.
+            # We penalise the agent for holding onto stock and for missing orders.
+            return self.step_sales - self.step_missed_sales - self.stock * 5
     #
 
 Each episode can be thought of as a completely independent trial for the environment.
@@ -360,10 +353,9 @@ initial state. This is done with the ``reset`` method:
 
 .. code-block:: python
 
-    def reset(self):
-        self.stock = 0
-        self.total_sales = 0
-        self.total_missed_sales = 0
+        def reset(self):
+            self.stock = 0
+    #
 
 Finally we need to let RLlib know the sizes of our observation space and action space so
 it can construct the correct neural network for the agent's policy. This is done by
@@ -371,13 +363,12 @@ defining a ``get_observation_space`` method and a ``get_action_space`` method:
 
 .. code-block:: python
 
-    def get_observation_space(self):
-        return gym.spaces.Box(low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK]))
+        def get_observation_space(self):
+            return gym.spaces.Discrete(SHOP_MAX_STOCK + 1)
 
-    def get_action_space(self):
-        return gym.spaces.Box(
-            low=np.array([0.0]), high=np.array([SHOP_MAX_STOCK_REQUEST])
-        )
+        def get_action_space(self):
+            return gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST)
+    #
 
 Here we state that we can observe between 0 and infinite stock and we can also take an
 action to get between 0 and infinite stock (see constant values defined at the start).
@@ -416,44 +407,58 @@ and agent IDs up-front and not use hard-coded values:
 
             # Define actor and agent IDs
             shop_id = "SHOP"
-            warehouse_id = "WAREHOUSE"
+            factory_id = "WAREHOUSE"
             customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
-        #
+    #
 
 Next we define our agents and actors by creating instances of the classes we previously
 wrote:
 
 .. code-block:: python
 
-            shop_agent = ShopAgent(shop_id, warehouse_id=warehouse_id)
-            warehouse_actor = WarehouseActor(warehouse_id)
+            shop_agent = ShopAgent(shop_id, factory_id=factory_id)
+            factory_actor = FactoryActor(factory_id)
 
             customer_agents = [CustomerAgent(cid, shop_id=shop_id) for cid in customer_ids]
-        #
+    #
 
 Then we accumulate all our agents and actors in one list so we can add them to the
 network. We then use the IDs to create the connections between our agents:
 
 .. code-block:: python
 
-            actors = [shop_agent, warehouse_actor] + customer_agents
+            actors = [shop_agent, factory_actor] + customer_agents
 
             # Define Network and create connections between Actors
             network = me.Network(me.resolvers.UnorderedResolver(), actors)
 
-            # Connect the shop to the warehouse
-            network.add_connection(shop_id, warehouse_id)
+            # Connect the shop to the factory
+            network.add_connection(shop_id, factory_id)
 
             # Connect the shop to the customers
             network.add_connections_between([shop_id], customer_ids)
-        #
+    #
 
 Finally we make sure to initialise the parent ``PhantomEnv`` class:
 
 .. code-block:: python
 
             super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
-        #
+    #
+
+
+Metrics
+^^^^^^^
+
+Before we start training we add some basic metrics to help monitor the training progress.
+These will be described in more detail in the second part of the tutorial.
+
+.. code-block:: python
+
+    metrics = {}
+    metrics["SHOP/stock"] = ph.logging.SimpleAgentMetric("SHOP", "stock", "mean")
+    metrics["SHOP/sales"] = ph.logging.SimpleAgentMetric("SHOP", "sales", "mean")
+    metrics["SHOP/missed_sales"] = ph.logging.SimpleAgentMetric("SHOP", "missed_sales", "mean")
 
 
 Training the Agents
@@ -482,10 +487,11 @@ There are more fields available in ``ph.train`` function than what is shown here
     ph.train(
         experiment_name="supply-chain",
         algorithm="PPO",
-        num_workers=2,
-        num_episodes=10000,
+        num_workers=10,
+        num_episodes=5000,
         env_class=SupplyChainEnv,
-        env_config=dict(n_customers=5),
+        env_config=dict(n_customers=NUM_CUSTOMERS),
+        metrics=metrics,
     )
 
 
