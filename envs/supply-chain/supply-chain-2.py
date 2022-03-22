@@ -239,7 +239,7 @@ class SupplyChainEnv(ph.PhantomEnv):
 
     def __init__(self, n_customers: int = 5):
         # Define actor and agent IDs
-        factory_id = "WAREHOUSE"
+        factory_id = "FACTORY"
 
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
