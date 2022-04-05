@@ -22,6 +22,12 @@ class BaseRange(ABC, Generic[T]):
     def values(self) -> Iterable[T]:
         raise NotImplementedError
 
+    def __repr__(self) -> str:
+        if self.name is not None:
+            return f"<{self.__class__.__name__} name='{self.name}'>"
+        else:
+            return f"<{self.__class__.__name__}>"
+
 
 class UniformRange(BaseRange[float]):
     """
