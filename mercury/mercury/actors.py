@@ -10,6 +10,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    Union,
     TYPE_CHECKING,
 )
 
@@ -114,36 +115,58 @@ class SimpleSyncActor(SyncActor):
     def __init__(self, actor_id: ID) -> None:
         SyncActor.__init__(self, actor_id)
 
-        self.__handlers: DefaultDict[Type[Payload], List[Handler]] = defaultdict(list)
+        self.__handlers: DefaultDict[
+            Tuple[Tuple[Type[Payload]], Tuple[Type[Actor]]], List[Handler]
+        ] = defaultdict(list)
 
         # Register handlers defined via decorator utility:
         fn_names = [attr for attr in dir(self) if callable(getattr(self, attr))]
         for fn_name in fn_names:
             fn = getattr(self, fn_name)
 
-            if hasattr(fn, "payload_type"):
-                self.register_handler(fn.payload_type, fn)
+            if hasattr(fn, "payload_type") and hasattr(fn, "sending_actor_type"):
+                self.register_handler(fn, fn.payload_type, fn.sending_actor_type)
 
     def register_handler(
-        self, payload_type: Type[PayloadType], handler: Handler
+        self,
+        handler: Handler,
+        payload_type: Optional[Type[PayloadType]] = None,
+        sending_actor_type: Optional[Type[Actor]] = None,
     ) -> None:
-        self.__handlers[payload_type].append(handler)
+        self.__handlers[(payload_type, sending_actor_type)].append(handler)
 
     def handle_message(self, ctx: "Network.Context", message: Message) -> Responses:
-        ptype = type(message.payload)
+        has_handled = False
 
-        if ptype not in self.__handlers:
+        for (payload_types, actor_types), handlers in self.__handlers.items():
+            if payload_types == (None,) or type(message.payload) in payload_types:
+                if (
+                    actor_types == (None,)
+                    or type(ctx._subnet[message.sender_id]) in actor_types
+                ):
+                    for handler in handlers:
+                        yield from handler(ctx, message)
+                        has_handled = True
+
+        if not has_handled:
             raise KeyError(
-                f"Unknown payload type {ptype} in message sent from '{message.sender_id}' to '{message.receiver_id}'. Agent '{message.receiver_id}' needs a message handler function capable of receiving this mesage type."
+                f"Payload type {type(message.payload)} in message sent from '{message.sender_id}' with type '{type(ctx._subnet[message.sender_id])}' to '{message.receiver_id}'. Agent '{message.receiver_id}' needs a message handler function capable of receiving this mesage type."
             )
 
-        for bound_handler in self.__handlers[ptype]:
-            yield from bound_handler(ctx, message)
 
+def handler(
+    payload_types: Union[Type[PayloadType], Tuple[Type[PayloadType]], None] = None,
+    sending_actor_types: Union[Type[Actor], Tuple[Type[Actor]], None] = None,
+) -> Callable[[Handler], Handler]:
+    if not isinstance(payload_types, Tuple):
+        payload_types = (payload_types,)
 
-def handler(payload_type: Type[PayloadType]) -> Callable[[Handler], Handler]:
+    if not isinstance(sending_actor_types, Tuple):
+        sending_actor_types = (sending_actor_types,)
+
     def decorator(fn: Handler) -> Handler:
-        setattr(fn, "payload_type", payload_type)
+        setattr(fn, "payload_type", payload_types)
+        setattr(fn, "sending_actor_type", sending_actor_types)
 
         return fn
 
