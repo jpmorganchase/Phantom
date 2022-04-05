@@ -124,16 +124,8 @@ class SimpleSyncActor(SyncActor):
         for fn_name in fn_names:
             fn = getattr(self, fn_name)
 
-            if hasattr(fn, "payload_type") and hasattr(fn, "sending_actor_type"):
-                self.register_handler(fn, fn.payload_type, fn.sending_actor_type)
-
-    def register_handler(
-        self,
-        handler: Handler,
-        payload_type: Optional[Type[PayloadType]] = None,
-        sending_actor_type: Optional[Type[Actor]] = None,
-    ) -> None:
-        self.__handlers[(payload_type, sending_actor_type)].append(handler)
+            if hasattr(fn, "payload_types") and hasattr(fn, "sending_actor_types"):
+                self.__handlers[(fn.payload_types, fn.sending_actor_types)].append(fn)
 
     def handle_message(self, ctx: "Network.Context", message: Message) -> Responses:
         has_handled = False
@@ -165,8 +157,8 @@ def handler(
         sending_actor_types = (sending_actor_types,)
 
     def decorator(fn: Handler) -> Handler:
-        setattr(fn, "payload_type", payload_types)
-        setattr(fn, "sending_actor_type", sending_actor_types)
+        setattr(fn, "payload_types", payload_types)
+        setattr(fn, "sending_actor_types", sending_actor_types)
 
         return fn
 
