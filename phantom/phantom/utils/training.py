@@ -3,7 +3,6 @@ import logging
 import os
 import shutil
 import tempfile
-import types
 from pathlib import Path
 from typing import (
     Any,
@@ -26,11 +25,13 @@ import ray
 from ray import tune
 from ray import rllib
 from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
+from ray.rllib.policy.policy import PolicySpec
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
-from ..env import EnvironmentActor, PhantomEnv
+from ..env import PhantomEnv
+from ..env_wrappers import SharedSupertypeEnvWrapper
 from ..fsm import FSMAgent, StageID, StagePolicyHandler
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
@@ -221,30 +222,9 @@ def train(
     def reg_env(config):
         env = env_class(**config)
 
-        # Give the supertypes to the correct objects in the environment
-        env.set_supertypes(env_supertype, agent_supertypes)
+        if env_supertype is not None or len(agent_supertypes) > 0:
+            env = SharedSupertypeEnvWrapper(env, env_supertype, agent_supertypes)
 
-        # Here we override the reset method on the environment class so we can generate
-        # values from the sampler before the main environment reset logic is run.
-        # Ideally in the future we will insert a layer between the env and RLlib to do
-        # this.
-        original_reset = env.reset
-
-        def overridden_reset(self) -> Dict[me.ID, Any]:
-            # Sample from samplers
-            for sampler in self._samplers:
-                sampler.value = sampler.sample()
-
-            # Update and apply env type
-            if self._env_supertype is not None:
-                self.env_type = self._env_supertype.sample()
-
-                if "__ENV" in self.network.actor_ids:
-                    self.network.actors["__ENV"].env_type = self.env_type
-
-            return original_reset()
-
-        env.reset = types.MethodType(overridden_reset, env)
         env.reset()
 
         return env
@@ -311,24 +291,10 @@ def _create_rllib_config_dict(
     # the default parameters.
     env = env_class(**env_config)
 
-    env.set_supertypes(env_supertype, agent_supertypes)
-
-    # Update and apply env type
-    if env_supertype is not None:
-        env.env_type = env_supertype.sample()
-
-        if "__ENV" in env.network.actor_ids:
-            env_actor = env.network.actors["__ENV"]
-            assert isinstance(env_actor, EnvironmentActor)
-            env_actor.env_type = env.env_type
+    if env_supertype is not None or len(agent_supertypes) > 0:
+        env = SharedSupertypeEnvWrapper(env, env_supertype, agent_supertypes)
 
     env.reset()
-
-    def is_trained(policy_class=Optional[Type[rllib.Policy]]) -> bool:
-        # To find out if policy_class is an subclass of FixedPolicy normally
-        # would use isinstance() but since policy_class is a class and not
-        # an instance this doesn't work.
-        return policy_class is None or FixedPolicy not in policy_class.__mro__
 
     ma_config: Dict[str, Any] = {}
 
@@ -389,7 +355,7 @@ def _create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=used_by,
-            trained=is_trained(policy_classes[0]),
+            fixed=issubclass(policy_classes[0] or object, FixedPolicy),
             obs_space=obs_spaces[0],
             action_space=action_spaces[0],
             policy_class=policy_classes[0],
@@ -427,7 +393,7 @@ def _create_rllib_config_dict(
             # This is a standard agent, not part of a shared policy and with no stages
             policy_wrapper = PolicyWrapper(
                 used_by=[agent_id],
-                trained=is_trained(agent.policy_class),
+                fixed=issubclass(agent.policy_class or object, FixedPolicy),
                 obs_space=agent.get_observation_space(),
                 action_space=agent.get_action_space(),
                 policy_class=agent.policy_class,
@@ -448,7 +414,7 @@ def _create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=agent_and_stage_ids,
-            trained=is_trained(agent.policy_class),
+            fixed=issubclass(agent.policy_class or object, FixedPolicy),
             obs_space=stage_policy_handler.get_observation_space(agent),
             action_space=stage_policy_handler.get_action_space(agent),
             policy_class=stage_policy_handler.policy_class,
@@ -464,10 +430,16 @@ def _create_rllib_config_dict(
             policy_mapping[f"{agent_id}__{stage_id}"] = policy_id
 
     ma_config["policies"] = {
-        policy.get_name(): policy.get_spec() for policy in policies
+        policy.get_name(): PolicySpec(
+            policy.policy_class,
+            policy.obs_space,
+            policy.action_space,
+            policy.policy_config,
+        )
+        for policy in policies
     }
     ma_config["policies_to_train"] = [
-        policy.get_name() for policy in policies if policy.trained
+        policy.get_name() for policy in policies if not policy.fixed
     ]
     ma_config["policy_mapping_fn"] = lambda id, **kwargs: str(policy_mapping[id])
 

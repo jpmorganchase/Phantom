@@ -73,7 +73,7 @@ def test_basic_env():
     assert policies == [
         PolicyWrapper(
             used_by=[AGENT_ID],
-            trained=True,
+            fixed=False,
             obs_space=agent.get_observation_space(),
             action_space=agent.get_action_space(),
             policy_class=None,
