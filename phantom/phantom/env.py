@@ -95,6 +95,7 @@ class PhantomEnv(MultiAgentEnv):
             for aid, actor in network.actors.items()
             if isinstance(actor, Agent)
         }
+        self._agent_ids = set(self.agents.keys())
         self._dones = set()
         self._samplers = []
         self._env_supertype = None
@@ -107,6 +108,8 @@ class PhantomEnv(MultiAgentEnv):
             self.network.add_connections_between(
                 [self.environment_actor.id], list(network.actor_ids)
             )
+
+        super().__init__()
 
     def resolve_network(self) -> None:
         """

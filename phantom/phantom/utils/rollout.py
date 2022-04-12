@@ -416,7 +416,7 @@ def _rollout_task_fn(
                 step_actions = {}
 
                 for agent_id, agent_obs in observation.items():
-                    policy_id = config["multiagent"]["policy_mapping"][agent_id]
+                    policy_id = config["multiagent"]["policy_mapping_fn"](agent_id)
 
                     agent_action = trainer.compute_action(
                         agent_obs, policy_id=policy_id, explore=False
