@@ -35,6 +35,7 @@ from . import (
     collect_instances_of_type_with_paths,
     contains_type,
     find_most_recent_results_dir,
+    get_checkpoints,
     show_pythonhashseed_warning,
     update_val,
 )
@@ -179,12 +180,7 @@ def rollout(
 
     # If an explicit checkpoint is not given, find all checkpoints and use the newest.
     if checkpoint is None:
-        checkpoint_dirs = sorted(Path(directory).glob("checkpoint_*"))
-
-        if len(checkpoint_dirs) == 0:
-            raise FileNotFoundError(f"No checkpoints found in directory '{directory}'")
-
-        checkpoint = int(str(checkpoint_dirs[-1]).split("_")[-1])
+        checkpoint = get_checkpoints(directory)[-1]
 
         logger.info("Using most recent checkpoint: %s", checkpoint)
     else:
