@@ -85,7 +85,7 @@ def get_checkpoints(results_dir: Union[Path, str]) -> List[int]:
     Arguments:
         results_dir: The directory to search in.
     """
-    
+
     checkpoint_dirs = list(Path(results_dir).glob("checkpoint_*"))
 
     if len(checkpoint_dirs) == 0:
