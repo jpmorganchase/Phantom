@@ -77,6 +77,28 @@ def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
     return experiment_directories[-1]
 
 
+def get_checkpoints(results_dir: Union[Path, str]) -> List[int]:
+    """
+    Scans a directory containing an experiment's results and returns a list of all the
+    checkpoints in that directory.
+
+    Arguments:
+        results_dir: The directory to search in.
+    """
+
+    checkpoint_dirs = list(Path(results_dir).glob("checkpoint_*"))
+
+    if len(checkpoint_dirs) == 0:
+        raise FileNotFoundError(f"No checkpoints found in directory '{results_dir}'")
+
+    return list(
+        sorted(
+            int(str(checkpoint_dir).split("_")[-1])
+            for checkpoint_dir in checkpoint_dirs
+        )
+    )
+
+
 def show_pythonhashseed_warning() -> None:
     string = "================================================================\n"
     string += "WARNING: The $PYTHONHASHSEED environment variable is not set!\n"
