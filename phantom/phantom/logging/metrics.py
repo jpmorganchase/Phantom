@@ -83,8 +83,8 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_id: The ID of the agent to record the metric for.
         agent_property: The property existing on the agent to record, must be
             accessible with `getattr`.
-        reduce_action: The action to perform to all the recorded values at the end
-            of the episode, must be one of 'last', 'mean' or 'sum'.
+        reduce_action: The operation to perform on all the recorded values at the end
+            of the episode ('last', 'mean' or 'sum').
     """
 
     def __init__(
@@ -112,8 +112,8 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
     Arguments:
         env_property: The property existing on the environment to record, must be
             accessible with `getattr`.
-        reduce_action: The action to perform to all the recorded values at the end
-            of the episode, must be one of 'last', 'mean' or 'sum'.
+        reduce_action: The operation to perform on all the recorded values at the end
+            of the episode ('last', 'mean' or 'sum').
     """
 
     def __init__(self, env_property: str, reduce_action: str = "last") -> None:
@@ -123,3 +123,65 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return getattr(env, self.env_property)
+
+
+class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
+    """
+    Simple helper class for extracting single ints or floats from the states of a group
+    of agents and performing a reduction operation on the values.
+
+    Three options are available for reducing the values from the group of agents:
+
+        - 'min' - takes the mean of all the per-step values
+        - 'max' - takes the mean of all the per-step values
+        - 'mean' - takes the mean of all the per-step values
+        - 'sum'  - takes the sum of all the per-step values
+
+    Three options are available for summarizing the values at the end of each episode:
+
+        - 'last' - takes the value from the last step
+        - 'mean' - takes the mean of all the per-step values
+        - 'sum'  - takes the sum of all the per-step values
+
+    Arguments:
+        agent_ids: The ID's of the agents to record the metric for.
+        agent_property: The property existing on the agent to record, must be
+            accessible with `getattr`.
+        group_reduce_action: The operation to perform on the values gathered from the
+            group of agents ('min', 'max', 'mean' or 'sum').
+        reduce_action: The operation to perform on all the recorded values at the end
+            of the episode ('last', 'mean' or 'sum').
+    """
+
+    def __init__(
+        self,
+        agent_ids: List[str],
+        agent_property: str,
+        group_reduce_action: str = "mean",
+        reduce_action: str = "last",
+    ) -> None:
+        if group_reduce_action not in ["min", "max", "mean", "sum"]:
+            raise ValueError(
+                "group_reduce_action field of SimpleMetric class must be one of: 'min', 'max', 'mean' or 'sum'."
+            )
+
+        self.agent_ids = agent_ids
+        self.agent_property = agent_property
+        self.group_reduce_action = group_reduce_action
+
+        super().__init__(reduce_action)
+
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
+        values = [
+            getattr(env.agents[agent_id], self.agent_property)
+            for agent_id in self.agent_ids
+        ]
+
+        if self.group_reduce_action == "min":
+            return np.min(values)
+        elif self.group_reduce_action == "max":
+            return np.max(values)
+        elif self.group_reduce_action == "mean":
+            return np.mean(values)
+        else:
+            return np.sum(values)
