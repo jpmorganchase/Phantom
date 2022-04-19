@@ -190,6 +190,7 @@ def train(
 
     config, policies = _create_rllib_config_dict(
         env_class,
+        algorithm,
         alg_config,
         env_config,
         env_supertype,
@@ -267,6 +268,7 @@ def train(
 
 def _create_rllib_config_dict(
     env_class: Type[PhantomEnv],
+    algorithm: Optional[str],
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
     env_supertype: Optional[BaseSupertype],
@@ -456,13 +458,10 @@ def _create_rllib_config_dict(
     config["rollout_fragment_length"] = env.clock.n_steps
 
     config["train_batch_size"] = int(
-        (config["rollout_fragment_length"] * num_workers)
-        if num_workers > 0
-        else config["rollout_fragment_length"]
+        config["rollout_fragment_length"] * min(1, num_workers)
     )
 
-    # TODO: in a future release remove this as it is algorithm specific.
-    if not using_custom_trainer:
+    if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
     if callbacks is not None:
