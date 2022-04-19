@@ -4,7 +4,7 @@ instance. These types are used primarily for logging and tracking performance an
 behaviour.
 """
 from abc import abstractmethod, ABC
-from typing import Generic, List, TypeVar, TYPE_CHECKING
+from typing import Generic, List, Optional, TypeVar, TYPE_CHECKING
 
 import numpy as np
 
@@ -18,7 +18,13 @@ MetricValue = TypeVar("MetricValue")
 class Metric(Generic[MetricValue], ABC):
     """
     Class for extracting metrics from a :class:`phantom.PhantomEnv` instance.
+
+    Arguments:
+        description: Optional description string for use in data exploration tools.
     """
+
+    def __init__(self, description: Optional[str] = None) -> None:
+        self.description = description
 
     @abstractmethod
     def extract(self, env: "PhantomEnv") -> MetricValue:
@@ -46,7 +52,9 @@ SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
 
 
 class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
-    def __init__(self, reduce_action: str = "last") -> None:
+    def __init__(
+        self, reduce_action: str = "last", description: Optional[str] = None
+    ) -> None:
         if reduce_action not in ["last", "mean", "sum"]:
             raise ValueError(
                 "reduce_action field of SimpleMetric class must be one of: 'last', 'mean' or 'sum'."
@@ -54,7 +62,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
 
         self.reduce_action = reduce_action
 
-        super().__init__()
+        super().__init__(description)
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return getattr(env, self.env_property)
@@ -85,15 +93,20 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             accessible with `getattr`.
         reduce_action: The operation to perform on all the recorded values at the end
             of the episode ('last', 'mean' or 'sum').
+        description: Optional description string for use in data exploration tools.
     """
 
     def __init__(
-        self, agent_id: str, agent_property: str, reduce_action: str = "last"
+        self,
+        agent_id: str,
+        agent_property: str,
+        reduce_action: str = "last",
+        description: Optional[str] = None,
     ) -> None:
         self.agent_id = agent_id
         self.agent_property = agent_property
 
-        super().__init__(reduce_action)
+        super().__init__(reduce_action, description)
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return getattr(env.agents[self.agent_id], self.agent_property)
@@ -114,12 +127,18 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
             accessible with `getattr`.
         reduce_action: The operation to perform on all the recorded values at the end
             of the episode ('last', 'mean' or 'sum').
+        description: Optional description string for use in data exploration tools.
     """
 
-    def __init__(self, env_property: str, reduce_action: str = "last") -> None:
+    def __init__(
+        self,
+        env_property: str,
+        reduce_action: str = "last",
+        description: Optional[str] = None,
+    ) -> None:
         self.env_property = env_property
 
-        super().__init__(reduce_action)
+        super().__init__(reduce_action, description)
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return getattr(env, self.env_property)
@@ -151,6 +170,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             group of agents ('min', 'max', 'mean' or 'sum').
         reduce_action: The operation to perform on all the recorded values at the end
             of the episode ('last', 'mean' or 'sum').
+        description: Optional description string for use in data exploration tools.
     """
 
     def __init__(
@@ -159,6 +179,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_property: str,
         group_reduce_action: str = "mean",
         reduce_action: str = "last",
+        description: Optional[str] = None,
     ) -> None:
         if group_reduce_action not in ["min", "max", "mean", "sum"]:
             raise ValueError(
@@ -169,7 +190,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self.agent_property = agent_property
         self.group_reduce_action = group_reduce_action
 
-        super().__init__(reduce_action)
+        super().__init__(reduce_action, description)
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         values = [
