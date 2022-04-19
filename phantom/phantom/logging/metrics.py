@@ -4,7 +4,6 @@ instance. These types are used primarily for logging and tracking performance an
 behaviour.
 """
 from abc import abstractmethod, ABC
-from this import d
 from typing import Generic, List, Optional, TypeVar, TYPE_CHECKING
 
 import numpy as np
