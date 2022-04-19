@@ -48,6 +48,7 @@ def test_basic_env():
 
     config, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -59,7 +60,6 @@ def test_basic_env():
         metrics={},
         seed=SEED,
         num_workers=NUM_WORKERS,
-        using_custom_trainer=False,
     )
 
     assert config["env"] == ENV_NAME

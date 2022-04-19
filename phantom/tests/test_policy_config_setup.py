@@ -77,6 +77,7 @@ def test_single_agent():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -88,7 +89,6 @@ def test_single_agent():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -112,6 +112,7 @@ def test_single_agent_fixed_policy():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent1, agent2],
@@ -123,7 +124,6 @@ def test_single_agent_fixed_policy():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -149,6 +149,7 @@ def test_shared_policy():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent1, agent2],
@@ -160,7 +161,6 @@ def test_shared_policy():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -179,6 +179,7 @@ def test_single_agent_single_stage():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -190,7 +191,6 @@ def test_single_agent_single_stage():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -214,6 +214,7 @@ def test_single_agent_multiple_stages():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -225,7 +226,6 @@ def test_single_agent_multiple_stages():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -255,6 +255,7 @@ def test_single_agent_shared_multiple_stages():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -266,7 +267,6 @@ def test_single_agent_shared_multiple_stages():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -298,6 +298,7 @@ def test_single_agent_shared_multiple_shared_stages():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -309,7 +310,6 @@ def test_single_agent_shared_multiple_shared_stages():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [
@@ -331,6 +331,7 @@ def test_multiple_agents_shared_stage():
 
     _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent1, agent2],
@@ -342,7 +343,6 @@ def test_multiple_agents_shared_stage():
         metrics={},
         seed=0,
         num_workers=0,
-        using_custom_trainer=False,
     )
 
     assert policies == [

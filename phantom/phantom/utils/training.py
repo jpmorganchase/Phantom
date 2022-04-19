@@ -200,7 +200,6 @@ def train(
         metrics,
         seed,
         num_workers,
-        trainer is not None,
     )
 
     if print_info:
@@ -278,7 +277,6 @@ def _create_rllib_config_dict(
     metrics: Mapping[str, Metric],
     seed: int,
     num_workers: int,
-    using_custom_trainer: bool,
 ) -> Tuple[Dict[str, Any], List[PolicyWrapper]]:
     """
     Converts a TrainingParams object into a config dictionary compatible with
@@ -458,7 +456,7 @@ def _create_rllib_config_dict(
     config["rollout_fragment_length"] = env.clock.n_steps
 
     config["train_batch_size"] = int(
-        config["rollout_fragment_length"] * min(1, num_workers)
+        config["rollout_fragment_length"] * max(1, num_workers)
     )
 
     if algorithm == "PPO":
