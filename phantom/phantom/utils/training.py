@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 import logging
 import os
 import shutil
@@ -235,6 +236,24 @@ def train(
 
     results_dir = tempfile.mkdtemp() if discard_results else results_dir
 
+    phantom_config = PhantomExperimentConfig(
+        experiment_name,
+        env_class,
+        num_episodes,
+        seed,
+        algorithm,
+        trainer,
+        num_workers,
+        checkpoint_freq,
+        alg_config,
+        env_config,
+        env_supertype,
+        agent_supertypes,
+        policy_grouping,
+        metrics,
+        callbacks,
+    )
+
     ray.init(local_mode=local_mode)
 
     try:
@@ -248,7 +267,7 @@ def train(
             config=config,
             callbacks=[
                 TBXExtendedLoggerCallback(),
-                TrialStartTasksCallback(env_class, local_dir, local_files_to_copy),
+                TrialStartTasksCallback(phantom_config, local_dir, local_files_to_copy),
             ],
         )
 
@@ -570,6 +589,25 @@ def _print_experiment_info(
     print()
 
 
+@dataclass
+class PhantomExperimentConfig:
+    experiment_name: str
+    env_class: Type[PhantomEnv]
+    num_episodes: int
+    seed: int = 0
+    algorithm: Optional[str] = None
+    trainer: Optional[rllib.agents.Trainer] = None
+    num_workers: Optional[int] = None
+    checkpoint_freq: Optional[int] = None
+    alg_config: Optional[Mapping[str, Any]] = None
+    env_config: Optional[Mapping[str, Any]] = None
+    env_supertype: Optional[BaseSupertype] = None
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None
+    policy_grouping: Optional[Mapping[str, List[str]]] = None
+    metrics: Optional[Mapping[str, Metric]] = None
+    callbacks: Optional[Iterable[DefaultCallbacks]] = None
+
+
 class TrialStartTasksCallback(LoggerCallback):
     """
     Internal Callback for performing tasks at the start of each trial such as copying
@@ -578,20 +616,22 @@ class TrialStartTasksCallback(LoggerCallback):
 
     def __init__(
         self,
-        env: Type[PhantomEnv],
+        config: PhantomExperimentConfig,
         local_dir: Optional[Path],
         files: List[Union[str, Path]],
     ) -> None:
-        self.env = env
+        self.config = config
         self.local_dir = local_dir
         self.files = files
 
     def log_trial_start(self, trial: tune.trial.Trial) -> None:
-        # Save environment for use by rollout script
-        cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
+        # Save experiment config
+        cloudpickle.dump(
+            self.config, open(Path(trial.logdir, "phantom-config.pkl"), "wb")
+        )
 
         # Copy any files provided in the copy_files_to_results_dir field
-        if self.local_dir is not None:
+        if self.local_dir is not None and len(self.files) > 0:
             source_code_dir = Path(trial.logdir).joinpath("copied_files")
             os.mkdir(source_code_dir)
 

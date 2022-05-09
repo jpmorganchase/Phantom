@@ -364,8 +364,8 @@ def _rollout_task_fn(
 
         if env_class is None:
             # Load env class from results directory.
-            with open(Path(directory, "env.pkl"), "rb") as env_file:
-                env_class = cloudpickle.load(env_file)
+            with open(Path(directory, "phantom-config.pkl"), "rb") as config_file:
+                env_class = cloudpickle.load(config_file).env_class
 
         # Set to zero as rollout workers != training workers - if > 0 will spin up
         # unnecessary additional workers.
