@@ -1,0 +1,12 @@
+cloudpickle==2.1.0
+coloredlogs==15.0.1
+gputil==1.4.0
+gym==0.21.0
+numpy==1.21.0
+ray[rllib]==1.12.1
+tabulate==0.8.9
+tensorboardX==2.5
+tensorflow==2.9.1
+termcolor==1.1.0
+tqdm==4.64.0
+torch==1.11.0

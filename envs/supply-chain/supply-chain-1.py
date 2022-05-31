@@ -1,10 +1,11 @@
-import sys
+from dataclasses import dataclass
 
 import coloredlogs
 import gym
-import mercury as me
 import numpy as np
 import phantom as ph
+
+# from ray import rllib
 
 
 coloredlogs.install(
@@ -15,40 +16,71 @@ coloredlogs.install(
 NUM_EPISODE_STEPS = 100
 
 NUM_CUSTOMERS = 5
-SHOP_MAX_STOCK = 1000
-SHOP_MAX_STOCK_REQUEST = 100
+SHOP_MAX_INVENTORY = 100
+SHOP_MAX_RESTOCK_REQUEST = 50
 
 
+@dataclass
+class OrderMsg:
+    """Customer --> Shop"""
+
+    order_size: int
+
+
+@dataclass
+class DeliveryMsg:
+    """Shop --> Customer"""
+
+    delivered_quantity: int
+
+
+@dataclass
+class RestockOrderMsg:
+    """Shop --> Factory"""
+
+    order_size: int
+
+
+@dataclass
+class RestockDeliveryMsg:
+    """Factory --> Shop"""
+
+    delivered_quantity: int
+
+
+# class CustomerPolicy(ph.RLlibFixedPolicy):
 class CustomerPolicy(ph.FixedPolicy):
     # The size of the order made for each customer is determined by this fixed policy.
     def compute_action(self, obs) -> int:
-        return np.random.poisson(5)
+        return np.random.randint(0, 5)
 
 
 class CustomerAgent(ph.Agent):
     def __init__(self, agent_id: str, shop_id: str):
-        super().__init__(agent_id, policy_class=CustomerPolicy)
+        super().__init__(agent_id)
 
         # We need to store the shop's ID so we can send order requests to it.
         self.shop_id: str = shop_id
 
-    def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+    def handle_message(
+        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
+    ):
         # The customer will receive it's order from the shop but we do not need to take
         # any actions on it.
-        yield from ()
+        return []
 
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+    def decode_action(self, ctx: ph.Context, action: np.ndarray):
         # At the start of each step we generate an order with a random size (determined)
         # by the policy) to send to the shop.
         order_size = action
 
         # We perform this action by sending a stock request message to the factory.
-        return ph.packet.Packet(messages={self.shop_id: [order_size]})
+        return [(self.shop_id, OrderMsg(order_size))]
 
-    def compute_reward(self, ctx: me.Network.Context) -> float:
+    def compute_reward(self, ctx: ph.Context) -> float:
         return 0.0
 
-    def encode_obs(self, ctx: me.Network.Context):
+    def encode_obs(self, ctx: ph.Context):
         return 0
 
     def get_observation_space(self):
@@ -58,15 +90,17 @@ class CustomerAgent(ph.Agent):
         return gym.spaces.Discrete(100)
 
 
-class FactoryActor(me.actors.SimpleSyncActor):
-    def __init__(self, actor_id: str):
-        super().__init__(actor_id)
+class FactoryAgent(ph.Agent):
+    def __init__(self, agent_id: str):
+        super().__init__(agent_id)
 
-    def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+    def handle_message(
+        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
+    ):
         # The factory receives stock request messages from shop agents. We simply
         # reflect the amount of stock requested back to the shop as the factory can
         # produce unlimited stock.
-        yield (msg.sender_id, [msg.payload])
+        return [(sender_id, RestockDeliveryMsg(message.order_size))]
 
 
 class ShopAgent(ph.Agent):
@@ -77,92 +111,105 @@ class ShopAgent(ph.Agent):
         self.factory_id: str = factory_id
 
         # We keep track of how much stock the shop has...
-        self.stock: int = 0
+        self.current_inventory: int = 0
+
+        self.delivered_inventory: int = 0
 
         # ...and how many sales have been made...
-        self.sales: int = 0
+        self.sales_made: int = 0
 
         # ...and how many orders per step the shop has missed due to not having enough
         # stock.
         self.missed_sales: int = 0
 
-    def pre_resolution(self, ctx: me.Network.Context):
-        # At the start of each step we reset the number of missed orders to 0.
-        self.sales = 0
+    def pre_message_resolution(self, ctx: ph.Context):
+        # At the start of each step we reset the number of sales and missed orders to 0.
+        self.sales_made = 0
         self.missed_sales = 0
 
-    def handle_message(self, ctx: me.Network.Context, msg: me.Message):
-        if msg.sender_id == self.factory_id:
+    def post_message_resolution(self, ctx: ph.Context):
+        # At the end of each step we restock the shop with the products delivered
+        # from the factory
+        self.current_inventory = min(
+            self.current_inventory + self.delivered_inventory, SHOP_MAX_INVENTORY
+        )
+
+    def handle_message(
+        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
+    ):
+        if sender_id == self.factory_id:
             # Messages received from the factory contain stock.
-            self.stock = min(self.stock + msg.payload, SHOP_MAX_STOCK)
+            self.delivered_inventory = message.delivered_quantity
 
             # We do not need to respond to these messages.
-            yield from ()
+            return []
         else:
             # All other messages are from customers and contain orders.
-            amount_requested = msg.payload
+            quantity_ordered = message.order_size
 
-            if amount_requested > self.stock:
-                self.missed_sales += amount_requested - self.stock
-                stock_to_sell = self.stock
-                self.stock = 0
+            if quantity_ordered > self.current_inventory:
+                quantity_to_sell = self.current_inventory
+                self.current_inventory = 0
+                self.sales_missed = quantity_ordered - quantity_to_sell
             else:
-                stock_to_sell = amount_requested
-                self.stock -= amount_requested
+                quantity_to_sell = quantity_ordered
+                self.current_inventory -= quantity_ordered
 
-            self.sales += stock_to_sell
+            self.sales_made += quantity_to_sell
 
             # Send the customer their order.
-            yield (msg.sender_id, [stock_to_sell])
+            return [(sender_id, DeliveryMsg(quantity_to_sell))]
 
-    def encode_obs(self, ctx: me.Network.Context):
+    def encode_obs(self, ctx: ph.Context):
         # We encode the shop's current stock as the observation.
-        return self.stock
+        return self.current_inventory
 
-    def decode_action(self, ctx: me.Network.Context, action: int):
+    def decode_action(self, ctx: ph.Context, action: int):
         # The action the shop takes is the amount of new stock to request from the
         # factory.
         stock_to_request = action
 
         # We perform this action by sending a stock request message to the factory.
-        return ph.packet.Packet(messages={self.factory_id: [stock_to_request]})
+        return [(self.factory_id, RestockOrderMsg(stock_to_request))]
 
-    def compute_reward(self, ctx: me.Network.Context) -> float:
+    def compute_reward(self, ctx: ph.Context) -> float:
         # We reward the agent for making sales.
         # We penalise the agent for holding onto stock and for missing orders.
         # We give a bigger reward for making sales than the penalty for missed sales and
         # unused stock.
-        return self.sales - self.missed_sales - self.stock
+        return self.sales_made - self.current_inventory * 0.25
 
     def reset(self):
-        self.stock = 0
+        super().reset()
+
+        self.current_inventory = 0
+        self.delivered_inventory = 0
+        self.sales_made = 0
 
     def get_observation_space(self):
-        return gym.spaces.Discrete(SHOP_MAX_STOCK + 1)
+        return gym.spaces.Discrete(SHOP_MAX_INVENTORY + 1)
 
     def get_action_space(self):
-        return gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST)
+        return gym.spaces.Discrete(SHOP_MAX_RESTOCK_REQUEST)
 
 
-class SupplyChainEnv(ph.PhantomEnv):
-
-    env_name: str = "supply-chain-v1"
-
-    def __init__(self, n_customers: int = 5):
+# class SupplyChainEnv1(ph.PhantomEnv, rllib.MultiAgentEnv):
+class SupplyChainEnv1(ph.PhantomEnv):
+    def __init__(self, n_customers: int = 5, **kwargs):
         # Define actor and agent IDs
         shop_id = "SHOP"
         factory_id = "FACTORY"
         customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
         shop_agent = ShopAgent(shop_id, factory_id=factory_id)
-        factory_actor = FactoryActor(factory_id)
+        factory_agent = FactoryAgent(factory_id)
 
         customer_agents = [CustomerAgent(cid, shop_id=shop_id) for cid in customer_ids]
 
-        actors = [shop_agent, factory_actor] + customer_agents
+        agents = [shop_agent, factory_agent] + customer_agents
 
         # Define Network and create connections between Actors
-        network = me.Network(me.resolvers.UnorderedResolver(), actors)
+        network = ph.Network(agents)
 
         # Connect the shop to the factory
         network.add_connection(shop_id, factory_id)
@@ -170,36 +217,73 @@ class SupplyChainEnv(ph.PhantomEnv):
         # Connect the shop to the customers
         network.add_connections_between([shop_id], customer_ids)
 
-        super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
+        # rllib.MultiAgentEnv.__init__(self)
+        ph.PhantomEnv.__init__(
+            self, network=network, num_steps=NUM_EPISODE_STEPS, **kwargs
+        )
 
 
-metrics = {}
-metrics["SHOP/stock"] = ph.logging.SimpleAgentMetric("SHOP", "stock", "mean")
-metrics["SHOP/sales"] = ph.logging.SimpleAgentMetric("SHOP", "sales", "mean")
-metrics["SHOP/missed_sales"] = ph.logging.SimpleAgentMetric(
-    "SHOP", "missed_sales", "mean"
+metrics = {
+    "SHOP/inventory": ph.logging.SimpleAgentMetric("SHOP", "current_inventory", "mean"),
+    "SHOP/delivered": ph.logging.SimpleAgentMetric(
+        "SHOP", "delivered_inventory", "mean"
+    ),
+    "SHOP/sales": ph.logging.SimpleAgentMetric("SHOP", "sales_made", "mean"),
+}
+
+
+# We can easily swap trainer classes:
+trainer = ph.trainers.PPOTrainer(tensorboard_log_dir="../logs/ppo")
+# trainer = ph.trainers.QLearningTrainer(tensorboard_log_dir="../logs/qlearn")
+
+results = trainer.train(
+    env_class=SupplyChainEnv1,
+    num_iterations=1000,
+    policies={
+        # We don't specify a policy here so the trainer's default is used.
+        "shop_policy": ShopAgent,
+        # Here we tell all instances of CustomerAgent to use the CustomerPolicy policy.
+        "customer_policy": (CustomerAgent, CustomerPolicy),
+    },
+    # We tell the trainer to train the shop_policy, this must be compatible with the trainer.
+    # (currently only single policy training is implemented)
+    policies_to_train=["shop_policy"],
+    metrics=metrics,
 )
 
+# Or we can use the RLlib trainers (with a thin Phantom wrapper):
 
-if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
-    ph.train(
-        experiment_name="supply-chain-1",
-        algorithm="PPO",
-        num_workers=8,
-        num_episodes=5000,
-        env_class=SupplyChainEnv,
-        env_config=dict(n_customers=NUM_CUSTOMERS),
-        metrics=metrics,
-    )
+ph.utils.rllib.train(
+    algorithm="PPO",
+    env_class=SupplyChainEnv1,
+    num_iterations=1000,
+    policies={
+        "shop_policy": ShopAgent,
+        "customer_policy": (CustomerAgent, CustomerPolicy),
+    },
+    policies_to_train=["shop_policy"],
+    metrics=metrics,
+)
 
-elif sys.argv[1].lower() == "rollout":
-    results = ph.rollout(
-        directory="supply-chain-1/LATEST",
-        algorithm="PPO",
-        num_workers=0,
-        num_repeats=100,
-        env_config=dict(n_customers=NUM_CUSTOMERS),
-        metrics=metrics,
-        save_trajectories=True,
-        save_messages=True,
-    )
+# # if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
+# #     ph.train(
+# #         experiment_name="supply-chain-1",
+# #         algorithm="PPO",
+# #         num_workers=8,
+# #         num_episodes=5000,
+# #         env_class=SupplyChainEnv,
+# #         env_config=dict(n_customers=NUM_CUSTOMERS),
+# #         metrics=metrics,
+# #     )
+
+# # elif sys.argv[1].lower() == "rollout":
+# #     results = ph.rollout(
+# #         directory="supply-chain-1/LATEST",
+# #         algorithm="PPO",
+# #         num_workers=0,
+# #         num_repeats=100,
+# #         env_config=dict(n_customers=NUM_CUSTOMERS),
+# #         metrics=metrics,
+# #         save_trajectories=True,
+# #         save_messages=True,
+# #     )

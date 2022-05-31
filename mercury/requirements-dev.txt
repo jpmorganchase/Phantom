@@ -1,9 +1,0 @@
-black==21.12b0
-mypy==0.931
-pickle5==0.0.11
-pylint==2.12.2
-pytest==6.2.5
-pytest-cov==3.0.0
-Sphinx==4.4.0
-sphinx-autodoc-typehints==1.16.0
-sphinx_rtd_theme==1.0.0

@@ -36,7 +36,7 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-  test-mercury:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -49,42 +49,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install wheel
-
-    - name: Install Mercury dependencies
-      run: |
-        cd mercury
-        make install-deps
-        make install-dev-deps
-
-    - name: Install Mercury
-      run: |
-        make install-mercury
-
-    - name: Run Mercury tests
-      run: |
-        make test-mercury
-
-  test-phantom:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.7
-
-    - name: Update Pip
-      run: |
-        python -m pip install --upgrade pip
-        pip install wheel
-
-    - name: Install Mercury dependencies
-      run: |
-        make install-deps-mercury
-
-    - name: Install Mercury
-      run: |
-        make install-mercury
 
     - name: Install Phantom dependencies
       run: |
@@ -94,40 +58,11 @@ jobs:
 
     - name: Install Phantom
       run: |
-        make install-phantom
+        make install
 
     - name: Run Phantom tests
       run: |
-        make test-phantom
-
-  build-docs-mercury:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.7
-
-    - name: Update Pip
-      run: |
-        python -m pip install --upgrade pip
-        pip install wheel
-
-    - name: Install Mercury dependencies
-      run: |
-        cd mercury
-        make install-deps
-        make install-dev-deps
-
-    - name: Install Mercury
-      run: |
-        make install-mercury
-
-    - name: Build Mercury docs
-      run: |
-        cd mercury
-        make doc
+        make test
 
   build-docs-phantom:
     runs-on: ubuntu-latest
@@ -143,14 +78,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel
 
-    - name: Install Mercury dependencies
-      run: |
-        make install-deps-mercury
-
-    - name: Install Mercury
-      run: |
-        make install-mercury
-
     - name: Install Phantom dependencies
       run: |
         cd phantom
@@ -159,9 +86,8 @@ jobs:
 
     - name: Install Phantom
       run: |
-        make install-phantom
+        make install
 
     - name: Build Phantom docs
       run: |
-        cd phantom
-        make doc
+        make build-docs

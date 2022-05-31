@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Any, Dict, List, Mapping, Tuple
 
 import coloredlogs
 import gym
@@ -124,11 +124,12 @@ class ShopRewardFunction(ph.RewardFunction):
         )
 
 
-class ShopAgent(ph.MessageHandlerAgent):
-    @dataclass(frozen=True)
-    class Supertype(ph.Supertype):
-        missed_sales_weight: float
+@dataclass(frozen=True)
+class ShopSupertype(ph.Supertype):
+    missed_sales_weight: float
 
+
+class ShopAgent(ph.MessageHandlerAgent):
     def __init__(self, agent_id: str, factory_id: str):
         super().__init__(agent_id)
 
@@ -223,18 +224,21 @@ class ShopAgent(ph.MessageHandlerAgent):
 SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
 
 
-class SupplyChainEnv2(ph.PhantomEnv, rllib.MultiAgentEnv):
+class SupplyChainEnv2(ph.FSMPhantomEnv, rllib.MultiAgentEnv):
     def __init__(self, n_customers: int = 5, **kwargs):
         # Define actor and agent IDs
         factory_id = "FACTORY"
 
-        customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
+        self.shop_ids = ["SHOP1"]
+        self.customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
         shop_agents = [ShopAgent(id, factory_id) for id in SHOP_IDS]
 
         factory_agent = FactoryAgent(factory_id)
 
-        customer_agents = [CustomerAgent(id, shop_ids=SHOP_IDS) for id in customer_ids]
+        customer_agents = [
+            CustomerAgent(id, shop_ids=SHOP_IDS) for id in self.customer_ids
+        ]
 
         agents = [factory_agent] + shop_agents + customer_agents
 
@@ -245,12 +249,32 @@ class SupplyChainEnv2(ph.PhantomEnv, rllib.MultiAgentEnv):
         network.add_connections_between(SHOP_IDS, [factory_id])
 
         # Connect the shop to the customers
-        network.add_connections_between(SHOP_IDS, customer_ids)
+        network.add_connections_between(SHOP_IDS, self.customer_ids)
 
         rllib.MultiAgentEnv.__init__(self)
-        ph.PhantomEnv.__init__(
+        ph.FSMPhantomEnv.__init__(
             self, network=network, num_steps=NUM_EPISODE_STEPS, **kwargs
         )
+
+        self.state = "DAY"
+
+    def reset(self) -> Dict[ph.AgentID, Any]:
+        return super().reset(initial_agents=self.customer_ids)
+
+    def step(self, actions: Mapping[ph.AgentID, Any]) -> ph.PhantomEnv.Step:
+        if self.state == "DAY":
+            self.state = "NIGHT"
+
+            return super().step(
+                actions, acting_agents=self.shop_ids, rewarded_agents=self.shop_ids
+            )
+
+        elif self.state == "NIGHT":
+            self.state = "DAY"
+
+            return super().step(
+                actions, acting_agents=self.customer_ids, rewarded_agents=[]
+            )
 
 
 metrics = {}
@@ -268,63 +292,18 @@ ph.utils.rllib.train(
     env_class=SupplyChainEnv2,
     env_config={
         "agent_supertypes": {
-            shop_id: {
-                "missed_sales_weight": ph.utils.samplers.UniformSampler(
-                    low=0.0, high=8.0
-                ),
-            }
+            shop_id: ShopSupertype(
+                missed_sales_weight=ph.utils.samplers.UniformSampler(low=0.0, high=8.0),
+            )
             for shop_id in SHOP_IDS
         }
     },
-    num_iterations=2,
+    num_iterations=1000,
     policies={
         "shop_policy": ShopAgent,
         "customer_policy": (CustomerAgent, CustomerPolicy, {"n_shops": NUM_SHOPS}),
     },
     policies_to_train=["shop_policy"],
     metrics=metrics,
+    # num_workers=1,
 )
-
-
-# if len(sys.argv) == 1 or sys.argv[1].lower() == "train":
-#     ph.train(
-#         experiment_name="supply-chain-2",
-#         algorithm="PPO",
-#         num_workers=8,
-#         num_episodes=5000,
-#         env_class=SupplyChainEnv,
-#         env_config=dict(
-#             n_customers=NUM_CUSTOMERS,
-#         ),
-#         agent_supertypes={
-#             id: ShopAgentSupertype(
-#                 missed_sales_weight=UniformSampler(low=0.0, high=8.0)
-#             )
-#             for id in SHOP_IDS
-#         },
-#         metrics=metrics,
-#         policy_grouping={"shared_SHOP_policy": SHOP_IDS},
-#     )
-
-# elif sys.argv[1].lower() == "rollout":
-#     ph.rollout(
-#         directory="supply-chain-2/LATEST",
-#         algorithm="PPO",
-#         num_workers=8,
-#         num_repeats=20,
-#         env_class=SupplyChainEnv,
-#         env_config=dict(
-#             n_customers=NUM_CUSTOMERS,
-#         ),
-#         agent_supertypes={
-#             id: ShopAgentSupertype(
-#                 missed_sales_weight=UniformRange(
-#                     start=0.0, end=8.0, step=1.0, name=f"{id} Missed Sales Weight"
-#                 )
-#             )
-#             for id in SHOP_IDS
-#         },
-#         metrics=metrics,
-#         save_messages=True,
-#         save_trajectories=True,
-#     )
