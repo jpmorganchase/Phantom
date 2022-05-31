@@ -5,8 +5,6 @@ import gym
 import numpy as np
 import phantom as ph
 
-# from ray import rllib
-
 
 coloredlogs.install(
     level="INFO",
@@ -48,8 +46,7 @@ class RestockDeliveryMsg:
     delivered_quantity: int
 
 
-# class CustomerPolicy(ph.RLlibFixedPolicy):
-class CustomerPolicy(ph.FixedPolicy):
+class CustomerPolicy(ph.Policy):
     # The size of the order made for each customer is determined by this fixed policy.
     def compute_action(self, obs) -> int:
         return np.random.randint(0, 5)
@@ -193,7 +190,6 @@ class ShopAgent(ph.Agent):
         return gym.spaces.Discrete(SHOP_MAX_RESTOCK_REQUEST)
 
 
-# class SupplyChainEnv1(ph.PhantomEnv, rllib.MultiAgentEnv):
 class SupplyChainEnv1(ph.PhantomEnv):
     def __init__(self, n_customers: int = 5, **kwargs):
         # Define actor and agent IDs
@@ -217,7 +213,6 @@ class SupplyChainEnv1(ph.PhantomEnv):
         # Connect the shop to the customers
         network.add_connections_between([shop_id], customer_ids)
 
-        # rllib.MultiAgentEnv.__init__(self)
         ph.PhantomEnv.__init__(
             self, network=network, num_steps=NUM_EPISODE_STEPS, **kwargs
         )
@@ -243,7 +238,7 @@ results = trainer.train(
         # We don't specify a policy here so the trainer's default is used.
         "shop_policy": ShopAgent,
         # Here we tell all instances of CustomerAgent to use the CustomerPolicy policy.
-        "customer_policy": (CustomerAgent, CustomerPolicy),
+        "customer_policy": (CustomerPolicy, CustomerAgent),
     },
     # We tell the trainer to train the shop_policy, this must be compatible with the trainer.
     # (currently only single policy training is implemented)
@@ -259,7 +254,7 @@ ph.utils.rllib.train(
     num_iterations=1000,
     policies={
         "shop_policy": ShopAgent,
-        "customer_policy": (CustomerAgent, CustomerPolicy),
+        "customer_policy": (CustomerPolicy, CustomerAgent),
     },
     policies_to_train=["shop_policy"],
     metrics=metrics,

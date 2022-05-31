@@ -1,7 +1,6 @@
 import os
 from inspect import isclass
 from typing import (
-    cast,
     Any,
     Dict,
     List,
@@ -10,17 +9,24 @@ from typing import (
     Tuple,
     Type,
     Union,
-    TYPE_CHECKING,
 )
+
+import gym
+import numpy as np
+from ray import rllib
+from ray.rllib.evaluation import Episode, MultiAgentEpisode
+from ray.rllib.policy.sample_batch import SampleBatch
+from ray.rllib.utils.typing import TensorStructType, TensorType
 
 from ..agents import Agent
 from ..env import PhantomEnv
 from ..logging import Metric, RLlibMetricLogger
+from ..policy import Policy
 from ..types import AgentID
 from . import check_env_config
 
-if TYPE_CHECKING:
-    from ray import rllib
+
+PolicyClass = Union[Type[Policy], Type[rllib.Policy]]
 
 
 def train(
@@ -32,10 +38,10 @@ def train(
         Union[
             Type[Agent],
             List[AgentID],
-            Tuple[Type[Agent], "rllib.Policy"],
-            Tuple[List[AgentID], "rllib.Policy"],
-            Tuple[Type[Agent], "rllib.Policy", Mapping[str, Any]],
-            Tuple[List[AgentID], "rllib.Policy", Mapping[str, Any]],
+            Tuple[PolicyClass, Type[Agent]],
+            Tuple[PolicyClass, Type[Agent], Mapping[str, Any]],
+            Tuple[PolicyClass, List[AgentID]],
+            Tuple[PolicyClass, List[AgentID], Mapping[str, Any]],
         ],
     ],
     policies_to_train: List[str],
@@ -73,13 +79,12 @@ def train(
 
         elif isinstance(params, tuple):
             if len(params) == 2:
-                agent_ids, policy_class = cast(
-                    Tuple[List[AgentID], Type["rllib.Policy"]], params
-                )
+                policy_class, agent_ids = params
             else:
-                agent_ids, policy_class, config = cast(
-                    Tuple[List[AgentID], Type["rllib.Policy"], Dict[str, Any]], params
-                )
+                policy_class, agent_ids, config = params
+
+            if issubclass(policy_class, Policy):
+                policy_class = make_rllib_wrapped_policy_class(policy_class)
 
             if isclass(agent_ids) and issubclass(agent_ids, Agent):
                 agent_ids = list(env.network.get_agents_with_type(agent_ids).keys())
@@ -110,7 +115,7 @@ def train(
         return policy_mapping[agent_id]
 
     ray.tune.registry.register_env(
-        env_class.__name__, lambda config: env_class(**config)
+        env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
     )
 
     num_workers_ = num_workers or (len(os.sched_getaffinity(0)) - 1)
@@ -149,3 +154,100 @@ def train(
     else:
         ray.shutdown()
         return results
+
+
+class RLlibEnvWrapper(rllib.MultiAgentEnv):
+    def __init__(self, env: PhantomEnv) -> None:
+        self.env = env
+
+        rllib.MultiAgentEnv.__init__(self)
+
+    def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
+        return self.env.step(actions)
+
+    def reset(self) -> Dict[AgentID, Any]:
+        return self.env.reset()
+
+    def is_done(self) -> bool:
+        return self.env.is_done()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.env, name)
+
+    def __getitem__(self, agent_id: AgentID) -> AgentID:
+        return self.env.__getitem__(agent_id)
+
+    def __str__(self):
+        return f"<{type(self).__name__}{self.env}>"
+
+
+def make_rllib_wrapped_policy_class(policy_class: Type[Policy]) -> Type[rllib.Policy]:
+    class RLlibPolicyWrapper(rllib.Policy):
+        # NOTE:
+        # If the action space is larger than -1.0 < x < 1.0, RLlib will attempt to
+        # 'unsquash' the values leading to unintended results.
+        # (https://github.com/ray-project/ray/pull/16531)
+        
+        def __init__(
+            self,
+            observation_space: gym.Space,
+            action_space: gym.Space,
+            config: Mapping[str, Any],
+        ):
+            self.policy = policy_class(observation_space, action_space, config)
+
+            super().__init__(observation_space, action_space, config)
+
+        def get_weights(self):
+            return None
+
+        def set_weights(self, weights):
+            pass
+
+        def learn_on_batch(self, samples):
+            return {}
+
+        def compute_single_action(
+            self,
+            obs: Optional[TensorStructType] = None,
+            state: Optional[List[TensorType]] = None,
+            *,
+            prev_action: Optional[TensorStructType] = None,
+            prev_reward: Optional[TensorStructType] = None,
+            info: dict = None,
+            input_dict: Optional[SampleBatch] = None,
+            episode: Optional[Episode] = None,
+            explore: Optional[bool] = None,
+            timestep: Optional[int] = None,
+            # Kwars placeholder for future compatibility.
+            **kwargs,
+        ) -> Tuple[TensorStructType, List[TensorType], Dict[str, TensorType]]:
+            return self.policy.compute_action(obs), [], {}
+
+        def compute_actions(
+            self,
+            obs_batch: Union[List[TensorStructType], TensorStructType],
+            state_batches: Optional[List[TensorType]] = None,
+            prev_action_batch: Union[List[TensorStructType], TensorStructType] = None,
+            prev_reward_batch: Union[List[TensorStructType], TensorStructType] = None,
+            info_batch: Optional[Dict[str, list]] = None,
+            episodes: Optional[List[MultiAgentEpisode]] = None,
+            explore: Optional[bool] = None,
+            timestep: Optional[int] = None,
+            **kwargs,
+        ) -> Tuple[TensorType, List[TensorType], Dict[str, TensorType]]:
+            # Workaround due to known issue in RLlib
+            # https://github.com/ray-project/ray/issues/10009
+            if isinstance(self.action_space, gym.spaces.Tuple):
+                unbatched = [self.policy.compute_action(obs) for obs in obs_batch]
+
+                actions = tuple(
+                    np.array([unbatched[j][i] for j in range(len(unbatched))])
+                    for i in range(len(unbatched[0]))
+                )
+            else:
+                actions = [self.policy.compute_action(obs) for obs in obs_batch]
+
+            return (actions, [], {})
+
+    return RLlibPolicyWrapper

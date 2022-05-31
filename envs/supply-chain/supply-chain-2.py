@@ -279,7 +279,7 @@ ph.utils.rllib.train(
     num_iterations=2,
     policies={
         "shop_policy": ShopAgent,
-        "customer_policy": (CustomerAgent, CustomerPolicy, {"n_shops": NUM_SHOPS}),
+        "customer_policy": (CustomerPolicy, CustomerAgent, {"n_shops": NUM_SHOPS}),
     },
     policies_to_train=["shop_policy"],
     metrics=metrics,

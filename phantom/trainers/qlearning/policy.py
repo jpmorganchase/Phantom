@@ -1,8 +1,8 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 import gym
 import numpy as np
-from ...policies import Policy
+from ...policy import Policy
 
 
 class QLearningPolicy(Policy):
@@ -18,6 +18,7 @@ class QLearningPolicy(Policy):
         self,
         observation_space: gym.spaces.Discrete,
         action_space: gym.spaces.Discrete,
+        config: Optional[Mapping[str, Any]] = None,
     ) -> None:
         super().__init__(observation_space, action_space, {})
 

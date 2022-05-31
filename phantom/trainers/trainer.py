@@ -26,7 +26,7 @@ from ..types import AgentID, PolicyID
 from ..agents import Agent
 from ..env import PhantomEnv
 from ..logging import Metric
-from ..policies import Policy
+from ..policy import Policy
 from ..utils import check_env_config
 
 
@@ -35,10 +35,10 @@ PolicyMapping = Mapping[
     Union[
         Type[Agent],
         List[AgentID],
-        Tuple[Type[Agent], Type[Policy]],
-        Tuple[List[AgentID], Type[Policy]],
-        Tuple[Type[Agent], Type[Policy], Mapping[str, Any]],
-        Tuple[List[AgentID], Type[Policy], Mapping[str, Any]],
+        Tuple[Type[Policy], Type[Agent]],
+        Tuple[Type[Policy], Type[Agent], Mapping[str, Any]],
+        Tuple[Type[Policy], List[AgentID]],
+        Tuple[Type[Policy], List[AgentID], Mapping[str, Any]],
     ],
 ]
 
@@ -155,10 +155,10 @@ class Trainer(ABC):
 
             elif isinstance(policy_config, tuple):
                 if len(policy_config) == 2:
-                    agents_param, policy_class = policy_config
+                    policy_class, agents_param = policy_config
                     config = None
                 else:
-                    agents_param, policy_class, config = policy_config
+                    policy_class, agents_param, config = policy_config
 
                 if isclass(agents_param) and issubclass(agents_param, Agent):
                     agent_ids = list(

@@ -1,13 +1,13 @@
 from itertools import accumulate
 from operator import mul
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
 import gym
 import numpy as np
 import torch
 from torch import nn
 
-from ...policies import Policy
+from ...policy import Policy
 from .distributions import Bernoulli, Categorical, DiagGaussian
 from .utils import init
 
@@ -22,7 +22,7 @@ class PPOPolicy(nn.Module, Policy):
         self,
         obs_space: gym.Space,
         action_space: gym.Space,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[Mapping[str, Any]] = None,
         base_type: Optional[Type["NNBase"]] = None,
         base_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:

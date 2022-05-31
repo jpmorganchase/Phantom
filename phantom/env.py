@@ -7,7 +7,6 @@ from typing import (
     NamedTuple,
     Optional,
     Set,
-    Type,
 )
 
 from .agents import Agent
@@ -230,28 +229,3 @@ class PhantomEnv:
         for agent in self.network.agents.values():
             if agent.supertype is not None:
                 agent.type = agent.supertype.sample()
-
-
-# class PhantomVecEnv:
-#     def __init__(
-#         self, env_class: Type[PhantomEnv], config: Mapping[str, Any], n: int
-#     ) -> None:
-#         self._envs = [env_class(**config) for _ in range(n)]
-
-#     def step(self, actions: List[Mapping[AgentID, Any]]) -> List[PhantomEnv.Step]:
-#         return [env.step(actions) for env in self._envs]
-
-#     def reset(self) -> List[Dict[AgentID, Any]]:
-#         return [env.reset() for env in self._envs]
-
-#     def is_done(self) -> List[bool]:
-#         return [env.is_done() for env in self._envs]
-
-#     def __str__(self):
-#         return f"<VecEnv {type(self).__name__}{self.env}>"
-
-#     def __len__(self) -> int:
-#         return len(self._envs)
-
-#     def __getitem__(self, i: int) -> PhantomEnv:
-#         return self._envs[i]

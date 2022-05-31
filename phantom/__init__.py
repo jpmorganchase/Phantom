@@ -9,7 +9,7 @@ from .env import PhantomEnv
 from .fsm import FSMPhantomEnv
 from .message import Message
 from .network import Network, StochasticNetwork
-from .policies import FixedPolicy, RLlibFixedPolicy
+from .policy import Policy
 from .reward_functions import RewardFunction
 from .supertype import Supertype
 from .trainers import Trainer
