@@ -13,7 +13,7 @@
 
 #### Improvements
 
-- Updated RLlib dependency to 
+- Updated RLlib dependency to `1.11.0`.
 - New metrics, rollouts and analysis sections in tutorial.
 - Simplified environment initialisation when using types/supertypes.
 - Better `Range` and `Sampler` string representation formats.
