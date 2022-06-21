@@ -9,7 +9,7 @@
 - Boilerplate/bootstrap file for creating new Envs/Agents/etc.
 - `AggregatedAgentMetric` class for recording values from groups of agents.
 - Option to save messages when running rollouts.
-- Option to set a custom trainer when training.
+- Option to set a custom RLlib trainer when training.
 
 #### Improvements
 
