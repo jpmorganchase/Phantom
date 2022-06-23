@@ -6,6 +6,7 @@ from .context import Context
 from .decoders import Decoder
 from .encoders import Encoder
 from .env import PhantomEnv
+from .env_wrappers import SingleAgentEnvAdapter
 from .fsm import FSMPhantomEnv
 from .message import Message
 from .network import Network, StochasticNetwork
