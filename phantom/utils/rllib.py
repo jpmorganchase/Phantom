@@ -103,7 +103,7 @@ def train(
             policy_mapping[agent_id] = policy_name
 
     # for agent in env.agents.values():
-    #     if agent.takes_actions() and agent.id not in policy_mapping:
+    #     if agent.action_space is not None and agent.id not in policy_mapping:
     #         policy_specs[agent.id] = rllib.policy.policy.PolicySpec(
     #             action_space=agent.action_space,
     #             observation_space=agent.observation_space,

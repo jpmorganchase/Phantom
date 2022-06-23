@@ -195,17 +195,19 @@ class ShopAgent(ph.Agent):
         return gym.spaces.Discrete(SHOP_MAX_RESTOCK_REQUEST)
 
 
+CUSTOMER_IDS = [f"CUST{i+1}" for i in range(5)]
+
+
 class SupplyChainEnv1(ph.PhantomEnv):
-    def __init__(self, n_customers: int = 5, **kwargs):
+    def __init__(self, **kwargs):
         # Define actor and agent IDs
         shop_id = "SHOP"
         factory_id = "FACTORY"
-        customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
         shop_agent = ShopAgent(shop_id, factory_id=factory_id)
         factory_agent = FactoryAgent(factory_id)
 
-        customer_agents = [CustomerAgent(cid, shop_id=shop_id) for cid in customer_ids]
+        customer_agents = [CustomerAgent(cid, shop_id=shop_id) for cid in CUSTOMER_IDS]
 
         agents = [shop_agent, factory_agent] + customer_agents
 
@@ -216,14 +218,16 @@ class SupplyChainEnv1(ph.PhantomEnv):
         network.add_connection(shop_id, factory_id)
 
         # Connect the shop to the customers
-        network.add_connections_between([shop_id], customer_ids)
+        network.add_connections_between([shop_id], CUSTOMER_IDS)
 
         ph.PhantomEnv.__init__(
             self, network=network, num_steps=NUM_EPISODE_STEPS, **kwargs
         )
 
 
-env = ph.SingleAgentEnvAdapter(SupplyChainEnv1, "SHOP", {})
+env = ph.SingleAgentEnvAdapter(
+    SupplyChainEnv1, "SHOP", {cid: (CustomerPolicy, {}) for cid in CUSTOMER_IDS}
+)
 
 model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./tensorboard/")
 model.learn(total_timesteps=1e7)

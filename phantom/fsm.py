@@ -59,7 +59,7 @@ class FSMPhantomEnv(PhantomEnv):
         observations: Dict[AgentID, Any] = {}
 
         for agent_id, agent in self.network.agents.items():
-            if agent.takes_actions() and (
+            if agent.action_space is not None and (
                 initial_agents is None or agent_id in initial_agents
             ):
                 ctx = self.network.context_for(agent_id)
@@ -95,7 +95,7 @@ class FSMPhantomEnv(PhantomEnv):
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
         for agent_id, agent in self.network.agents.items():
-            if agent.takes_actions():
+            if agent.action_space is not None:
                 ctx = self.network.context_for(agent_id)
 
                 if agent_id not in self._dones:

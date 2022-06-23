@@ -82,14 +82,6 @@ class Agent(ABC):
         """The unique ID of the agent."""
         return self._id
 
-    def takes_actions(self) -> bool:
-        try:
-            self.action_space
-        except NotImplementedError:
-            return False
-        else:
-            return True
-
     def view(self, neighbour_id: Optional[AgentID] = None) -> View:
         """Return an immutable view to the agent's public state."""
         return View(agent_id=self._id)
@@ -240,13 +232,10 @@ class MessageHandlerAgent(Agent):
         self.__handlers: DefaultDict[Type[Message], List[Handler]] = defaultdict(list)
 
         for attr in dir(self):
-            # Don't check action_space and observation_space as being @properties, these
-            # methods will automatically be called and may raise exceptions
-            if attr not in ["action_space", "observation_space"]:
-                attr = getattr(self, attr)
+            attr = getattr(self, attr)
 
-                if callable(attr) and hasattr(attr, "message_type"):
-                    self.__handlers[attr.message_type].append(attr)
+            if callable(attr) and hasattr(attr, "message_type"):
+                self.__handlers[attr.message_type].append(attr)
 
     def handle_message(
         self, ctx: Context, sender_id: AgentID, message: Message
