@@ -98,8 +98,8 @@ class Trainer(ABC):
         env = env_class(**env_config)
         env.reset()
 
-        policy_mapping, policy_instances = _setup_policy_specs_and_mapping(
-            env, self.policy_class, policies
+        policy_mapping, policy_instances = self.setup_policy_specs_and_mapping(
+            env, policies
         )
 
         assert len(policies_to_train) > 0
@@ -160,6 +160,73 @@ class Trainer(ABC):
         if self.tensorboard_log_dir is not None:
             self.tbx_writer.add_scalar(name, value, global_step=step)
 
+    def _setup_policy_specs_and_mapping(
+        self, env: PhantomEnv, policies: PolicyMapping
+    ) -> Tuple[Dict[AgentID, PolicyID], Dict[PolicyID, Policy]]:
+        policy_specs: Dict[PolicyID, PolicySpec] = {}
+        policy_mapping: Dict[AgentID, PolicyID] = {}
+
+        for policy_name, policy_config in policies.items():
+            if isclass(policy_config) and issubclass(policy_config, Agent):
+                agent_class = policy_config
+
+                agent_ids = list(env.network.get_agents_with_type(agent_class).keys())
+
+                policy_specs[policy_name] = PolicySpec(
+                    action_space=env.agents[agent_ids[0]].action_space,
+                    observation_space=env.agents[agent_ids[0]].observation_space,
+                )
+
+                for agent_id in agent_ids:
+                    policy_mapping[agent_id] = policy_name
+
+            elif isinstance(policy_config, list):
+                agent_ids = policy_config
+
+                policy_specs[policy_name] = PolicySpec(
+                    action_space=env.agents[agent_ids[0]].action_space,
+                    observation_space=env.agents[agent_ids[0]].observation_space,
+                )
+
+                for agent_id in agent_ids:
+                    policy_mapping[agent_id] = policy_name
+
+            elif isinstance(policy_config, tuple):
+                if len(policy_config) == 2:
+                    policy_class, agents_param = policy_config
+                    config = None
+                else:
+                    policy_class, agents_param, config = policy_config
+
+                if isclass(agents_param) and issubclass(agents_param, Agent):
+                    agent_ids = list(
+                        env.network.get_agents_with_type(agents_param).keys()
+                    )
+                elif isinstance(agents_param, list):
+                    agent_ids = agents_param
+
+                policy_specs[policy_name] = PolicySpec(
+                    policy_class=policy_class,
+                    action_space=env.agents[agent_ids[0]].action_space,
+                    observation_space=env.agents[agent_ids[0]].observation_space,
+                    config=config,
+                )
+
+                for agent_id in agent_ids:
+                    policy_mapping[agent_id] = policy_name
+
+            else:
+                raise TypeError(type(policy_config))
+
+        policy_instances = {
+            name: (
+                self.policy_class if spec.policy_class is None else spec.policy_class
+            )(spec.observation_space, spec.action_space, spec.config)
+            for name, spec in policy_specs.items()
+        }
+
+        return (policy_mapping, policy_instances)
+
 
 @dataclass(frozen=True)
 class PolicySpec:
@@ -167,69 +234,3 @@ class PolicySpec:
     action_space: gym.Space
     policy_class: Optional[Type[Policy]] = None
     config: Dict[str, Any] = field(default_factory=dict)
-
-
-def _setup_policy_specs_and_mapping(
-    env: PhantomEnv, default_policy: Type[Policy], policies: PolicyMapping
-) -> Tuple[Dict[AgentID, PolicyID], Dict[PolicyID, Policy]]:
-    policy_specs: Dict[PolicyID, PolicySpec] = {}
-    policy_mapping: Dict[AgentID, PolicyID] = {}
-
-    for policy_name, policy_config in policies.items():
-        if isclass(policy_config) and issubclass(policy_config, Agent):
-            agent_class = policy_config
-
-            agent_ids = list(env.network.get_agents_with_type(agent_class).keys())
-
-            policy_specs[policy_name] = PolicySpec(
-                action_space=env.agents[agent_ids[0]].action_space,
-                observation_space=env.agents[agent_ids[0]].observation_space,
-            )
-
-            for agent_id in agent_ids:
-                policy_mapping[agent_id] = policy_name
-
-        elif isinstance(policy_config, list):
-            agent_ids = policy_config
-
-            policy_specs[policy_name] = PolicySpec(
-                action_space=env.agents[agent_ids[0]].action_space,
-                observation_space=env.agents[agent_ids[0]].observation_space,
-            )
-
-            for agent_id in agent_ids:
-                policy_mapping[agent_id] = policy_name
-
-        elif isinstance(policy_config, tuple):
-            if len(policy_config) == 2:
-                policy_class, agents_param = policy_config
-                config = None
-            else:
-                policy_class, agents_param, config = policy_config
-
-            if isclass(agents_param) and issubclass(agents_param, Agent):
-                agent_ids = list(env.network.get_agents_with_type(agents_param).keys())
-            elif isinstance(agents_param, list):
-                agent_ids = agents_param
-
-            policy_specs[policy_name] = PolicySpec(
-                policy_class=policy_class,
-                action_space=env.agents[agent_ids[0]].action_space,
-                observation_space=env.agents[agent_ids[0]].observation_space,
-                config=config,
-            )
-
-            for agent_id in agent_ids:
-                policy_mapping[agent_id] = policy_name
-
-        else:
-            raise TypeError(type(policy_config))
-
-    policy_instances = {
-        name: (default_policy if spec.policy_class is None else spec.policy_class)(
-            spec.observation_space, spec.action_space, spec.config
-        )
-        for name, spec in policy_specs.items()
-    }
-
-    return (policy_mapping, policy_instances)
