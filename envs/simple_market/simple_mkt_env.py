@@ -88,7 +88,7 @@ class SimpleMarketEnv(ph.PhantomEnv):
         obs = dict()
         info = dict()
         for aid in self.agent_groups[self.turn]:
-            obs[aid] = self.agents[aid].get_observation_space().sample()
+            obs[aid] = self.agents[aid].observation_space.sample()
             info[aid] = {"turn": True}
 
         return self.Step(

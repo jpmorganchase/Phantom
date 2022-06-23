@@ -135,8 +135,8 @@ class Trainer(ABC):
                 agent_ids = list(env.network.get_agents_with_type(agent_class).keys())
 
                 policy_specs[policy_name] = PolicySpec(
-                    action_space=env.agents[agent_ids[0]].get_action_space(),
-                    observation_space=env.agents[agent_ids[0]].get_observation_space(),
+                    action_space=env.agents[agent_ids[0]].action_space,
+                    observation_space=env.agents[agent_ids[0]].observation_space,
                 )
 
                 for agent_id in agent_ids:
@@ -146,8 +146,8 @@ class Trainer(ABC):
                 agent_ids = policy_config
 
                 policy_specs[policy_name] = PolicySpec(
-                    action_space=env.agents[agent_ids[0]].get_action_space(),
-                    observation_space=env.agents[agent_ids[0]].get_observation_space(),
+                    action_space=env.agents[agent_ids[0]].action_space,
+                    observation_space=env.agents[agent_ids[0]].observation_space,
                 )
 
                 for agent_id in agent_ids:
@@ -169,8 +169,8 @@ class Trainer(ABC):
 
                 policy_specs[policy_name] = PolicySpec(
                     policy_class=policy_class,
-                    action_space=env.agents[agent_ids[0]].get_action_space(),
-                    observation_space=env.agents[agent_ids[0]].get_observation_space(),
+                    action_space=env.agents[agent_ids[0]].action_space,
+                    observation_space=env.agents[agent_ids[0]].observation_space,
                     config=config,
                 )
 

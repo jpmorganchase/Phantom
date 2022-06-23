@@ -7,6 +7,12 @@ from phantom import Context, Network, PhantomEnv
 
 
 class MockAgent(ph.Agent):
+    def __init__(self, *args, **kwargs):
+        self.action_space = gym.spaces.Box(-np.inf, np.inf, (1,))
+        self.observation_space = gym.spaces.Box(-np.inf, np.inf, (1,))
+
+        super().__init__(*args, **kwargs)
+
     def decode_action(self, ctx: Context, action: np.ndarray):
         return []
 
@@ -22,12 +28,6 @@ class MockAgent(ph.Agent):
     def decode_action(self, ctx: Context, action: np.ndarray):
         return []
 
-    def get_observation_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
-
-    def get_action_space(self):
-        return gym.spaces.Box(-np.inf, np.inf, (1,))
-
 
 @pytest.fixture
 def phantom_network():
@@ -36,12 +36,7 @@ def phantom_network():
 
 @pytest.fixture
 def phantom_env(phantom_network):
-    # environment_actor = EnvironmentActor()
-    return PhantomEnv(
-        # network=phantom_network, n_steps=2, environment_actor=environment_actor
-        network=phantom_network,
-        num_steps=2,
-    )
+    return PhantomEnv(network=phantom_network, num_steps=2)
 
 
 def test_agent_ids(phantom_env):

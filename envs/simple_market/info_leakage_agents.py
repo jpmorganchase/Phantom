@@ -35,7 +35,8 @@ class MaybeSneakySeller(SellerAgent):
         self.current_tx = 0
         return obs
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         # [ total transaction vol, Avg market price, (maybe) victim's price]
         return Box(np.array([0, 0, 0]), np.array([np.Inf, 1, 1]))
 

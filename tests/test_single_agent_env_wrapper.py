@@ -24,10 +24,12 @@ class MockAgent(ph.Agent):
         self.last_action = action
         return []
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
-    def get_action_space(self):
+    @property
+    def action_space(self):
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
 

@@ -24,7 +24,7 @@ class Encoder(Generic[Observation], ABC):
 
     @property
     @abstractmethod
-    def output_space(self) -> gym.Space:
+    def observation_space(self) -> gym.Space:
         """The output space of the encoder type."""
 
     @abstractmethod
@@ -52,17 +52,17 @@ class Encoder(Generic[Observation], ABC):
         """Resets the encoder."""
 
     def __repr__(self) -> str:
-        return repr(self.output_space)
+        return repr(self.observation_space)
 
     def __str__(self) -> str:
-        return str(self.output_space)
+        return str(self.observation_space)
 
 
 class EmptyEncoder(Encoder[np.ndarray]):
     """Generates an empty observation."""
 
     @property
-    def output_space(self) -> gym.spaces.Box:
+    def observation_space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def encode(self, _: Context) -> np.ndarray:
@@ -81,8 +81,8 @@ class ChainedEncoder(Encoder[Tuple]):
         self.encoders: List[Encoder] = flatten(encoders)
 
     @property
-    def output_space(self) -> gym.Space:
-        return gym.spaces.Tuple(tuple(d.output_space for d in self.encoders))
+    def observation_space(self) -> gym.Space:
+        return gym.spaces.Tuple(tuple(d.observation_space for d in self.encoders))
 
     def encode(self, ctx: Context) -> Tuple:
         return tuple(e.encode(ctx) for e in self.encoders)
@@ -106,9 +106,9 @@ class DictEncoder(Encoder[Dict[str, Any]]):
         self.encoders: Dict[str, Encoder] = dict(encoders)
 
     @property
-    def output_space(self) -> gym.Space:
+    def observation_space(self) -> gym.Space:
         return gym.spaces.Dict(
-            {name: encoder.output_space for name, encoder in self.encoders.items()}
+            {name: encoder.observation_space for name, encoder in self.encoders.items()}
         )
 
     def encode(self, ctx: Context) -> Dict[str, Any]:
@@ -125,7 +125,7 @@ class Constant(Encoder[np.ndarray]):
         self._value = value
 
     @property
-    def output_space(self) -> gym.spaces.Box:
+    def observation_space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-np.inf, np.inf, shape=self._shape, dtype=np.float32)
 
     def encode(self, _: Context) -> np.ndarray:

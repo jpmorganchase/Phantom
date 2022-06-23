@@ -328,18 +328,20 @@ class AdvertiserAgent(ph.Agent):
         self._current_age = 0.0
         self._current_zipcode = 0.0
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         """@override
-        `gym.spaces` defintion of the Observation space
+        `gym.spaces` definition of the Observation space
         """
         return gym.spaces.Box(
             low=np.array([0.0, 0.0, 0.0, 0.0]),
             high=np.array([self.budget, 5.0, np.inf, np.inf]),
         )
 
-    def get_action_space(self):
+    @property
+    def action_space(self):
         """@override
-        `gym.spaces` defintion of the Action space
+        `gym.spaces` definition of the Action space
         """
         return gym.spaces.Box(low=np.array([0.0]), high=np.array([self.budget]))
 

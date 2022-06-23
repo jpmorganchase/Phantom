@@ -81,10 +81,12 @@ class CustomerAgent(ph.Agent):
     def encode_obs(self, ctx: ph.Context):
         return 0
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         return gym.spaces.Discrete(1)
 
-    def get_action_space(self):
+    @property
+    def action_space(self):
         return gym.spaces.Discrete(100)
 
 
@@ -184,10 +186,12 @@ class ShopAgent(ph.Agent):
         self.delivered_inventory = 0
         self.sales_made = 0
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         return gym.spaces.Discrete(SHOP_MAX_INVENTORY + 1)
 
-    def get_action_space(self):
+    @property
+    def action_space(self):
         return gym.spaces.Discrete(SHOP_MAX_RESTOCK_REQUEST)
 
 

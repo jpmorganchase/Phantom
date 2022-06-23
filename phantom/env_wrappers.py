@@ -43,14 +43,15 @@ class SingleAgentEnvAdapter(gym.Env):
             aid for aid, a in self._env.agents.items() if a.takes_actions()
         )
         policies = set(list(other_policies.keys()) + [agent_id])
+
         assert acting_agents == policies
 
         self._agent_id = agent_id
 
         self._other_policies = {
             agent_id: policy_class(
-                self._env[agent_id].get_observation_space(),
-                self._env[agent_id].get_action_space(),
+                self._env[agent_id].observation_space,
+                self._env[agent_id].action_space,
                 policy_config,
             )
             for agent_id, (policy_class, policy_config) in other_policies.items()
@@ -88,12 +89,12 @@ class SingleAgentEnvAdapter(gym.Env):
     @property
     def action_space(self) -> gym.Space:
         """Return the action space of the selected env agent."""
-        return self._env[self._agent_id].get_action_space()
+        return self._env[self._agent_id].action_space
 
     @property
     def observation_space(self) -> gym.Space:
         """Return the observation space of the selected env agent."""
-        return self._env[self._agent_id].get_observation_space()
+        return self._env[self._agent_id].observation_space
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
         """Run one timestep of the environment's dynamics.

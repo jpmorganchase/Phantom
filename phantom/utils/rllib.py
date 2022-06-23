@@ -94,8 +94,8 @@ def train(
 
         policy_specs[policy_name] = rllib.policy.policy.PolicySpec(
             policy_class=policy_class,
-            action_space=env.agents[agent_ids[0]].get_action_space(),
-            observation_space=env.agents[agent_ids[0]].get_observation_space(),
+            action_space=env.agents[agent_ids[0]].action_space,
+            observation_space=env.agents[agent_ids[0]].observation_space,
             config=config,
         )
 
@@ -105,8 +105,8 @@ def train(
     # for agent in env.agents.values():
     #     if agent.takes_actions() and agent.id not in policy_mapping:
     #         policy_specs[agent.id] = rllib.policy.policy.PolicySpec(
-    #             action_space=agent.get_action_space(),
-    #             observation_space=agent.get_observation_space(),
+    #             action_space=agent.action_space,
+    #             observation_space=agent.observation_space,
     #         )
 
     #         policy_mapping[agent_id] = agent_id
@@ -187,7 +187,7 @@ def make_rllib_wrapped_policy_class(policy_class: Type[Policy]) -> Type[rllib.Po
         # If the action space is larger than -1.0 < x < 1.0, RLlib will attempt to
         # 'unsquash' the values leading to unintended results.
         # (https://github.com/ray-project/ray/pull/16531)
-        
+
         def __init__(
             self,
             observation_space: gym.Space,

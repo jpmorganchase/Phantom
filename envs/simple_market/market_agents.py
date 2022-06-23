@@ -65,7 +65,8 @@ class BuyerAgent(ph.Agent):
 
         return ph.packet.Packet([], msgs)
 
-    def get_action_space(self):
+    @property
+    def action_space(self):
         # buy (1) or no-buy (0)
         return Discrete(2)
 
@@ -74,7 +75,8 @@ class BuyerAgent(ph.Agent):
         demand = np.random.binomial(1, self.demand_prob)
         return np.array([min_price, demand, self.type.value])
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         return Box(low=0, high=1, shape=(3,))
 
     def compute_reward(self, ctx):
@@ -116,7 +118,8 @@ class SellerAgent(ph.Agent):
             msgs[nid] = [Price(action)]
         return ph.packet.Packet([], msgs)
 
-    def get_action_space(self):
+    @property
+    def action_space(self):
         # price in [0, 1]
         return Box(low=0, high=1, shape=(1,))
 
@@ -125,7 +128,8 @@ class SellerAgent(ph.Agent):
         self.current_tx = 0
         return obs
 
-    def get_observation_space(self):
+    @property
+    def observation_space(self):
         # [ total transaction vol, Avg market price]
         return Box(np.array([0, 0]), np.array([np.Inf, 1]))
 
@@ -135,7 +139,7 @@ class SellerAgent(ph.Agent):
         return reward
 
     def reset(self):
-        self.current_price = self.get_action_space().sample()
+        self.current_price = self.action_space.sample()
         self.current_revenue = 0
         self.current_tx = 0
 

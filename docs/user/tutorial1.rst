@@ -223,10 +223,12 @@ we do need to still return a value to satisfy RLlib:
         def encode_obs(self, ctx: me.Network.Context):
             return 0
 
-        def get_observation_space(self):
+        @property
+        def observation_space(self):
             return gym.spaces.Discrete(1)
 
-        def get_action_space(self):
+        @property
+        def action_space(self):
             return gym.spaces.Discrete(100)
     #
 
@@ -359,14 +361,16 @@ initial state. This is done with the ``reset`` method:
 
 Finally we need to let RLlib know the sizes of our observation space and action space so
 it can construct the correct neural network for the agent's policy. This is done by
-defining a ``get_observation_space`` method and a ``get_action_space`` method:
+defining a ``observation_space`` method and a ``action_space`` method:
 
 .. code-block:: python
 
-        def get_observation_space(self):
+        @property
+        def observation_space(self):
             return gym.spaces.Discrete(SHOP_MAX_STOCK + 1)
 
-        def get_action_space(self):
+        @property
+        def action_space(self):
             return gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST)
     #
 

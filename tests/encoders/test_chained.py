@@ -10,7 +10,7 @@ class SimpleEncoder(Encoder):
         self.id = id
 
     @property
-    def output_space(self) -> gym.Space:
+    def observation_space(self) -> gym.Space:
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def encode(self, ctx: Context) -> np.ndarray:

@@ -53,19 +53,29 @@ class Agent(ABC):
     def __init__(
         self,
         agent_id: AgentID,
-        obs_encoder: Optional[Encoder] = None,
+        observation_encoder: Optional[Encoder] = None,
         action_decoder: Optional[Decoder] = None,
         reward_function: Optional[RewardFunction] = None,
         supertype: Optional[Supertype] = None,
     ) -> None:
         self._id = agent_id
 
-        self.obs_encoder = obs_encoder
+        self.observation_encoder = observation_encoder
         self.action_decoder = action_decoder
         self.reward_function = reward_function
         self.supertype = supertype
 
         self.type: Optional[Supertype] = None
+
+        if action_decoder is not None:
+            self.action_space = action_decoder.action_space
+        elif not hasattr(self, "action_space"):
+            self.action_space = None
+
+        if observation_encoder is not None:
+            self.observation_space = observation_encoder.observation_space
+        elif not hasattr(self, "observation_space"):
+            self.observation_space = None
 
     @property
     def id(self) -> AgentID:
@@ -74,7 +84,7 @@ class Agent(ABC):
 
     def takes_actions(self) -> bool:
         try:
-            self.get_action_space()
+            self.action_space
         except NotImplementedError:
             return False
         else:
@@ -123,12 +133,12 @@ class Agent(ABC):
             A numpy array encoding the observations.
         """
 
-        if self.obs_encoder is None:
+        if self.observation_encoder is None:
             raise NotImplementedError(
                 "If the agent does not have an Encoder, a custom encode_obs method must be defined"
             )
 
-        return self.obs_encoder.encode(ctx)
+        return self.observation_encoder.encode(ctx)
 
     def decode_action(
         self, ctx: Context, action: Action
@@ -216,28 +226,6 @@ class Agent(ABC):
         Can be extended by subclasses to provide additional functionality.
         """
 
-    def get_observation_space(self) -> gym.Space:
-        """
-        Returns the gym observation space of this agent.
-        """
-        if self.obs_encoder is None:
-            raise NotImplementedError(
-                "If the agent does not have an Encoder, a custom get_observation_space method must be defined"
-            )
-
-        return self.obs_encoder.output_space
-
-    def get_action_space(self) -> gym.Space:
-        """
-        Returns the gym action space of this agent.
-        """
-        if self.action_decoder is None:
-            raise NotImplementedError(
-                "If the agent does not have an Decoder, a custom get_action_space method must be defined"
-            )
-
-        return self.action_decoder.action_space
-
     def __repr__(self) -> str:
         return f"[{self.__class__.__name__} {self.id}]"
 
@@ -251,13 +239,14 @@ class MessageHandlerAgent(Agent):
 
         self.__handlers: DefaultDict[Type[Message], List[Handler]] = defaultdict(list)
 
-        # Register handlers defined via decorator utility:
-        fn_names = [attr for attr in dir(self) if callable(getattr(self, attr))]
-        for fn_name in fn_names:
-            fn = getattr(self, fn_name)
+        for attr in dir(self):
+            # Don't check action_space and observation_space as being @properties, these
+            # methods will automatically be called and may raise exceptions
+            if attr not in ["action_space", "observation_space"]:
+                attr = getattr(self, attr)
 
-            if hasattr(fn, "message_type"):
-                self.__handlers[fn.message_type].append(fn)
+                if callable(attr) and hasattr(attr, "message_type"):
+                    self.__handlers[attr.message_type].append(attr)
 
     def handle_message(
         self, ctx: Context, sender_id: AgentID, message: Message

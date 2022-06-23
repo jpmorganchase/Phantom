@@ -373,7 +373,8 @@ This is key to allowing the ``ShopAgent`` to learn a generalised policy.
                 self.stock,
             ]
 
-        def get_observation_space(self):
+        @property
+        def observation_space(self):
             return gym.spaces.Tuple(
                 [
                     # We include the agent's type in it's observation space to allow it to learn

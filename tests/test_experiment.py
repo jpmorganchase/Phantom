@@ -15,7 +15,7 @@ class MinimalEncoder(ph.Encoder):
         self.id = id
 
     @property
-    def output_space(self) -> gym.Space:
+    def observation_space(self) -> gym.Space:
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def encode(self, ctx: ph.Context) -> np.ndarray:
@@ -48,11 +48,11 @@ class MinimalAgent(ph.Agent):
         super().__init__(
             agent_id=id,
             # TODO: implement dict + tuple decoders for PPO trainer
-            # obs_encoder=ph.encoders.DictEncoder(
+            # observation_encoder=ph.encoders.DictEncoder(
             #     {"e1": MinimalEncoder(1), "e2": MinimalEncoder(2)}
             # ),
             # action_decoder=ph.decoders.DictDecoder({"d1": MinimalDecoder(id)}),
-            obs_encoder=MinimalEncoder(1),
+            observation_encoder=MinimalEncoder(1),
             action_decoder=MinimalDecoder(id),
         )
 

@@ -10,7 +10,7 @@ class MockEncoder(Encoder):
         self.id = id
 
     @property
-    def output_space(self) -> gym.Space:
+    def observation_space(self) -> gym.Space:
         return gym.spaces.Box(-np.inf, np.inf, (1,))
 
     def encode(self, ctx: Context) -> np.ndarray:
@@ -26,7 +26,7 @@ def test_dict_encoder():
 
     de = DictEncoder({"e1": e1, "e2": e2})
 
-    assert de.output_space == gym.spaces.Dict(
+    assert de.observation_space == gym.spaces.Dict(
         {
             "e1": gym.spaces.Box(-np.inf, np.inf, (1,)),
             "e2": gym.spaces.Box(-np.inf, np.inf, (1,)),
