@@ -112,9 +112,21 @@ class PhantomEnv:
 
     def pre_message_resolution(self) -> None:
         """Perform internal, pre-message resolution updates to the environment."""
+        ctxs = {
+            agent_id: self.network.context_for(agent_id) for agent_id in self.agent_ids
+        }
+
+        for agent_id, ctx in ctxs.items():
+            self.agents[agent_id].pre_message_resolution(ctx)
 
     def post_message_resolution(self) -> None:
         """Perform internal, post-message resolution updates to the environment."""
+        ctxs = {
+            agent_id: self.network.context_for(agent_id) for agent_id in self.agent_ids
+        }
+
+        for agent_id, ctx in ctxs.items():
+            self.agents[agent_id].post_message_resolution(ctx)
 
     def reset(self) -> Dict[AgentID, Any]:
         """
@@ -146,7 +158,7 @@ class PhantomEnv:
         observations: Dict[AgentID, Any] = {}
 
         for agent_id, agent in self.network.agents.items():
-            if agent.takes_actions():
+            if agent.action_space is not None:
                 ctx = self.network.context_for(agent_id)
                 observations[agent_id] = agent.encode_obs(ctx)
 
@@ -182,7 +194,7 @@ class PhantomEnv:
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
         for agent_id, agent in self.network.agents.items():
-            if agent.takes_actions():
+            if agent.action_space is not None:
                 ctx = self.network.context_for(agent_id)
 
                 if agent.is_done(ctx):
