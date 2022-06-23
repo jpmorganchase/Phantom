@@ -1,4 +1,4 @@
-from itertools import accumulate
+from functools import reduce
 from operator import mul
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
@@ -45,7 +45,7 @@ class PPOPolicy(nn.Module, Policy):
             if obs_space.__class__.__name__ == "Discrete":
                 self.base = MLPBase(1, **base_kwargs)
             elif obs_space.__class__.__name__ == "Box":
-                self.base = MLPBase(accumulate(obs_space.shape, mul), **base_kwargs)
+                self.base = MLPBase(reduce(mul, obs_space.shape, 1), **base_kwargs)
             else:
                 raise NotImplementedError(obs_space.__class__.__name__)
 

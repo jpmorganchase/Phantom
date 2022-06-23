@@ -91,7 +91,7 @@ class Trainer(ABC):
         metrics: Optional[Mapping[str, Metric]] = None,
     ) -> TrainingResults:
         env_config = env_config or {}
-        self.metrics = dict(metrics) or {}
+        self.metrics = metrics or {}
 
         check_env_config(env_config)
 

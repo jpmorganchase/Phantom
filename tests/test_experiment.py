@@ -47,10 +47,13 @@ class MinimalAgent(ph.Agent):
     def __init__(self, id: str) -> None:
         super().__init__(
             agent_id=id,
-            obs_encoder=ph.encoders.DictEncoder(
-                {"e1": MinimalEncoder(1), "e2": MinimalEncoder(2)}
-            ),
-            action_decoder=ph.encoders.DictDecoder({"d1": MinimalDecoder(id)}),
+            # TODO: implement dict + tuple decoders for PPO trainer
+            # obs_encoder=ph.encoders.DictEncoder(
+            #     {"e1": MinimalEncoder(1), "e2": MinimalEncoder(2)}
+            # ),
+            # action_decoder=ph.decoders.DictDecoder({"d1": MinimalDecoder(id)}),
+            obs_encoder=MinimalEncoder(1),
+            action_decoder=MinimalDecoder(id),
         )
 
     def compute_reward(self, ctx: ph.Context) -> float:
@@ -73,14 +76,14 @@ class MinimalEnv(ph.PhantomEnv):
 
         network.add_connection("a1", "a2")
 
-        super().__init__(num_steps=3, network=network)
+        super().__init__(num_steps=10, network=network)
 
 
 def test_experiment():
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Perform training
 
-        trainer = ph.trainers.QLearningTrainer(tensorboard_log_dir=tmp_dir)
+        trainer = ph.trainers.PPOTrainer(tensorboard_log_dir=tmp_dir)
 
         results = trainer.train(
             env_class=MinimalEnv,

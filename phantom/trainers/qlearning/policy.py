@@ -22,6 +22,9 @@ class QLearningPolicy(Policy):
     ) -> None:
         super().__init__(observation_space, action_space, {})
 
+        assert isinstance(observation_space, gym.spaces.Discrete)
+        assert isinstance(action_space, gym.spaces.Discrete)
+
         self.q_table = np.zeros([observation_space.n, action_space.n])
 
     def compute_action(self, observation: int) -> Any:
