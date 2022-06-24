@@ -9,7 +9,8 @@ def test_uniform_range():
         step=1.0,
     )
 
-    assert (range_.values() == np.array([0,1,2,3,4,5,6,7,8,9])).all()
+    assert (range_.values() == np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])).all()
+
 
 def test_linspace_range():
     range_ = ph.utils.ranges.LinspaceRange(
@@ -18,5 +19,4 @@ def test_linspace_range():
         n=11,
     )
 
-    assert (range_.values() == np.array([0,1,2,3,4,5,6,7,8,9,10])).all()
-
+    assert (range_.values() == np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])).all()

@@ -6,7 +6,9 @@ from . import MockAgent
 
 @pytest.fixture
 def phantom_env():
-    return ph.PhantomEnv(num_steps=2, network=ph.Network([MockAgent("A"), MockAgent("B")]))
+    return ph.PhantomEnv(
+        num_steps=2, network=ph.Network([MockAgent("A"), MockAgent("B")])
+    )
 
 
 def test_agent_ids(phantom_env):

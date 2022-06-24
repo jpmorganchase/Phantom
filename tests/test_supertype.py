@@ -10,10 +10,7 @@ from phantom.utils.samplers import Sampler
 
 
 class StaticSampler(Sampler[float]):
-    def __init__(
-        self,
-        value: float,
-    ) -> None:
+    def __init__(self, value: float) -> None:
         self.value = value
 
     def sample(self) -> float:
