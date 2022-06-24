@@ -27,7 +27,7 @@ class MaybeSneakySeller(SellerAgent):
         self.victim_id = victim_id  # None if benign seller
         self.victims_price = 0  # how to represent NA
 
-    def encode_obs(self, ctx):
+    def encode_observation(self, ctx):
         obs = np.array(
             [self.current_tx, ctx.views["__ENV"].avg_price, self.victims_price]
         )

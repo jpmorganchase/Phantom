@@ -214,7 +214,7 @@ we do need to still return a value to satisfy RLlib:
         def compute_reward(self, ctx: ph.Context) -> float:
             return 0.0
 
-        def encode_obs(self, ctx: ph.Context):
+        def encode_observation(self, ctx: ph.Context):
             return 0
 
         @property
@@ -310,7 +310,7 @@ method:
 
 .. code-block:: python
 
-        def encode_obs(self, ctx: ph.Context):
+        def encode_observation(self, ctx: ph.Context):
             # We encode the shop's current stock as the observation.
             return self.stock
     #

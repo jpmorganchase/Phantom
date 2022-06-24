@@ -203,7 +203,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             if agent.action_space is not None:
                 if acting_agents is None or agent_id in acting_agents:
                     ctx = self.network.context_for(agent_id)
-                    observations[agent_id] = agent.encode_obs(ctx)
+                    observations[agent_id] = agent.encode_observation(ctx)
 
                 self._rewards[agent_id] = None
 
@@ -269,7 +269,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
             acting_agents = self._stages[next_stage].acting_agents
             if acting_agents is None or agent_id in acting_agents:
-                observations[agent_id] = agent.encode_obs(ctx)
+                observations[agent_id] = agent.encode_observation(ctx)
                 infos[agent_id] = agent.collect_infos(ctx)
 
             rewarded_agents = self._stages[self.current_stage].rewarded_agents

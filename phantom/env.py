@@ -164,7 +164,7 @@ class PhantomEnv:
         for agent_id, agent in self.network.agents.items():
             if agent.action_space is not None:
                 ctx = self.network.context_for(agent_id)
-                observations[agent_id] = agent.encode_obs(ctx)
+                observations[agent_id] = agent.encode_observation(ctx)
 
         return observations
 
@@ -203,13 +203,13 @@ class PhantomEnv:
                     # if agent is just done we send the last obs, rew, info
                     if agent_id not in self._dones:
                         self._dones.add(agent_id)
-                        observations[agent_id] = agent.encode_obs(ctx)
+                        observations[agent_id] = agent.encode_observation(ctx)
                         rewards[agent_id] = agent.compute_reward(ctx)
                         infos[agent_id] = agent.collect_infos(ctx)
                         dones[agent_id] = True
                     # otherwise just ignore
                 else:
-                    observations[agent_id] = agent.encode_obs(ctx)
+                    observations[agent_id] = agent.encode_observation(ctx)
                     rewards[agent_id] = agent.compute_reward(ctx)
                     infos[agent_id] = agent.collect_infos(ctx)
                     dones[agent_id] = False

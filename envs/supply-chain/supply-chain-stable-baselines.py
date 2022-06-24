@@ -78,7 +78,7 @@ class CustomerAgent(ph.Agent):
     def compute_reward(self, ctx: ph.Context) -> float:
         return 0.0
 
-    def encode_obs(self, ctx: ph.Context):
+    def encode_observation(self, ctx: ph.Context):
         return 0
 
     @property
@@ -160,7 +160,7 @@ class ShopAgent(ph.Agent):
             # Send the customer their order.
             return [(sender_id, DeliveryMsg(quantity_to_sell))]
 
-    def encode_obs(self, ctx: ph.Context):
+    def encode_observation(self, ctx: ph.Context):
         # We encode the shop's current stock as the observation.
         return self.current_inventory
 

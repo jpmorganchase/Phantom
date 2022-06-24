@@ -110,7 +110,7 @@ class Agent(ABC):
             f"The handle_message method is not implemented for agent '{self.id}' with type {self.__class__.__name__}"
         )
 
-    def encode_obs(self, ctx: Context) -> np.ndarray:
+    def encode_observation(self, ctx: Context) -> np.ndarray:
         """
         Encodes a local view of the environment state into a set of observations.
 

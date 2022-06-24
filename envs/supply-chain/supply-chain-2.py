@@ -81,7 +81,7 @@ class CustomerAgent(ph.MessageHandlerAgent):
     def compute_reward(self, ctx: ph.Context) -> float:
         return 0.0
 
-    def encode_obs(self, ctx: ph.Context):
+    def encode_observation(self, ctx: ph.Context):
         return 0
 
     @property

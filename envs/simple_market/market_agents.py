@@ -69,7 +69,7 @@ class BuyerAgent(ph.Agent):
         # buy (1) or no-buy (0)
         return Discrete(2)
 
-    def encode_obs(self, ctx):
+    def encode_observation(self, ctx):
         min_price = min(self.seller_prices.values())
         demand = np.random.binomial(1, self.demand_prob)
         return np.array([min_price, demand, self.type.value])
@@ -122,7 +122,7 @@ class SellerAgent(ph.Agent):
         # price in [0, 1]
         return Box(low=0, high=1, shape=(1,))
 
-    def encode_obs(self, ctx):
+    def encode_observation(self, ctx):
         obs = np.array([self.current_tx, ctx.views["__ENV"].avg_price])
         self.current_tx = 0
         return obs
@@ -156,7 +156,7 @@ class SellerAgent(ph.Agent):
 
 class SimpleMktEnvActor(ph.env.EnvironmentActor):
     @dataclass(frozen=True)
-    class View(ph.agents.View):
+    class View(ph.View):
         avg_price: float
 
     def __init__(self):

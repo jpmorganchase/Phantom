@@ -333,7 +333,7 @@ This is key to allowing the ``ShopAgent`` to learn a generalised policy.
 
 .. code-block:: python
 
-        def encode_obs(self, ctx: ph.Context):
+        def encode_observation(self, ctx: ph.Context):
             return [
                 # We include the agent's type in it's observation space to allow it to learn
                 # a generalised policy.

@@ -78,7 +78,7 @@ class LeakySimpleMarketEnv(SimpleMarketEnv):
         for aid in self.agent_groups[self.turn]:
             agent = self.agents[aid]
             ctx = self.network.context_for(aid)
-            obs[aid] = agent.encode_obs(ctx)
+            obs[aid] = agent.encode_observation(ctx)
             rewards[aid] = agent.compute_reward(ctx)
             info[aid] = {"turn": True}
 

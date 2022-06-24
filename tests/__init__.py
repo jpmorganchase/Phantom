@@ -14,7 +14,7 @@ class MockAgent(ph.Agent):
         self.decode_action_count = 0
         self.compute_reward_count = 0
 
-    def encode_obs(self, ctx: ph.Context):
+    def encode_observation(self, ctx: ph.Context):
         self.encode_obs_count += 1
         return np.zeros((1,))
 

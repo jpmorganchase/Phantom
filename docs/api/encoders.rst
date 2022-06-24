@@ -12,7 +12,7 @@ is able to train on:
 
 
 Encoders are a fully optional feature of Phantom. There is no functional difference
-between defining an ``encode_obs()`` method on an Agent and defining an :class:`Encoder`
+between defining an ``encode_observation()`` method on an Agent and defining an :class:`Encoder`
 (whose ``encode()`` method performs the same actions) and attaching it to the Agent.
 
 Encoders are useful when many different Agents want to encode the same properties

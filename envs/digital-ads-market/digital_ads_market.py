@@ -271,7 +271,7 @@ class AdvertiserAgent(ph.Agent):
 
         yield from ()
 
-    def encode_obs(self, _ctx: ph.Context):
+    def encode_observation(self, _ctx: ph.Context):
         """@override
         The observation will help learn the policy.
 
@@ -352,7 +352,7 @@ class AdExchangeAgent(ph.Agent):
     """
 
     @dataclass(frozen=True)
-    class AdExchangeView(ph.agents.View):
+    class AdExchangeView(ph.View):
         """
         The view is used to expose additional information to other actors in the system.
         It is accessible via the `ph.Context` object passed as a parameters
@@ -378,7 +378,7 @@ class AdExchangeAgent(ph.Agent):
 
         self.strategy = strategy
 
-    def view(self, neighbour_id=None) ->ph.agents.View:
+    def view(self, neighbour_id=None) -> ph.View:
         """@override
         Method to provide extra information about the user. This information
         is made available only for advertisers in a pull fashion, i.e the
@@ -543,7 +543,9 @@ class DigitalAdsEnv(ph.PhantomEnv):
         The episode is done when all the advertiser agents are dones or
         when the number of steps has reached its maximum
         """
-        return self.current_step == self.num_steps or len(self._dones) == len(self.advertiser_ids)
+        return self.current_step == self.num_steps or len(self._dones) == len(
+            self.advertiser_ids
+        )
 
 
 #######################################

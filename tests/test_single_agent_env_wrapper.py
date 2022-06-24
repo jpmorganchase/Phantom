@@ -16,7 +16,7 @@ class MockAgent(ph.Agent):
     def compute_reward(self, ctx: Context) -> float:
         return 0.0
 
-    def encode_obs(self, ctx: Context):
+    def encode_observation(self, ctx: Context):
         return 1.0
 
     def decode_action(self, ctx: Context, action: np.ndarray):
