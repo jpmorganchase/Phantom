@@ -57,7 +57,6 @@ class PhantomEnv:
         self.env_type: Optional[Supertype] = None
 
         self._dones: Set[AgentID] = set()
-        self._agent_ids = set(self.agent_ids)
 
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the list
@@ -139,11 +138,9 @@ class PhantomEnv:
             A dictionary mapping Agent IDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
-        self._apply_samplers()
-
-        self._agent_ids = set(self.agent_ids)
-
         self.current_step = 0
+
+        self._apply_samplers()
 
         # Reset network and call reset method on all agents in the network.
         # Message samplers should be called here from the respective agent's reset method.

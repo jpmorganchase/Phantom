@@ -28,22 +28,24 @@ from . import check_env_config
 
 PolicyClass = Union[Type[Policy], Type[rllib.Policy]]
 
+PolicyMapping = Mapping[
+    str,
+    Union[
+        Type[Agent],
+        List[AgentID],
+        Tuple[PolicyClass, Type[Agent]],
+        Tuple[PolicyClass, Type[Agent], Mapping[str, Any]],
+        Tuple[PolicyClass, List[AgentID]],
+        Tuple[PolicyClass, List[AgentID], Mapping[str, Any]],
+    ],
+]
+
 
 def train(
     algorithm: str,
     env_class: Type[PhantomEnv],
     num_iterations: int,
-    policies: Mapping[
-        str,
-        Union[
-            Type[Agent],
-            List[AgentID],
-            Tuple[PolicyClass, Type[Agent]],
-            Tuple[PolicyClass, Type[Agent], Mapping[str, Any]],
-            Tuple[PolicyClass, List[AgentID]],
-            Tuple[PolicyClass, List[AgentID], Mapping[str, Any]],
-        ],
-    ],
+    policies: PolicyMapping,
     policies_to_train: List[str],
     env_config: Optional[Mapping[str, Any]] = None,
     rllib_config: Optional[Mapping[str, Any]] = None,
@@ -160,6 +162,29 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
     def __init__(self, env: PhantomEnv) -> None:
         self.env = env
 
+        self._agent_ids = set(
+            [
+                agent.id
+                for agent in self.env.network.agents.values()
+                if agent.action_space is not None
+                and agent.observation_space is not None
+            ]
+        )
+
+        self.action_space = gym.spaces.Dict(
+            {
+                agent_id: env.agents[agent_id].action_space
+                for agent_id in self._agent_ids
+            }
+        )
+
+        self.observation_space = gym.spaces.Dict(
+            {
+                agent_id: env.agents[agent_id].observation_space
+                for agent_id in self._agent_ids
+            }
+        )
+
         rllib.MultiAgentEnv.__init__(self)
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
@@ -185,7 +210,7 @@ def make_rllib_wrapped_policy_class(policy_class: Type[Policy]) -> Type[rllib.Po
     class RLlibPolicyWrapper(rllib.Policy):
         # NOTE:
         # If the action space is larger than -1.0 < x < 1.0, RLlib will attempt to
-        # 'unsquash' the values leading to unintended results.
+        # 'unsquash' the values leading to potentially unintended results.
         # (https://github.com/ray-project/ray/pull/16531)
 
         def __init__(
