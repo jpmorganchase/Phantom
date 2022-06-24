@@ -1,42 +1,17 @@
-import gym
-import numpy as np
 import phantom as ph
 import pytest
 
-from phantom import Context, Network, PhantomEnv
-
-
-class MockAgent(ph.Agent):
-    def __init__(self, *args, **kwargs):
-        self.action_space = gym.spaces.Box(-np.inf, np.inf, (1,))
-        self.observation_space = gym.spaces.Box(-np.inf, np.inf, (1,))
-
-        super().__init__(*args, **kwargs)
-
-    def decode_action(self, ctx: Context, action: np.ndarray):
-        return []
-
-    def is_done(self, ctx: Context) -> bool:
-        return self.id == "A"
-
-    def compute_reward(self, ctx: Context) -> float:
-        return 0.0
-
-    def encode_obs(self, ctx: Context):
-        return np.zeros((1,))
-
-    def decode_action(self, ctx: Context, action: np.ndarray):
-        return []
+from . import MockAgent
 
 
 @pytest.fixture
 def phantom_network():
-    return Network([MockAgent("A"), MockAgent("B")])
+    return ph.Network([MockAgent("A"), MockAgent("B")])
 
 
 @pytest.fixture
 def phantom_env(phantom_network):
-    return PhantomEnv(network=phantom_network, num_steps=2)
+    return ph.PhantomEnv(network=phantom_network, num_steps=2)
 
 
 def test_agent_ids(phantom_env):

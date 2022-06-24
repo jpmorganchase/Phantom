@@ -1,2 +1,5 @@
-AgentID = str
-PolicyID = str
+from typing import Hashable
+
+AgentID = Hashable
+PolicyID = Hashable
+StageID = Hashable
