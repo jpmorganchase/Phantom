@@ -128,6 +128,11 @@ class PhantomEnv:
         for agent_id, ctx in ctxs.items():
             self.agents[agent_id].post_message_resolution(ctx)
 
+    def resolve_network(self) -> None:
+        self.pre_message_resolution()
+        self.network.resolve(self.view)
+        self.post_message_resolution()
+
     def reset(self) -> Dict[AgentID, Any]:
         """
         Reset the environment and return an initial observation.
@@ -149,7 +154,7 @@ class PhantomEnv:
         # Reset network and call reset method on all agents in the network.
         # Message samplers should be called here from the respective agent's reset method.
         self.network.reset()
-        self.network.resolve()
+        self.resolve_network()
 
         # Reset the agents' done status
         self._dones = set()
@@ -183,9 +188,7 @@ class PhantomEnv:
                 self.network.send(agent_id, receiver_id, message)
 
         # Resolve the messages on the network and perform mutations:
-        self.pre_message_resolution()
-        self.network.resolve(self.view)
-        self.post_message_resolution()
+        self.resolve_network()
 
         # Compute the output for rllib:
         observations: Dict[AgentID, Any] = {}
