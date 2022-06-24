@@ -124,12 +124,12 @@ class Network:
         self.add_connections_from(product(us, vs))
 
     def add_connections_with_adjmat(
-        self, aids: Sequence[AgentID], adjacency_matrix: np.ndarray
+        self, agent_ids: Sequence[AgentID], adjacency_matrix: np.ndarray
     ) -> None:
         """Connect a subset of agents to one another via an adjacency matrix.
 
         Arguments:
-            aids: Sequence of agent IDs that correspond to each dimension of
+            agent_ids: Sequence of agent IDs that correspond to each dimension of
                 the adjacency matrix.
             adjacency_matrix: A square, symmetric, hollow matrix with entries
                 in {0, 1}. A value of 1 indicates a connection between two
@@ -137,36 +137,24 @@ class Network:
         """
         num_nodes = adjacency_matrix.shape[0]
 
-        if len(aids) != num_nodes:
+        if len(agent_ids) != num_nodes:
             raise ValueError(
-                "Number of agent IDs doesn't match adjacency" " matrix dimensions."
+                "Number of agent IDs doesn't match adjacency matrix dimensions."
             )
 
-        def is_square(mat: np.ndarray) -> bool:
-            """Returns true iff :code:`mat` is a square matrix."""
-            return len(set(mat.shape)) == 1
-
-        def is_symmetric(mat: np.ndarray) -> bool:
-            """Returns true iff :code:`mat` is a symmetric matrix."""
-            return cast(bool, (mat.transpose() == mat).all())
-
-        def is_hollow(mat: np.ndarray) -> bool:
-            """Returns true iff :code:`mat` is a hollow matrix."""
-            return cast(bool, (np.abs(mat.diagonal() - 0.0) < 1e-5).all())
-
-        if not is_square(adjacency_matrix):
+        if len(set(adjacency_matrix.shape)) != 1:
             raise ValueError("Adjacency matrix must be square.")
 
-        if not is_symmetric(adjacency_matrix):
+        if not (adjacency_matrix.transpose() == adjacency_matrix).all():
             raise ValueError("Adjacency matrix must be symmetric.")
 
-        if not is_hollow(adjacency_matrix):
+        if not (np.abs(adjacency_matrix.diagonal() - 0.0) < 1e-5).all():
             raise ValueError("Adjacency matrix must be hollow.")
 
-        for i, aid in enumerate(aids):
+        for i, agent_id in enumerate(agent_ids):
             self.add_connections_between(
-                [aid],
-                [aids[j] for j in range(num_nodes) if adjacency_matrix[i, j] > 0],
+                [agent_id],
+                [agent_ids[j] for j in range(num_nodes) if adjacency_matrix[i, j] > 0],
             )
 
     def reset(self) -> None:

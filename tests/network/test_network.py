@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
+import numpy as np
 import pytest
 
 from phantom import AgentID, Context, Message, Message
@@ -33,7 +34,7 @@ class MyAgent(MessageHandlerAgent):
 
 @pytest.fixture
 def net() -> Network:
-    n = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(2))
+    n = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(chain_limit=2))
     n.add_connection("mm", "inv")
 
     return n
@@ -82,3 +83,34 @@ def test_reset(net):
 
     assert net.agents["mm"].total_cash == 0.0
     assert net.agents["inv"].total_cash == 0.0
+
+
+@pytest.fixture
+def net2() -> Network:
+    return Network([MyAgent("a"), MyAgent("b"), MyAgent("c")])
+
+
+def test_adjacency_matrix(net2):
+    net2.add_connections_with_adjmat(["a", "b"], np.array([[0, 1], [1, 0]]))
+
+    with pytest.raises(ValueError) as e:
+        net2.add_connections_with_adjmat(["a", "b", "c"], np.array([[0, 1], [1, 0]]))
+
+    assert (
+        str(e.value) == "Number of agent IDs doesn't match adjacency matrix dimensions."
+    )
+
+    with pytest.raises(ValueError) as e:
+        net2.add_connections_with_adjmat(["a", "b"], np.array([[0, 0, 0], [0, 0, 0]]))
+
+    assert str(e.value) == "Adjacency matrix must be square."
+
+    with pytest.raises(ValueError) as e:
+        net2.add_connections_with_adjmat(["a", "b"], np.array([[0, 0], [1, 0]]))
+
+    assert str(e.value) == "Adjacency matrix must be symmetric."
+
+    with pytest.raises(ValueError) as e:
+        net2.add_connections_with_adjmat(["a", "b"], np.array([[1, 1], [1, 1]]))
+
+    assert str(e.value) == "Adjacency matrix must be hollow."
