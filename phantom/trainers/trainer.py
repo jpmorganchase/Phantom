@@ -167,6 +167,8 @@ class Trainer(ABC):
         policy_specs: Dict[PolicyID, PolicySpec] = {}
         policy_mapping: Dict[AgentID, PolicyID] = {}
 
+        agents_with_policies: List[AgentID] = []
+
         for policy_name, policy_config in policies.items():
             if isclass(policy_config) and issubclass(policy_config, Agent):
                 agent_class = policy_config
@@ -220,6 +222,14 @@ class Trainer(ABC):
 
             else:
                 raise TypeError(type(policy_config))
+
+            agents_with_policies += agent_ids
+
+        for agent in env.agents.values():
+            if agent.action_space is not None and agent.id not in agents_with_policies:
+                raise ValueError(
+                    f"Agent '{agent.id}' takes actions but is not assigned a policy."
+                )
 
         policy_instances = {
             name: (
