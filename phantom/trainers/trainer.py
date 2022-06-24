@@ -160,7 +160,7 @@ class Trainer(ABC):
         if self.tensorboard_log_dir is not None:
             self.tbx_writer.add_scalar(name, value, global_step=step)
 
-    def _setup_policy_specs_and_mapping(
+    def setup_policy_specs_and_mapping(
         self, env: PhantomEnv, policies: PolicyMapping
     ) -> Tuple[Dict[AgentID, PolicyID], Dict[PolicyID, Policy]]:
         policy_specs: Dict[PolicyID, PolicySpec] = {}
@@ -204,6 +204,8 @@ class Trainer(ABC):
                     )
                 elif isinstance(agents_param, list):
                     agent_ids = agents_param
+                else:
+                    raise ValueError
 
                 policy_specs[policy_name] = PolicySpec(
                     policy_class=policy_class,

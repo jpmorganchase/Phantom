@@ -105,7 +105,7 @@ class PPOTrainer(Trainer):
             observations.append(env.reset())
             envs.append(env)
 
-        policy_mapping, policy_instances = self._setup_policy_specs_and_mapping(
+        policy_mapping, policy_instances = self.setup_policy_specs_and_mapping(
             env, policies
         )
 
