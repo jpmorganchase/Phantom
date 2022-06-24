@@ -23,10 +23,14 @@ class QLearningPolicy(Policy):
         super().__init__(observation_space, action_space, {})
 
         if not isinstance(observation_space, gym.spaces.Discrete):
-            raise ValueError(f"QLearningPolicy observation space must be Discrete type (got {type(observation_space)})")
+            raise ValueError(
+                f"QLearningPolicy observation space must be Discrete type (got {type(observation_space)})"
+            )
 
         if not isinstance(action_space, gym.spaces.Discrete):
-            raise ValueError(f"QLearningPolicy action space must be Discrete type (got {type(action_space)})")
+            raise ValueError(
+                f"QLearningPolicy action space must be Discrete type (got {type(action_space)})"
+            )
 
         self.q_table = np.zeros([observation_space.n, action_space.n])
 

@@ -24,15 +24,10 @@ class QLearningTrainer(Trainer):
 
     def __init__(
         self,
-        # Trainer general args:
-        tensorboard_log_dir: Optional[str] = None,
-        # PPOTrainer specific args:
-        # Learning rate:
         alpha: float = 0.1,
-        # Discount factor:
         gamma: float = 0.6,
-        # Exploration rate:
         epsilon: float = 0.1,
+        tensorboard_log_dir: Optional[str] = None,
     ) -> None:
         super().__init__(tensorboard_log_dir)
 
@@ -47,8 +42,6 @@ class QLearningTrainer(Trainer):
         policies: Mapping[PolicyID, QLearningPolicy],
         policies_to_train: Sequence[PolicyID],
     ) -> None:
-        assert len(policies_to_train) == 1
-        policy_to_train = policies_to_train[0]
         batch_size = 10
 
         for _ in range(batch_size):
@@ -61,8 +54,8 @@ class QLearningTrainer(Trainer):
                     policy_name = policy_mapping[agent_id]
                     policy = policies[policy_name]
 
-                    if policy_name == policy_to_train:
-                        assert isinstance(policy, QLearningPolicy)  # mypy satisfier
+                    if policy_name in policies_to_train:
+                        assert isinstance(policy, QLearningPolicy)
 
                         if np.random.uniform(0, 1) < self.epsilon:
                             # Explore action space
@@ -81,8 +74,8 @@ class QLearningTrainer(Trainer):
                     policy_name = policy_mapping[agent_id]
                     policy = policies[policy_name]
 
-                    if policy_name == policy_to_train:
-                        assert isinstance(policy, QLearningPolicy)  # mypy satisfier
+                    if policy_name in policies_to_train:
+                        assert isinstance(policy, QLearningPolicy)
 
                         reward = rewards[agent_id]
                         next_obs = next_observations[agent_id]
