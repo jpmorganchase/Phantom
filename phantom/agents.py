@@ -156,12 +156,9 @@ class Agent(ABC):
         Returns:
             A float representing the present reward value.
         """
-        if self.reward_function is None:
-            raise NotImplementedError(
-                "If the agent does not have an RewardFunction, a custom compute_reward method must be defined"
-            )
-
-        return self.reward_function.reward(ctx)
+        return (
+            None if self.reward_function is None else self.reward_function.reward(ctx)
+        )
 
     def is_done(self, ctx: Context) -> bool:
         """
