@@ -4,19 +4,17 @@ from typing import (
     Callable,
     Dict,
     Iterable,
-    List,
     Mapping,
     Optional,
     Set,
     Tuple,
 )
 
-from .agents import Agent, View
-from .context import Context
-from .env import EnvView, PhantomEnv
+from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
 from .types import AgentID, PolicyID, StageID
+from .view import EnvView
 
 
 class FSMValidationError(Exception):

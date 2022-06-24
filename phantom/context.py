@@ -1,10 +1,10 @@
 from typing import Any, Dict, Iterator, Mapping, Optional, Union, TYPE_CHECKING
 
 from .types import AgentID
+from .view import AgentView, EnvView, View
 
 if TYPE_CHECKING:
-    from .agents import Agent, View
-    from .env import EnvView
+    from .agents import Agent
     from .network import Network
 
 
@@ -32,15 +32,13 @@ class Context:
     def __init__(
         self,
         agent: "Agent",
-        agent_views: Mapping[AgentID, "View"],
-        env_view: Optional["EnvView"],
+        agent_views: Mapping[AgentID, AgentView],
+        env_view: EnvView,
         subnet: "Network",
     ) -> None:
         self.agent = agent
-        self.views: Dict[str, Union["View", "EnvView"]] = agent_views
-
-        if env_view is not None:
-            self.views["ENV"] = env_view
+        self.views: Dict[str, View] = agent_views
+        self.views["ENV"] = env_view
 
         self._subnet = subnet
 

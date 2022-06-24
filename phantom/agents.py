@@ -1,6 +1,5 @@
 from abc import ABC
 from collections import defaultdict
-from dataclasses import dataclass
 from itertools import chain
 from typing import (
     Any,
@@ -14,7 +13,6 @@ from typing import (
     TypeVar,
 )
 
-import gym
 import numpy as np
 
 from .context import Context
@@ -24,17 +22,7 @@ from .message import Message, MessageType
 from .reward_functions import RewardFunction
 from .supertype import Supertype
 from .types import AgentID
-
-
-@dataclass(frozen=True)
-class View:
-    """Immutable references to public :class:`phantom.Agent` state.
-
-    Attributes:
-        agent_id: The unique :class:`AgentID` of the agent.
-    """
-
-    agent_id: AgentID
+from .view import AgentView
 
 
 Action = TypeVar("Action")
@@ -82,9 +70,9 @@ class Agent(ABC):
         """The unique ID of the agent."""
         return self._id
 
-    def view(self, neighbour_id: Optional[AgentID] = None) -> View:
+    def view(self, neighbour_id: Optional[AgentID] = None) -> AgentView:
         """Return an immutable view to the agent's public state."""
-        return View(agent_id=self._id)
+        return AgentView(agent_id=self._id)
 
     def pre_message_resolution(self, ctx: Context) -> None:
         """Perform internal, pre-message resolution updates to the agent."""

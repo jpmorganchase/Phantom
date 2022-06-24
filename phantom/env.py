@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -14,11 +13,7 @@ from .network import Network
 from .supertype import Supertype
 from .types import AgentID
 from .utils.samplers import Sampler
-
-
-@dataclass(frozen=True)
-class EnvView:
-    """Immutable references to public :class:`phantom.PhantomEnv` state."""
+from .view import EnvView
 
 
 class PhantomEnv:
