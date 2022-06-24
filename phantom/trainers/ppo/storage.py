@@ -5,8 +5,8 @@ import torch
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 
-def _flatten_helper(T, N, _tensor):
-    return _tensor.view(T * N, *_tensor.size()[2:])
+def _flatten_helper(T: int, N: int, tensor: torch.Tensor):
+    return tensor.view(T * N, *tensor.size()[2:])
 
 
 class RolloutStorage:
@@ -55,14 +55,14 @@ class RolloutStorage:
 
     def insert(
         self,
-        obs: torch.FloatTensor,
-        recurrent_hidden_states: torch.FloatTensor,
-        actions: torch.FloatTensor,
-        action_log_probs: torch.FloatTensor,
-        value_preds: torch.FloatTensor,
-        rewards: torch.FloatTensor,
-        masks: torch.FloatTensor,
-        bad_masks: torch.FloatTensor,
+        obs: torch.Tensor,
+        recurrent_hidden_states: torch.Tensor,
+        actions: torch.Tensor,
+        action_log_probs: torch.Tensor,
+        value_preds: torch.Tensor,
+        rewards: torch.Tensor,
+        masks: torch.Tensor,
+        bad_masks: torch.Tensor,
     ) -> None:
         self.obs[self.step + 1].copy_(obs)
         self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
@@ -95,8 +95,8 @@ class RolloutStorage:
                         - self.value_preds[step]
                     )
                     gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
-                    gae = gae * self.bad_masks[step + 1]
-                    self.returns[step] = gae + self.value_preds[step]
+                    gae_tensor = gae * self.bad_masks[step + 1]
+                    self.returns[step] = gae_tensor + self.value_preds[step]
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.size(0))):
@@ -141,6 +141,7 @@ class RolloutStorage:
             raise ValueError
 
         if mini_batch_size is None:
+            assert num_mini_batch is not None
             assert batch_size >= num_mini_batch, (
                 f"PPO requires the number of processes ({num_processes}) * number of "
                 f"steps ({num_steps}) = {num_processes * num_steps} to be greater than "
@@ -167,7 +168,9 @@ class RolloutStorage:
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
 
-    def recurrent_generator(self, advantages, num_mini_batch: int) -> Iterator[Tuple]:
+    def recurrent_generator(
+        self, advantages, num_mini_batch: int
+    ) -> Iterator[Tuple[torch.Tensor, ...]]:
         num_processes = self.rewards.size(1)
         assert num_processes >= num_mini_batch, (
             f"PPO requires the number of processes ({num_processes}) to be greater than"
@@ -176,41 +179,43 @@ class RolloutStorage:
         num_envs_per_batch = num_processes // num_mini_batch
         perm = torch.randperm(num_processes)
         for start_ind in range(0, num_processes, num_envs_per_batch):
-            obs_batch = []
-            recurrent_hidden_states_batch = []
-            actions_batch = []
-            value_preds_batch = []
-            return_batch = []
-            masks_batch = []
-            old_action_log_probs_batch = []
-            adv_targ = []
+            obs_batch_stack = []
+            recurrent_hidden_states_batch_stack = []
+            actions_batch_stack = []
+            value_preds_batch_stack = []
+            return_batch_stack = []
+            masks_batch_stack = []
+            old_action_log_probs_batch_stack = []
+            adv_targ_stack = []
 
             for offset in range(num_envs_per_batch):
                 ind = perm[start_ind + offset]
-                obs_batch.append(self.obs[:-1, ind])
-                recurrent_hidden_states_batch.append(
+                obs_batch_stack.append(self.obs[:-1, ind])
+                recurrent_hidden_states_batch_stack.append(
                     self.recurrent_hidden_states[0:1, ind]
                 )
-                actions_batch.append(self.actions[:, ind])
-                value_preds_batch.append(self.value_preds[:-1, ind])
-                return_batch.append(self.returns[:-1, ind])
-                masks_batch.append(self.masks[:-1, ind])
-                old_action_log_probs_batch.append(self.action_log_probs[:, ind])
-                adv_targ.append(advantages[:, ind])
+                actions_batch_stack.append(self.actions[:, ind])
+                value_preds_batch_stack.append(self.value_preds[:-1, ind])
+                return_batch_stack.append(self.returns[:-1, ind])
+                masks_batch_stack.append(self.masks[:-1, ind])
+                old_action_log_probs_batch_stack.append(self.action_log_probs[:, ind])
+                adv_targ_stack.append(advantages[:, ind])
 
             T, N = self.num_steps, num_envs_per_batch
             # These are all tensors of size (T, N, -1)
-            obs_batch = torch.stack(obs_batch, 1)
-            actions_batch = torch.stack(actions_batch, 1)
-            value_preds_batch = torch.stack(value_preds_batch, 1)
-            return_batch = torch.stack(return_batch, 1)
-            masks_batch = torch.stack(masks_batch, 1)
-            old_action_log_probs_batch = torch.stack(old_action_log_probs_batch, 1)
-            adv_targ = torch.stack(adv_targ, 1)
+            obs_batch = torch.stack(obs_batch_stack, 1)
+            actions_batch = torch.stack(actions_batch_stack, 1)
+            value_preds_batch = torch.stack(value_preds_batch_stack, 1)
+            return_batch = torch.stack(return_batch_stack, 1)
+            masks_batch = torch.stack(masks_batch_stack, 1)
+            old_action_log_probs_batch = torch.stack(
+                old_action_log_probs_batch_stack, 1
+            )
+            adv_targ = torch.stack(adv_targ_stack, 1)
 
             # States is just a (N, -1) tensor
             recurrent_hidden_states_batch = torch.stack(
-                recurrent_hidden_states_batch, 1
+                recurrent_hidden_states_batch_stack, 1
             ).view(N, -1)
 
             # Flatten the (T, N, ...) tensors to (T * N, ...)

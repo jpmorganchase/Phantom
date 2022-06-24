@@ -5,6 +5,7 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
+    Type,
     TypeVar,
     Union,
 )
@@ -25,7 +26,7 @@ class SingleAgentEnvAdapter(gym.Env):
         self,
         env: PhantomEnv,
         agent_id: AgentID,
-        other_policies: Mapping[AgentID, Tuple[Policy, Mapping[str, Any]]],
+        other_policies: Mapping[AgentID, Tuple[Type[Policy], Mapping[str, Any]]],
         config: Optional[Mapping[str, Any]] = None,
     ) -> None:
         config = config or {}

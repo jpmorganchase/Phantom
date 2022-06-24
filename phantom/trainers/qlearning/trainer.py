@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -45,7 +45,7 @@ class QLearningTrainer(Trainer):
         env: PhantomEnv,
         policy_mapping: Mapping[AgentID, PolicyID],
         policies: Mapping[PolicyID, QLearningPolicy],
-        policies_to_train: Iterable[PolicyID],
+        policies_to_train: Sequence[PolicyID],
     ) -> None:
         assert len(policies_to_train) == 1
         policy_to_train = policies_to_train[0]

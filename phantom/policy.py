@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 import gym
 
@@ -15,7 +15,7 @@ class Policy(ABC):
         self,
         observation_space: gym.Space,
         action_space: gym.Space,
-        config: Mapping[str, Any],
+        config: Optional[Mapping[str, Any]],
     ) -> None:
         self.observation_space = observation_space
         self.action_space = action_space

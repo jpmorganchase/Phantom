@@ -37,9 +37,10 @@ class Context:
         subnet: "Network",
     ) -> None:
         self.agent = agent
-        self.views: Dict[str, Union["View", "EnvView"]] = dict(
-            ENV=env_view, **agent_views
-        )
+        self.views: Dict[str, Union["View", "EnvView"]] = agent_views
+
+        if env_view is not None:
+            self.views["ENV"] = env_view
 
         self._subnet = subnet
 

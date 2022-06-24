@@ -8,10 +8,11 @@ from typing import (
     Any,
     DefaultDict,
     Dict,
-    Iterable,
+    Hashable,
     List,
     Mapping,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -72,7 +73,7 @@ class Trainer(ABC):
         self.tensorboard_log_dir = tensorboard_log_dir
         self.metrics: Dict[str, Metric] = {}
         self.logged_metrics: DefaultDict[str, List[float]] = defaultdict(list)
-        self.logged_rewards: DefaultDict[str, List[float]] = defaultdict(list)
+        self.logged_rewards: DefaultDict[AgentID, List[float]] = defaultdict(list)
 
         if tensorboard_log_dir is not None:
             current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -86,7 +87,7 @@ class Trainer(ABC):
         env_class: Type[PhantomEnv],
         num_iterations: int,
         policies: PolicyMapping,
-        policies_to_train: Iterable[PolicyID],
+        policies_to_train: Sequence[PolicyID],
         env_config: Optional[Mapping[str, Any]] = None,
         metrics: Optional[Mapping[str, Metric]] = None,
     ) -> TrainingResults:
@@ -118,7 +119,7 @@ class Trainer(ABC):
         env: PhantomEnv,
         policy_mapping: Mapping[AgentID, PolicyID],
         policies: Mapping[PolicyID, Policy],
-        policies_to_train: Iterable[PolicyID],
+        policies_to_train: Sequence[PolicyID],
     ) -> None:
         raise NotImplementedError
 
@@ -126,7 +127,7 @@ class Trainer(ABC):
         for name, metric in self.metrics.items():
             self.logged_metrics[name].append(metric.extract(env))
 
-    def log_vec_metrics(self, envs: List[PhantomEnv]) -> None:
+    def log_vec_metrics(self, envs: Sequence[PhantomEnv]) -> None:
         for name, metric in self.metrics.items():
             self.logged_metrics[name].append(
                 np.mean([metric.extract(env) for env in envs])
@@ -136,7 +137,7 @@ class Trainer(ABC):
         for agent_id, reward in rewards.items():
             self.logged_rewards[agent_id].append(reward)
 
-    def log_vec_rewards(self, rewards: List[Mapping[AgentID, float]]) -> None:
+    def log_vec_rewards(self, rewards: Sequence[Mapping[AgentID, float]]) -> None:
         for sub_rewards in rewards:
             for agent_id, reward in sub_rewards.items():
                 self.logged_rewards[agent_id].append(reward)

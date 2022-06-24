@@ -83,7 +83,7 @@ class BatchResolver(Resolver):
 
         self.chain_limit = chain_limit
 
-        self.queue: List[Tuple[str, str, Message]] = []
+        self.queue: List[Tuple[AgentID, AgentID, Message]] = []
 
     def reset(self) -> None:
         self.queue.clear()

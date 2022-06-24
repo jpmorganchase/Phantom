@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
 import torch
@@ -86,7 +86,7 @@ class PPOTrainer(Trainer):
         env_class: Type[PhantomEnv],
         num_iterations: int,
         policies: PolicyMapping,
-        policies_to_train: Iterable[PolicyID],
+        policies_to_train: Sequence[PolicyID],
         env_config: Optional[Mapping[str, Any]] = None,
         metrics: Optional[Mapping[str, Metric]] = None,
     ) -> TrainingResults:
@@ -295,6 +295,8 @@ class PPOTrainer(Trainer):
             #     obs_rms = utils.get_vec_normalize(envs).obs_rms
             #     evaluate(actor_critic, obs_rms, args.env_name, args.seed,
             #             args.num_processes, eval_log_dir, device)
+
+        return TrainingResults(policy_instances)
 
     def update(self, rollouts: RolloutStorage) -> Tuple[float, float, float]:
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
