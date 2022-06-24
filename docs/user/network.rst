@@ -9,7 +9,7 @@ Network
 
 At the core of any Phantom environment is the network. This defines the relationships
 between all actors and agents, controls who can send messages to who and handles the
-way in which messages are sent and resolved. Phantom uses the Mercury library for this.
+way in which messages are sent and resolved.
 
 Each actor and agent, or 'entity', in the network is identified with a unique ID.
 Usually a string is used for this purpose. Any entity can be connected to any number of
@@ -41,7 +41,7 @@ our list of agents.
 
 .. code-block:: python
 
-    network = me.Network(me.resolvers.UnorderedResolver(), agents)
+    network = ph.Network(agents)
 
 Our agents are now in the network and we must now define the connections. We want to
 connect all our players to the dealer. In this environment players do not communicate to
@@ -92,7 +92,8 @@ operator:
 
     dealer = network["d1"]
 
-Mercury also provides three methods for retrieving multiple actors/agents at once:
+The Network class also provides three methods for retrieving multiple actors/agents at
+once:
 
 .. code-block:: python
 

@@ -1,17 +1,15 @@
-import mercury as me
 import phantom as ph
 from market_agents import BuyerSupertype, BuyerAgent, SellerAgent
 from base_policy import BuyerPolicy, SellerPolicy
 from info_leakage_agents import MaybeLeakyBuyer, MaybeSneakySeller
 from info_leakage_env import LeakySimpleMarketEnv
-from mercury.resolvers import UnorderedResolver
 
 
-def rollout(env, clock):
+def rollout(env):
     out = env.reset()
 
-    while not clock.is_terminal:
-        print(clock.elapsed)
+    while env.current_step < env.num_steps:
+        print(env.current_step)
 
         print("obs")
         print(out.observations)
@@ -45,7 +43,7 @@ if __name__ == "__main__":
     all_agents = buyer_agents + seller_agents
 
     # Network definition
-    network = me.Network(UnorderedResolver(chain_limit=4), actors=all_agents)
+    network = ph.Network(ph.resolvers.BatchResolver(chain_limit=4), actors=all_agents)
 
     # Add connections in the network
     network.add_connections_between(["b1", "b2", "b3"], ["s1", "s2"])
@@ -54,9 +52,8 @@ if __name__ == "__main__":
     print("====================================")
     print("NO INFO LEAKAGE")
     print("====================================")
-    clock = ph.Clock(0, 5, 1)
-    env = LeakySimpleMarketEnv(network=network, clock=clock)
-    rollout(env, clock)
+    env = LeakySimpleMarketEnv(num_steps=5, network=network)
+    rollout(env)
 
     # Shift to an adversarial setup
     print("====================================")
@@ -71,4 +68,4 @@ if __name__ == "__main__":
     print("victim seller")
     print(env.victim_seller)
 
-    rollout(env, clock)
+    rollout(env)

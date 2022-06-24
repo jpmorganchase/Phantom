@@ -31,7 +31,7 @@ class View:
     """Immutable references to public :class:`phantom.Agent` state.
 
     Attributes:
-        agent_id: The unique :class:`mercury.ID` of the agent.
+        agent_id: The unique :class:`AgentID` of the agent.
     """
 
     agent_id: AgentID
@@ -118,8 +118,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Mercury Context object representing the local view of the
-                environment.
+            ctx: A Context object representing the local view of the environment.
 
         Returns:
             A numpy array encoding the observations.
@@ -143,8 +142,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Mercury Context object representing the local view of the
-                environment.
+            ctx: A Context object representing the local view of the environment.
             action: The action taken by the agent.
 
         Returns:
@@ -165,8 +163,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Mercury Context object representing the local view of the
-                environment.
+            ctx: A Context object representing the local view of the environment.
 
         Returns:
             A float representing the present reward value.
@@ -187,8 +184,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Mercury Context object representing the local view of the
-                environment.
+            ctx: A Context object representing the local view of the environment.
 
         Returns:
             A boolean representing the terminal status of the agent.
@@ -203,8 +199,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Mercury Context object representing the local view of the
-                environment.
+            ctx: A Context object representing the local view of the environment.
 
         Returns:
             A dictionary containing informations about the agent

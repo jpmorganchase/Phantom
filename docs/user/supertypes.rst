@@ -28,7 +28,7 @@ Below is an example demonstrating what can be acheived:
     class SimpleAgent(ph.Agent[SimpleAgentSupertype]):
         # We don't need to provide an instance of the SimpleAgentSupertype class when we
         # create instances of the agent class.
-        def __init__(self, agent_id: mercury.ID):
+        def __init__(self, agent_id: ph.AgentID):
             super().__init__(agent_id)
 
         def reset(self):

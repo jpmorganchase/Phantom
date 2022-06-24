@@ -39,7 +39,7 @@ Implementing the environment and agents:
                 ExampleAgent("Agent3"),
             ]
 
-            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+            network = ph.Network(agents)
 
             super().__init__(network=network, n_steps=100)
 
@@ -100,7 +100,7 @@ object.
                 }),
             ]
 
-            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+            network = ph.Network(agents)
 
             super().__init__(
                 network=network,
@@ -155,7 +155,7 @@ this as stage handlers do not locally store state.
                 }),
             ]
 
-            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+            network = ph.Network(agents)
 
             super().__init__(
                 network=network,
@@ -204,7 +204,7 @@ Shared stage policies can also be defined in the same manner across multiple age
                 }),
             ]
 
-            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+            network = ph.Network(agents)
 
             super().__init__(
                 network=network,
@@ -254,7 +254,7 @@ multiple agents and multiple stages can be spanned by the same shared stage poli
                 }),
             ]
 
-            network = me.Network(me.resolvers.UnorderedResolver(), agents)
+            network = ph.Network(agents)
 
             super().__init__(
                 network=network,

@@ -8,7 +8,7 @@
 
 <br />
 <div align="center">
-  <h2 align="center">Phantom / Mercury</h2>
+  <h2 align="center">Phantom</h2>
 
   <a href="https://github.com/jpmorganchase/Phantom">
     <img src="phantom/docs/img/ai.png" alt="JPMorgan AI Research Logo" width=300>
@@ -30,7 +30,6 @@
   <summary>Table of Contents</summary>
   <ol>
     <li><a href="#about-phantom">About Phantom</a></li>
-    <li><a href="#about-mercury">About Mercury</a></li>
     <li><a href="#installation">Installation</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#contributing">Contributing</a></li>
@@ -46,23 +45,14 @@ Phantom is a multi-agent reinforcement-learning simulator built on top of RLlib.
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
-## About Mercury
-
-Mercury is a library for simulating P2P messaging networks. It is all built on
-`networkx` primitives and enforces strict observability constraints as a first-class
-feature.
-
-<p align="right">(<a href="#top">back to top</a>)</p>
-
-
 ## Installation
 
 ### Prerequisites
 
-The main requirements for installing Phantom/Mercury are a modern Python installation
+The main requirements for installing Phantom are a modern Python installation
 (3.7 minimum) and access to the pip Python package manager.
 
-A list of Python packages required by Phantom/Mercury is given in the
+A list of Python packages required by Phantom is given in the
 `requirements.txt` files in each respective directory. The required packages can be
 installed by running:
 
@@ -72,7 +62,7 @@ make install-deps
 
 ### Phantom
 
-Phantom and its dependency Mercury can be installed as libraries with the command::
+Phantom can be installed as libraries with the command::
 
 ```sh
 make install
@@ -84,14 +74,6 @@ are required:
 - matplotlib
 - networkx
 
-
-### Mercury
-
-Mercury can be installed independently as a library with the command:
-
-```sh
-make install-mercury
-```
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 

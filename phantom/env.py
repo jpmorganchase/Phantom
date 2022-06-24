@@ -137,7 +137,7 @@ class PhantomEnv:
         """
         Reset the environment and return an initial observation.
 
-        This method resets the :attr:`clock` and the :attr:`network`. This
+        This method resets the step count and the :attr:`network`. This
         includes all the agents in the network.
 
         Returns:
@@ -148,7 +148,6 @@ class PhantomEnv:
 
         self._agent_ids = set(self.agent_ids)
 
-        # Set clock back to time step 0
         self.current_step = 0
 
         # Reset network and call reset method on all agents in the network.

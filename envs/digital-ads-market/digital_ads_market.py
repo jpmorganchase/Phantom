@@ -4,7 +4,6 @@ import typing
 from dataclasses import dataclass
 
 import gym
-import mercury as me
 import numpy as np
 import phantom as ph
 
@@ -18,7 +17,7 @@ LOG_LEVEL = "WARN"
 
 
 @dataclass(frozen=True)
-class ImpressionRequest(me.Payload):
+class ImpressionRequest(ph.Message):
     """
     The message indicating that a user  is visiting a website and might be
     interested in an advertisement offer
@@ -46,7 +45,7 @@ class ImpressionRequest(me.Payload):
 
 
 @dataclass(frozen=True)
-class Bid(me.Payload):
+class Bid(ph.Message):
     """
     The message sent by the advertiser to the exchange
     to win the impression
@@ -65,7 +64,7 @@ class Bid(me.Payload):
 
 
 @dataclass(frozen=True)
-class AuctionResult(me.Payload):
+class AuctionResult(ph.Message):
     """
     The message sent by the exchange to the advertiser
     to inform her of the auction's result
@@ -82,7 +81,7 @@ class AuctionResult(me.Payload):
 
 
 @dataclass(frozen=True)
-class Ads(me.Payload):
+class Ads(ph.Message):
     """
     The message sent by an advertisers containing the ads to show to the user.
     For simplicity, it only contains a theme.
@@ -101,7 +100,7 @@ class Ads(me.Payload):
 
 
 @dataclass(frozen=True)
-class ImpressionResult(me.Payload):
+class ImpressionResult(ph.Message):
     """
     The result of the ad display. i.e whether or not the user clicked
     on the ad
@@ -146,7 +145,7 @@ class PublisherAgent(ph.ZeroIntelligenceAgent):
 
         self.exchange_id = exchange_id
 
-    def decode_action(self, _ctx: me.Network.Context, _action: np.ndarray):
+    def decode_action(self, _ctx: ph.Context, _action: np.ndarray):
         """@override
         Method called at each step of the episode and generating a new impression
         each time.
@@ -155,26 +154,26 @@ class PublisherAgent(ph.ZeroIntelligenceAgent):
             messages={self.exchange_id: [ImpressionRequest.generate_random()]}
         )
 
-    @me.actors.handler(Ads)
-    def handle_ads(self, _ctx: me.Network.Context, msg: me.Message):
+    @ph.agents.msg_handler(Ads)
+    def handle_ads(self, _ctx: ph.Context, msg: ph.Message):
         """
         Method to process messages with the payload type `Ads`
 
         Note:
         -----
-        We register the type of payload to process via the `me.handle` decorator
+        We register the type of payload to process via the `ph.agents.handle_msg` decorator
 
         Params:
         -------
-        ctx (me.Network.Context): the partially observable context available for
+        ctx (ph.Context): the partially observable context available for
             the agent
-        msg (me.Message): the message received by the agent.
+        msg (ph.Message): the message received by the agent.
 
         Returns:
         --------
-        receiver_id (me.ID): the unique identifier of the agent the messages are
+        receiver_id (ph.AgentID): the unique identifier of the agent the messages are
             intended to
-        messages ([me.Message]): the messages to send
+        messages ([ph.Message]): the messages to send
 
         """
         _get_logger().debug("PublisherAgent %s ads: %s", self.id, msg.payload)
@@ -213,15 +212,15 @@ class AdvertiserAgent(ph.Agent):
 
         super().__init__(agent_id)
 
-    def pre_resolution(self, _ctx: me.Network.Context):
+    def pre_resolution(self, _ctx: ph.Context):
         """@override
         The `pre_resolution` method is called at the beginning of each step.
         We use this method to reset the number of clicks received during the step.
         """
         self.step_clicks = 0
 
-    @me.actors.handler(ImpressionRequest)
-    def handle_impression_request(self, ctx: me.Network.Context, msg: me.Message):
+    @ph.agents.msg_handler(ImpressionRequest)
+    def handle_impression_request(self, ctx: ph.Context, msg: ph.Message):
         """
         Once an `ImpressionRequest` is received we cache the information about the user.
 
@@ -245,8 +244,8 @@ class AdvertiserAgent(ph.Agent):
 
         yield from ()
 
-    @me.actors.handler(AuctionResult)
-    def handle_auction_result(self, _ctx: me.Network.Context, msg: me.Message):
+    @ph.agents.msg_handler(AuctionResult)
+    def handle_auction_result(self, _ctx: ph.Context, msg: ph.Message):
         """
         If the `AdvertiserAgent` wins the auction it needs to update its budget left.
         """
@@ -258,8 +257,8 @@ class AdvertiserAgent(ph.Agent):
 
         yield from ()
 
-    @me.actors.handler(ImpressionResult)
-    def handle_impression_result(self, _ctx: me.Network.Context, msg: me.Message):
+    @ph.agents.msg_handler(ImpressionResult)
+    def handle_impression_result(self, _ctx: ph.Context, msg: ph.Message):
         """
         When the result of the ad display is received, update the number of clicks.
         """
@@ -272,7 +271,7 @@ class AdvertiserAgent(ph.Agent):
 
         yield from ()
 
-    def encode_obs(self, _ctx: me.Network.Context):
+    def encode_obs(self, _ctx: ph.Context):
         """@override
         The observation will help learn the policy.
 
@@ -286,7 +285,7 @@ class AdvertiserAgent(ph.Agent):
             [self.left, self._current_user_id, self._current_age, self._current_zipcode]
         )
 
-    def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+    def decode_action(self, ctx: ph.Context, action: np.ndarray):
         """@override
         We receive the "optimal" bid from the learnt Policy and send a message to the
         exchange to try to win the impression.
@@ -301,14 +300,14 @@ class AdvertiserAgent(ph.Agent):
             msgs.append(msg)
         return ph.packet.Packet(messages={self.exchange_id: msgs})
 
-    def compute_reward(self, _ctx: me.Network.Context) -> float:
+    def compute_reward(self, _ctx: ph.Context) -> float:
         """@override
         The goal is to maximize the number of clicks so the per-step reward
         is the number of clicks received at the current timestep.
         """
         return self.step_clicks
 
-    def is_done(self, _ctx: me.Network.Context) -> bool:
+    def is_done(self, _ctx: ph.Context) -> bool:
         """@override
         This agent cannot perform any more bids if its budget is 0.
         """
@@ -346,17 +345,17 @@ class AdvertiserAgent(ph.Agent):
         return gym.spaces.Box(low=np.array([0.0]), high=np.array([self.budget]))
 
 
-class AdExchangeAgent(me.actors.SimpleSyncActor):
+class AdExchangeAgent(ph.Agent):
     """
     The `AdExchangeAgent` is actually just an actor who reacts to messages reveived.
     It doesn't perform any action on its own.
     """
 
     @dataclass(frozen=True)
-    class AdExchangeView(me.actors.View):
+    class AdExchangeView(ph.agents.View):
         """
         The view is used to expose additional information to other actors in the system.
-        It is accessible via the `me.Network.Context` object passed as a parameters
+        It is accessible via the `ph.Context` object passed as a parameters
         in the appropriate methods.
 
         For this use case we want to expose users information to the advertisers to help them
@@ -379,7 +378,7 @@ class AdExchangeAgent(me.actors.SimpleSyncActor):
 
         self.strategy = strategy
 
-    def view(self, neighbour_id=None) -> me.actors.View:
+    def view(self, neighbour_id=None) ->ph.agents.View:
         """@override
         Method to provide extra information about the user. This information
         is made available only for advertisers in a pull fashion, i.e the
@@ -397,8 +396,8 @@ class AdExchangeAgent(me.actors.SimpleSyncActor):
         else:
             return super().view(neighbour_id)
 
-    @me.actors.handler(ImpressionRequest)
-    def handle_impression_request(self, _ctx: me.Network.Context, msg: me.Message):
+    @ph.agents.msg_handler(ImpressionRequest)
+    def handle_impression_request(self, _ctx: ph.Context, msg: ph.Message):
         """
         The exchange acts as an intermediary between the publisher and the
         advertisers, upon the reception of an `ImpressionRequest`, the exchange
@@ -409,7 +408,7 @@ class AdExchangeAgent(me.actors.SimpleSyncActor):
         for adv_id in self.advertiser_ids:
             yield (adv_id, [msg.payload])
 
-    def handle_batch(self, ctx: "me.Network.Context", batch: me.message.Batch):
+    def handle_batch(self, ctx: "ph.Context", batch: ph.Message.Batch):
         """@override
         We override the method `handle_batch` to consume all the bids messages
         as one block in order to perform the auction. The batch object contains
@@ -520,7 +519,7 @@ class DigitalAdsEnv(ph.PhantomEnv):
 
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
-        network = me.Network(me.resolvers.UnorderedResolver(chain_limit=5), actors)
+        network = ph.Network(ph.resolvers.BatchResolver(chain_limit=5), actors)
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
         network.add_connections_between([self.publisher_id], self.advertiser_ids)
@@ -544,7 +543,7 @@ class DigitalAdsEnv(ph.PhantomEnv):
         The episode is done when all the advertiser agents are dones or
         when the number of steps has reached its maximum
         """
-        return self.clock.is_terminal or len(self._dones) == len(self.advertiser_ids)
+        return self.current_step == self.num_steps or len(self._dones) == len(self.advertiser_ids)
 
 
 #######################################

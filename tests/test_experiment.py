@@ -116,12 +116,12 @@ def test_experiment():
         #     assert rollouts[0].rollout_params == {}
         #     assert len(rollouts[0].steps) == 3
         #     assert rollouts[0].steps[0].messages == [
-        #         me.Message(sender_id="a1", receiver_id="a2", payload=10),
-        #         me.Message(sender_id="a2", receiver_id="a1", payload=20),
+        #         ph.Message(sender_id="a1", receiver_id="a2", payload=10),
+        #         ph.Message(sender_id="a2", receiver_id="a1", payload=20),
         #     ]
         #     assert rollouts[0].steps[1].messages == [
-        #         me.Message(sender_id="a1", receiver_id="a2", payload=10),
-        #         me.Message(sender_id="a2", receiver_id="a1", payload=20),
+        #         ph.Message(sender_id="a1", receiver_id="a2", payload=10),
+        #         ph.Message(sender_id="a2", receiver_id="a1", payload=20),
         #     ]
 
         ################################################################################

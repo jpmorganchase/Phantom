@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from market_agents import Price, Order, BuyerAgent, SellerAgent
 import numpy as np
-import mercury as me
 from gym.spaces import Box
 
 
@@ -23,7 +22,7 @@ class MaybeSneakySeller(SellerAgent):
     # Acts as a regular seller agent
     # Except when victim_id is set - then it acts as an adversary
 
-    def __init__(self, agent_id: me.ID, victim_id=None):
+    def __init__(self, agent_id: ph.AgentID, victim_id=None):
         super().__init__(agent_id)
         self.victim_id = victim_id  # None if benign seller
         self.victims_price = 0  # how to represent NA

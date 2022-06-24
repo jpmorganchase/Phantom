@@ -27,7 +27,7 @@ The first uses the :class:`FSMStage` as a decorator directly on the state handle
       def __init__(self):
          agents = [MinimalAgent("agent")]
 
-         network = me.Network(me.resolvers.UnorderedResolver(), agents)
+         network = ph.Network(agents)
 
          super().__init__(network=network, n_steps=1, initial_stage="A")
 
@@ -49,7 +49,7 @@ environment class is initialised (eg. lists of agent IDs).
       def __init__(self):
          agents = [MinimalAgent("agent")]
 
-         network = me.Network(me.resolvers.UnorderedResolver(), agents)
+         network = ph.Network(agents)
 
          super().__init__(
                network=network,

@@ -1,14 +1,12 @@
 import phantom as ph
-import mercury as me
-from mercury.resolvers import UnorderedResolver
 
 from market_agents import BuyerAgent, SellerAgent, SimpleMktEnvActor
 
 
 class SimpleMarketEnv(ph.PhantomEnv):
-    def __init__(self, network, clock):
+    def __init__(self, num_steps, network):
+        self.num_steps = num_steps
         self.network = network
-        self.clock = clock
         self.agents = {
             aid: actor
             for aid, actor in network.actors.items()
@@ -17,7 +15,6 @@ class SimpleMarketEnv(ph.PhantomEnv):
 
         self._add_env_actor(self.network)
 
-        # TODO: replace with agent groups from mercury
         self.agent_groups = list()
         self.agent_groups.append(
             [
@@ -38,14 +35,14 @@ class SimpleMarketEnv(ph.PhantomEnv):
         self.turn = 0
         self.num_groups = 2
 
-    def _add_env_actor(self, network: me.Network) -> None:
+    def _add_env_actor(self, network: ph.Network) -> None:
         """Add an omniscient actor to the network."""
         env_actor = SimpleMktEnvActor()
         network.add_actor(env_actor)
         self.network.add_connections_between([env_actor.id], list(network.actor_ids))
 
     def step(self, actions):
-        self.clock.tick()
+        self.current_step += 1
 
         print("messages sent")
 
@@ -76,12 +73,12 @@ class SimpleMarketEnv(ph.PhantomEnv):
         return self.Step(
             observations=obs,
             rewards=rewards,
-            terminals={"__all__": self.clock.is_terminal},
+            terminals={"__all__": self.current_step == self.num_steps},
             infos=info,
         )
 
     def reset(self):
-        self.clock.reset()
+        self.current_step = 0
         self.network.reset()  # will call reset on the agents/actors
         self.turn = 0
 
@@ -94,6 +91,6 @@ class SimpleMarketEnv(ph.PhantomEnv):
         return self.Step(
             observations=obs,
             rewards={},
-            terminals={"__all__": self.clock.is_terminal},
+            terminals={"__all__": self.current_step == self.num_steps},
             infos=info,
         )

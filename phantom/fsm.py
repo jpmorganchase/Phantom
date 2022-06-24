@@ -83,8 +83,8 @@ class FiniteStateMachineEnv(PhantomEnv):
     """
     Attributes:
         num_steps: The maximum number of steps the environment allows per episode.
-        network: A Mercury Network class or derived class describing the connections
-            between agents and agents in the environment.
+        network: A Network class or derived class describing the connections between
+            agents and agents in the environment.
     """
 
     def __init__(
@@ -170,7 +170,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         """
         Reset the environment and return an initial observation.
 
-        This method resets the :attr:`clock` and the :attr:`network`. This
+        This method resets the step count and the :attr:`network`. This
         includes all the agents in the network.
 
         Returns:
@@ -183,7 +183,6 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         self._agent_ids = set(self.agent_ids)
 
-        # Set clock back to time step 0
         self.current_step = 0
 
         # Reset network and call reset method on all agents in the network.

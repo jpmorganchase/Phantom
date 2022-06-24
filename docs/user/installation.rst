@@ -14,9 +14,7 @@ The main requirements for running Phantom are a modern Python installation
 (3.7 minimum) and access to the pip Python package manager.
 
 A list of Python packages required by Phantom is given in the ``requirements.txt``
-file. Mercury should be installed by downloading the source code and installing the
-package manually. The rest of the packages can be installed by running from the
-Phantom project root directory::
+file. The packages can be installed by running from the Phantom project root directory::
 
     python3 -m pip install -r requirements.txt
 

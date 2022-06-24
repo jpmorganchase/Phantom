@@ -81,7 +81,6 @@ First we import the libraries we require and define some constants.
 .. code-block:: python
 
     import gym
-    import mercury as me
     import numpy as np
     import phantom as ph
 
@@ -92,10 +91,6 @@ First we import the libraries we require and define some constants.
     SHOP_MAX_STOCK = 1000
     SHOP_MAX_STOCK_REQUEST = 100
 
-Phantom uses the ``Mercury`` library for handling the network of agents and actors and
-the message passing between them and `Ray + RLlib <https://docs.ray.io/en/master/index.html>`_
-for running and scaling the RL training.
-
 As this experiment is simple we can easily define it entirely within one file. For more
 complex, larger experiments it is recommended to split the code into multiple files,
 making use of the modularity of Phantom.
@@ -104,20 +99,19 @@ Next, for each of our agent/actor types we define a new Python class that encaps
 all the functionality the given agent/actor needs:
 
 
-Factory Actor
-^^^^^^^^^^^^^^^
+Factory Agent
+^^^^^^^^^^^^^
 
 .. figure:: /img/icons/factory.svg
    :width: 15%
    :figclass: align-center
 
 The factory is the simplest to implement as it does not take actions and does not
-store state. We inherit from Mercury's ``SimpleSyncActor`` class. The ``SimpleSyncActor``
-is an actor that handles the message it receives in a synchronous order.
+store state. We inherit from the ``Agent`` class:
 
 .. code-block:: python
 
-    class FactoryActor(me.actors.SimpleSyncActor):
+    class FactoryActor(ph.Agent):
         def __init__(self, actor_id: str):
             super().__init__(actor_id)
 
@@ -133,7 +127,7 @@ The ``handle_message`` method must return messages as an iterator and hence we u
 
 .. code-block:: python
 
-        def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+        def handle_message(self, ctx: ph.Context, msg: ph.Message):
             # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
             # factory has unlimited stock.
@@ -181,7 +175,7 @@ varying order sizes.
 
 .. code-block:: python
 
-        def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        def decode_action(self, ctx: ph.Context, action: np.ndarray):
             # At the start of each step we generate an order with a random size to
             # send to the shop.
             order_size = action
@@ -206,7 +200,7 @@ empty iterator using the ``yield from ()`` syntactic sugar.
 
 .. code-block:: python
 
-        def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+        def handle_message(self, ctx: ph.Context, msg: ph.Message):
             # The customer will receive it's order from the shop but we do not need
             # to take any actions on it.
             yield from ()
@@ -217,10 +211,10 @@ we do need to still return a value to satisfy RLlib:
 
 .. code-block:: python
 
-        def compute_reward(self, ctx: me.Network.Context) -> float:
+        def compute_reward(self, ctx: ph.Context) -> float:
             return 0.0
 
-        def encode_obs(self, ctx: me.Network.Context):
+        def encode_obs(self, ctx: ph.Context):
             return 0
 
         @property
@@ -273,7 +267,7 @@ called directly before messages are sent across the network in each step.
 
 .. code-block:: python
 
-        def pre_resolution(self, ctx: me.Network.Context):
+        def pre_resolution(self, ctx: ph.Context):
             # At the start of each step we reset the number of missed orders to 0.
             self.sales = 0
             self.missed_sales = 0
@@ -284,7 +278,7 @@ received from the factory and handling messages received from the customer.
 
 .. code-block:: python
 
-        def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+        def handle_message(self, ctx: ph.Context, msg: ph.Message):
             if msg.sender_id == self.factory_id:
                 # Messages received from the factory contain stock.
                 self.stock = min(self.stock + msg.payload, SHOP_MAX_STOCK)
@@ -316,7 +310,7 @@ method:
 
 .. code-block:: python
 
-        def encode_obs(self, ctx: me.Network.Context):
+        def encode_obs(self, ctx: ph.Context):
             # We encode the shop's current stock as the observation.
             return self.stock
     #
@@ -328,7 +322,7 @@ requests to the factory for more stock. We place the messages we want to send in
 
 .. code-block:: python
 
-        def decode_action(self, ctx: me.Network.Context, action: int):
+        def decode_action(self, ctx: ph.Context, action: int):
             # The action the shop takes is the amount of new stock to request from
             # the factory.
             stock_to_request = action
@@ -342,7 +336,7 @@ the agents current state in the environment and send it to the policy so it can 
 
 .. code-block:: python
 
-        def compute_reward(self, ctx: me.Network.Context) -> float:
+        def compute_reward(self, ctx: ph.Context) -> float:
             # We reward the agent for making sales.
             # We penalise the agent for holding onto stock and for missing orders.
             return self.step_sales - self.step_missed_sales - self.stock
@@ -434,7 +428,7 @@ network. We then use the IDs to create the connections between our agents:
             actors = [shop_agent, factory_actor] + customer_agents
 
             # Define Network and create connections between Actors
-            network = me.Network(me.resolvers.UnorderedResolver(), actors)
+            network = ph.Network(actors)
 
             # Connect the shop to the factory
             network.add_connection(shop_id, factory_id)

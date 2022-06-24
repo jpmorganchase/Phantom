@@ -1,10 +1,9 @@
-from mercury.core import ID
+from dataclasses import dataclass
+import random
+
 import phantom as ph
-import mercury as me
 import numpy as np
 from gym.spaces import Box, Discrete
-import random
-from dataclasses import dataclass
 
 # Message Payloads
 ##############################################################
@@ -104,7 +103,7 @@ class SellerAgent(ph.Agent):
     # No inventory costs
     # TODO: could publish a view containing its price - alternate implementation
 
-    def __init__(self, agent_id: me.ID):
+    def __init__(self, agent_id: ph.AgentID):
         super().__init__(agent_id)
         self.current_price = 0
         self.current_revenue = 0
@@ -157,7 +156,7 @@ class SellerAgent(ph.Agent):
 
 class SimpleMktEnvActor(ph.env.EnvironmentActor):
     @dataclass(frozen=True)
-    class View(me.actors.View):
+    class View(ph.agents.View):
         avg_price: float
 
     def __init__(self):

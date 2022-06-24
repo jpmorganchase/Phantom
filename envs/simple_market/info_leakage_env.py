@@ -1,13 +1,15 @@
 from dataclasses import dataclass
+
+import phantom as ph
+
 from simple_mkt_env import SimpleMarketEnv
-import mercury as me
 
 
 @dataclass
 class AdversarialSetup:
-    adv_seller: me.ID
-    victim_seller: me.ID
-    adv_seller: me.ID
+    adv_seller: ph.AgentID
+    victim_seller: ph.AgentID
+    adv_seller: ph.AgentID
 
 
 # Version of the simple market env that allows for an adversarial setup with
@@ -16,8 +18,8 @@ class AdversarialSetup:
 
 
 class LeakySimpleMarketEnv(SimpleMarketEnv):
-    def __init__(self, network, clock, adv_setup=None):
-        super().__init__(network, clock)
+    def __init__(self, num_steps, network, adv_setup=None):
+        super().__init__(num_steps, network)
         # Information leakage / adversarial setup
         self.leaky = False
         if adv_setup:
@@ -51,7 +53,7 @@ class LeakySimpleMarketEnv(SimpleMarketEnv):
         return -self.victim_coeff * victim_reward + self.adv_coeff * attacker_reward
 
     def step(self, actions, verbose=False):
-        self.clock.tick()
+        self.current_step += 1
         if verbose:
             print("messages sent")
 
@@ -91,6 +93,6 @@ class LeakySimpleMarketEnv(SimpleMarketEnv):
         return self.Step(
             observations=obs,
             rewards=rewards,
-            terminals={"__all__": self.clock.is_terminal},
+            terminals={"__all__": self.current_step == self.num_steps},
             infos=info,
         )

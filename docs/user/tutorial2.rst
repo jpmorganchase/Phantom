@@ -77,37 +77,6 @@ In the full example code there is also a ``SalesMetric`` and a ``MissedSalesMetr
 included.
 
 
-Clock
------
-
-.. figure:: /img/icons/clock.svg
-   :width: 15%
-   :figclass: align-center
-
-In part 1, when we passed the ``n_steps`` parameter to the ``PhantomEnv.__init__``
-method, behind the scenes the ``PhantomEnv`` class created a Clock object to keep track
-of time. By default this uses whole integer steps from 0..n_steps.
-
-In some cases we may want to use a different time step size such as a datetime or we may
-want to allow agent or actor to be able to keep track of time. This is useful when an
-agent or actors behaviour is a function of time.
-
-We can do this by creating our own Clock object and then passing it to the
-``PhantomEnv.__init__`` method instead of the ``n_steps`` value:
-
-.. code-block:: python
-
-    class SupplyChainEnv(ph.PhantomEnv):
-
-        env_name: str = "supply-chain-v2"
-
-        def __init__(self, n_customers: int = 5, seed: int = 0):
-            ...
-
-            clock = ph.Clock(0, NUM_EPISODE_STEPS, 1)
-
-            super().__init__(network=network, clock=clock)
-
 Shared Policies
 ---------------
 
@@ -144,7 +113,7 @@ To do this we make several modifications to the code:
 
 .. code-block:: python
 
-        def decode_action(self, ctx: me.Network.Context, action: np.ndarray):
+        def decode_action(self, ctx: ph.Context, action: np.ndarray):
             # At the start of each step we generate an order with a random size to
             # send to a random shop.
             order_size = action[0]
@@ -199,7 +168,7 @@ To do this we make several modifications to the code:
             actors = [factory_actor] + shop_agents + customer_agents
 
             # Define Network and create connections between Actors
-            network = me.Network(me.resolvers.UnorderedResolver(), actors)
+            network = ph.Network(actors)
 
             # Connect the shops to the factory
             network.add_connections_between(shop_ids, [factory_id])
@@ -217,8 +186,8 @@ policy:
 .. code-block:: python
 
             super().__init__(
+                num_steps=NUM_EPISODE_STEPS,
                 network=network,
-                clock=clock,
                 policy_grouping=dict(
                     shared_SHOP_policy=shop_ids
                 ),
@@ -264,11 +233,11 @@ with one:
 .. code-block:: python
 
     class ShopRewardFunction(ph.RewardFunction):
-        def reward(self, ctx: me.Network.Context) -> float:
+        def reward(self, ctx: ph.Context) -> float:
             return ctx.actor.step_sales - ctx.actor.step_missed_sales - ctx.actor.stock
 
     class SimpleShopRewardFunction(ph.RewardFunction):
-        def reward(self, ctx: me.Network.Context) -> float:
+        def reward(self, ctx: ph.Context) -> float:
             return ctx.actor.step_sales - ctx.actor.stock
 
 Note that we now access the ``ShopAgent``'s state through the ``ctx.actor`` variable.
@@ -355,7 +324,7 @@ However we do need to modify our ``ShopRewardFunction`` to take the\
         def __init__(self, missed_sales_weight: float):
             self.missed_sales_weight = missed_sales_weight
 
-        def reward(self, ctx: me.Network.Context) -> float:
+        def reward(self, ctx: ph.Context) -> float:
             return 5 * ctx.actor.step_sales - self.missed_sales_weight * \
                 ctx.actor.step_missed_sales - ctx.actor.stock
 
@@ -364,7 +333,7 @@ This is key to allowing the ``ShopAgent`` to learn a generalised policy.
 
 .. code-block:: python
 
-        def encode_obs(self, ctx: me.Network.Context):
+        def encode_obs(self, ctx: ph.Context):
             return [
                 # We include the agent's type in it's observation space to allow it to learn
                 # a generalised policy.
@@ -480,11 +449,11 @@ To update our code we simply wrap the values in their new payload types, for exa
 
 .. code-block:: python
 
-    class FactoryActor(me.actors.SimpleSyncActor):
+    class FactoryActor(ph.Agent):
         def __init__(self, actor_id: str):
             super().__init__(actor_id)
 
-        def handle_message(self, ctx: me.Network.Context, msg: me.Message):
+        def handle_message(self, ctx: ph.Context, msg: ph.Message):
             # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
             # factory has unlimited stock.
@@ -499,13 +468,13 @@ each message.
 
 Custom Handlers does this automatically for us! Taking the very simple example above,
 we can replace our ``handle_message`` method of the ``FactoryActor`` with a new method
-that is prefixed with the ``@me.actors.handler`` decorator. In this decorator we pass
+that is prefixed with the ``@ph.agents.msg_handler`` decorator. In this decorator we pass
 the type of the message payload we want to handle:
 
 .. code-block:: python
 
-        @me.actors.handler(StockRequest)
-        def handle_stock_request(self, ctx: me.Network.Context, msg: me.Message):
+        @ph.agents.msg_handler(StockRequest)
+        def handle_stock_request(self, ctx: ph.Context, msg: ph.Message):
             # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
             # factory has unlimited stock.

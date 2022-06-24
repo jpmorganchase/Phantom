@@ -1,6 +1,4 @@
 import phantom as ph
-import mercury as me
-from mercury.resolvers import UnorderedResolver
 from market_agents import BuyerAgent, BuyerSupertype, SellerAgent
 from base_policy import BuyerPolicy, SellerPolicy
 from simple_mkt_env import SimpleMarketEnv
@@ -16,19 +14,18 @@ seller_agents = [s1, s2]
 all_agents = buyer_agents + seller_agents
 
 # Network definition
-network = me.Network(UnorderedResolver(chain_limit=2), actors=all_agents)
+network = ph.Network(ph.resolvers.BatchResolver(chain_limit=2), actors=all_agents)
 
 # Add connections in the network
 network.add_connections_between(["b1", "b2", "b3"], ["s1", "s2"])
 
 # Setup env
-clock = ph.Clock(0, 10, 1)
-env = SimpleMarketEnv(network=network, clock=clock)
+env = SimpleMarketEnv(num_steps=10, network=network)
 
 # Run
 out = env.reset()
-while not clock.is_terminal:
-    print(clock.elapsed)
+while env.current_step < env.num_steps:
+    print(env.current_step)
 
     print("obs")
     print(out.observations)

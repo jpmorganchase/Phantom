@@ -292,8 +292,8 @@ class Network:
 class StochasticNetwork(Network):
     """Stochastic P2P messaging network.
 
-    This class builds on the base Mercury Network class but adds the ability to
-    resample the connectivity of all connections.
+    This class builds on the base Network class but adds the ability to resample the
+    connectivity of all connections.
 
     Arguments:
         agents: Optional list of agents to add to the network.

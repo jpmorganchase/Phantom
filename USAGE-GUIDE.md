@@ -1,6 +1,6 @@
 # Usage Guide
 
-See the `README.md` files for instructions on how to install Phantom/Mercury and their
+See the `README.md` files for instructions on how to install Phantom and its
 dependencies.
 
 
