@@ -150,10 +150,10 @@ To do this we make several modifications to the code:
             order_size = action[0]
             shop_id = self.shop_ids[int(action[1])]
 
-            # We perform this action by sending a stock request message to the warehouse.
+            # We perform this action by sending a stock request message to the factory.
             return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
 
-        ...
+    #
 
 * We modify the ``CustomerPolicy`` class to accept the list of shop ID's now given to it
   from the ``CustomerAgent`` and make a random selection on which shop to choose:
@@ -168,8 +168,8 @@ To do this we make several modifications to the code:
 
             self.n_shops = config["n_shops"]
 
-        def compute_action(self, obs) -> np.ndarray:
-            return np.array([np.random.poisson(5), np.random.randint(self.n_shops)])
+        def compute_action(self, obs) -> Tuple[int, int]:
+            return (np.random.poisson(5), np.random.randint(self.n_shops))
 
 * We modify the environment to create multiple shop agents like we did previously with
   the customer agents. We make sure all customers are connected to all shops.
@@ -187,22 +187,22 @@ To do this we make several modifications to the code:
 
         def __init__(self, n_customers: int = 5, seed: int = 0):
             # Define actor and agent IDs
-            warehouse_id = "WAREHOUSE"
+            factory_id = "WAREHOUSE"
             shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
             customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
-            shop_agents = [ShopAgent(sid, warehouse_id=warehouse_id) for sid in shop_ids]
-            warehouse_actor = WarehouseActor(warehouse_id)
+            shop_agents = [ShopAgent(sid, factory_id=factory_id) for sid in shop_ids]
+            factory_actor = FactoryActor(factory_id)
 
             customer_agents = [CustomerAgent(cid, shop_ids=shop_ids) for cid in customer_ids]
 
-            actors = [warehouse_actor] + shop_agents + customer_agents
+            actors = [factory_actor] + shop_agents + customer_agents
 
             # Define Network and create connections between Actors
             network = me.Network(me.resolvers.UnorderedResolver(), actors)
 
-            # Connect the shops to the warehouse
-            network.add_connections_between(shop_ids, [warehouse_id])
+            # Connect the shops to the factory
+            network.add_connections_between(shop_ids, [factory_id])
 
             # Connect the shop to the customers
             network.add_connections_between(shop_ids, customer_ids)
@@ -265,11 +265,11 @@ with one:
 
     class ShopRewardFunction(ph.RewardFunction):
         def reward(self, ctx: me.Network.Context) -> float:
-            return 5 * ctx.actor.step_sales - ctx.actor.step_missed_sales - ctx.actor.stock
+            return ctx.actor.step_sales - ctx.actor.step_missed_sales - ctx.actor.stock
 
     class SimpleShopRewardFunction(ph.RewardFunction):
         def reward(self, ctx: me.Network.Context) -> float:
-            return 5 * ctx.actor.step_sales - ctx.actor.stock
+            return ctx.actor.step_sales - ctx.actor.stock
 
 Note that we now access the ``ShopAgent``'s state through the ``ctx.actor`` variable.
 
@@ -279,7 +279,7 @@ initialisation parameter and passes it to the underlying Phantom ``Agent`` class
 .. code-block:: python
 
     class ShopAgent(ph.Agent):
-        def __init__(self, agent_id: str, warehouse_id: str, reward_function: ph.RewardFunction):
+        def __init__(self, agent_id: str, factory_id: str, reward_function: ph.RewardFunction):
             super().__init__(agent_id, reward_function=reward_function)
 
             ...
@@ -302,10 +302,10 @@ Next we modify our ``SupplyChainEnv`` to allow the creation of a mix of shop typ
             ...
 
             shop_agents = [
-                ShopAgent(sid, warehouse_id, ShopRewardFunction())
+                ShopAgent(sid, factory_id, ShopRewardFunction())
                 for sid in shop_t1_ids
             ] + [
-                ShopAgent(sid, warehouse_id, SimpleShopRewardFunction())
+                ShopAgent(sid, factory_id, SimpleShopRewardFunction())
                 for sid in shop_t2_ids
             ]
 
@@ -338,12 +338,10 @@ We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgen
 .. code-block:: python
 
     class ShopAgent(ph.Agent):
-        def __init__(self, agent_id: str, warehouse_id: str):
+        def __init__(self, agent_id: str, factory_id: str):
             super().__init__(agent_id)
 
             ...
-
-We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgent``:
 
 We don't even need to provide the ``ShopAgent`` with the new supertype, this is handled
 by the ``ph.train`` and ``ph.rollout`` functions.
@@ -360,6 +358,33 @@ However we do need to modify our ``ShopRewardFunction`` to take the\
         def reward(self, ctx: me.Network.Context) -> float:
             return 5 * ctx.actor.step_sales - self.missed_sales_weight * \
                 ctx.actor.step_missed_sales - ctx.actor.stock
+
+We also need to modify the ``ShopAgent``'s observation space to include it's type values.
+This is key to allowing the ``ShopAgent`` to learn a generalised policy.
+
+.. code-block:: python
+
+        def encode_obs(self, ctx: me.Network.Context):
+            return [
+                # We include the agent's type in it's observation space to allow it to learn
+                # a generalised policy.
+                self.type.to_obs_space_compatible_type(),
+                # We also encode the shop's current stock in the observation.
+                self.stock,
+            ]
+
+        def get_observation_space(self):
+            return gym.spaces.Tuple(
+                [
+                    # We include the agent's type in it's observation space to allow it to learn
+                    # a generalised policy.
+                    self.type.to_obs_space(),
+                    # We also encode the shop's current stock in the observation.
+                    gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                ]
+            )
+    #
+
 
 The final step is to modify the ``ShopAgent``'s ``reset`` method to apply the supertype:
 
@@ -390,7 +415,7 @@ function;
 
     agent_supertypes = {
         ShopAgentSupertype(
-            missed_sales_weight=UniformSampler(0.0, 1.0)
+            missed_sales_weight=UniformSampler(0.0, 8.0)
         )
         for sid in shop_ids
     })
@@ -438,12 +463,12 @@ classes for each message type:
 
     @dataclass
     class StockRequest:
-        """Shop --> Warehouse"""
+        """Shop --> Factory"""
         size: int
 
     @dataclass
     class StockResponse:
-        """Warehouse --> Shop"""
+        """Factory --> Shop"""
         size: int
 
 
@@ -454,17 +479,17 @@ To update our code we simply wrap the values in their new payload types, for exa
 
 .. code-block:: python
 
-    class WarehouseActor(me.actors.SimpleSyncActor):
+    class FactoryActor(me.actors.SimpleSyncActor):
         def __init__(self, actor_id: str):
             super().__init__(actor_id)
 
         def handle_message(self, ctx: me.Network.Context, msg: me.Message):
-            # The warehouse receives stock request messages from shop agents. We
+            # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
-            # warehouse has unlimited stock.
+            # factory has unlimited stock.
             yield (msg.sender_id, [StockResponse(msg.payload.size)])
 
-Now it is clear to see exactly what is being returned by the ``WarehouseActor``.
+Now it is clear to see exactly what is being returned by the ``FactoryActor``.
 
 This now allows us to use another feature of Phantom: Custom Handlers. If we have an
 actor or agent that accepts many types of message, we would need to route all these
@@ -472,7 +497,7 @@ message types in our ``handle_message`` method so that we take the correct actio
 each message.
 
 Custom Handlers does this automatically for us! Taking the very simple example above,
-we can replace our ``handle_message`` method of the ``WarehouseActor`` with a new method
+we can replace our ``handle_message`` method of the ``FactoryActor`` with a new method
 that is prefixed with the ``@me.actors.handler`` decorator. In this decorator we pass
 the type of the message payload we want to handle:
 
@@ -480,9 +505,9 @@ the type of the message payload we want to handle:
 
         @me.actors.handler(StockRequest)
         def handle_stock_request(self, ctx: me.Network.Context, msg: me.Message):
-            # The warehouse receives stock request messages from shop agents. We
+            # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
-            # warehouse has unlimited stock.
+            # factory has unlimited stock.
             yield (msg.sender_id, [StockResponse(msg.payload.size)])
     #
 

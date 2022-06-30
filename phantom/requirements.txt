@@ -3,7 +3,7 @@ coloredlogs==15.0.1
 gputil==1.4.0
 gym==0.21
 numpy==1.19.3
-ray[rllib]==1.9.2
+ray[rllib]==1.11.0
 tabulate==0.8.9
 tensorflow==2.5
 termcolor==1.1

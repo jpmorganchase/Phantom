@@ -133,7 +133,9 @@ class SimpleSyncActor(SyncActor):
         ptype = type(message.payload)
 
         if ptype not in self.__handlers:
-            raise KeyError(f"Unknown payload type {ptype}.")
+            raise KeyError(
+                f"Unknown payload type {ptype} in message sent from '{message.sender_id}' to '{message.receiver_id}'. Agent '{message.receiver_id}' needs a message handler function capable of receiving this mesage type."
+            )
 
         for bound_handler in self.__handlers[ptype]:
             yield from bound_handler(ctx, message)

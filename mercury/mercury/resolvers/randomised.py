@@ -18,8 +18,13 @@ class RandomisedActorResolver(BatchResolver):
         seed: Optional seed to initialise the psuedo-random number generator.
     """
 
-    def __init__(self, chain_limit: int = 100, seed: Optional[int] = None) -> None:
-        BatchResolver.__init__(self, chain_limit=chain_limit)
+    def __init__(
+        self,
+        enable_tracking: bool = False,
+        chain_limit: int = 100,
+        seed: Optional[int] = None,
+    ) -> None:
+        BatchResolver.__init__(self, enable_tracking, chain_limit)
 
         self._rgen = random.Random(seed or random.getstate())
 

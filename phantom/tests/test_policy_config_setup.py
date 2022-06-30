@@ -5,7 +5,7 @@ import mercury as me
 import numpy as np
 import phantom as ph
 from phantom.policy_wrapper import PolicyWrapper
-from phantom.utils.training import create_rllib_config_dict
+from phantom.utils.training import _create_rllib_config_dict
 
 
 class MockAgent(ph.Agent):
@@ -75,8 +75,9 @@ class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
 def test_single_agent():
     agent = MockAgent("a1")
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -93,7 +94,7 @@ def test_single_agent():
     assert policies == [
         PolicyWrapper(
             used_by=["a1"],
-            trained=True,
+            fixed=False,
             obs_space=agent.get_observation_space(),
             action_space=agent.get_action_space(),
         )
@@ -109,8 +110,9 @@ def test_single_agent_fixed_policy():
     agent2 = MockAgent("a2")
     agent2.policy_class = CustomPolicy
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent1, agent2],
@@ -127,13 +129,13 @@ def test_single_agent_fixed_policy():
     assert policies == [
         PolicyWrapper(
             used_by=["a1"],
-            trained=True,
+            fixed=False,
             obs_space=agent1.get_observation_space(),
             action_space=agent1.get_action_space(),
         ),
         PolicyWrapper(
             used_by=["a2"],
-            trained=False,
+            fixed=True,
             obs_space=agent2.get_observation_space(),
             action_space=agent2.get_action_space(),
             policy_class=CustomPolicy,
@@ -145,8 +147,9 @@ def test_shared_policy():
     agent1 = MockAgent("a1")
     agent2 = MockAgent("a2")
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent1, agent2],
@@ -163,7 +166,7 @@ def test_shared_policy():
     assert policies == [
         PolicyWrapper(
             used_by=["a1", "a2"],
-            trained=True,
+            fixed=False,
             obs_space=agent1.get_observation_space(),
             action_space=agent1.get_action_space(),
             shared_policy_name="shared",
@@ -174,8 +177,9 @@ def test_shared_policy():
 def test_single_agent_single_stage():
     agent = MockFSMAgent("a1", {"stage1": MockStagePolicyHandler()})
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -192,7 +196,7 @@ def test_single_agent_single_stage():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         )
@@ -208,8 +212,9 @@ def test_single_agent_multiple_stages():
         },
     )
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -226,13 +231,13 @@ def test_single_agent_multiple_stages():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         ),
         PolicyWrapper(
             used_by=[("a1", "stage2")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         ),
@@ -248,8 +253,9 @@ def test_single_agent_shared_multiple_stages():
         },
     )
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -266,13 +272,13 @@ def test_single_agent_shared_multiple_stages():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
         ),
         PolicyWrapper(
             used_by=[("a1", "stage2")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage2"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage2"].get_action_space(agent),
         ),
@@ -290,8 +296,9 @@ def test_single_agent_shared_multiple_shared_stages():
         },
     )
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent],
@@ -308,7 +315,7 @@ def test_single_agent_shared_multiple_shared_stages():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1"), ("a1", "stage2")],
-            trained=True,
+            fixed=False,
             obs_space=agent.stage_handlers["stage1"].get_observation_space(agent),
             action_space=agent.stage_handlers["stage1"].get_action_space(agent),
             shared_policy_name="fsm_shared_policy_1",
@@ -322,8 +329,9 @@ def test_multiple_agents_shared_stage():
     agent1 = MockFSMAgent("a1", {"stage1": handler})
     agent2 = MockFSMAgent("a2", {"stage1": handler})
 
-    _, policies = create_rllib_config_dict(
+    _, policies = _create_rllib_config_dict(
         env_class=MockFSMEnv,
+        algorithm="PPO",
         alg_config={},
         env_config={
             "agents": [agent1, agent2],
@@ -340,7 +348,7 @@ def test_multiple_agents_shared_stage():
     assert policies == [
         PolicyWrapper(
             used_by=[("a1", "stage1"), ("a2", "stage1")],
-            trained=True,
+            fixed=False,
             obs_space=agent1.stage_handlers["stage1"].get_observation_space(agent1),
             action_space=agent1.stage_handlers["stage1"].get_action_space(agent1),
             shared_policy_name="fsm_shared_policy_1",

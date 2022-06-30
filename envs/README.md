@@ -17,7 +17,7 @@ see the tutorial for a full description of this environment.
 
 ### `supply-chain-1`
 
-A basic environment modelling the transport of stock between a warehouse, a shop and
+A basic environment modelling the transport of stock between a factory, a shop and
 multiple customers. The goal is for the shop to learn the optmimum amount of stock to
 hold at any one time.
 

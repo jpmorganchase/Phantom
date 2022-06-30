@@ -1,9 +1,9 @@
 from collections import defaultdict
+from dataclasses import dataclass
 import logging
 import os
 import shutil
 import tempfile
-import types
 from pathlib import Path
 from typing import (
     Any,
@@ -26,11 +26,13 @@ import ray
 from ray import tune
 from ray import rllib
 from ray.rllib.agents.callbacks import DefaultCallbacks, MultiCallbacks
+from ray.rllib.policy.policy import PolicySpec
 from ray.tune.logger import LoggerCallback
 from ray.tune.registry import register_env
 from tabulate import tabulate
 
-from ..env import EnvironmentActor, PhantomEnv
+from ..env import PhantomEnv
+from ..env_wrappers import SharedSupertypeEnvWrapper
 from ..fsm import FSMAgent, StageID, StagePolicyHandler
 from ..logging import Metric, MetricsLoggerCallbacks
 from ..logging.callbacks import TBXExtendedLoggerCallback
@@ -53,9 +55,10 @@ logger = logging.getLogger(__name__)
 def train(
     experiment_name: str,
     env_class: Type[PhantomEnv],
-    algorithm: str,
     num_episodes: int,
     seed: int = 0,
+    algorithm: Optional[str] = None,
+    trainer: Optional[rllib.agents.Trainer] = None,
     num_workers: Optional[int] = None,
     checkpoint_freq: Optional[int] = None,
     alg_config: Optional[Mapping[str, Any]] = None,
@@ -81,7 +84,10 @@ def train(
     Arguments:
         experiment_name: Experiment name used for tensorboard logging.
         env_class: A PhantomEnv subclass.
-        algorithm: RL algorithm to use.
+        algorithm: RL algorithm to use (optional - one of 'algorithm' or 'trainer' must
+            be provided).
+        trainer: RLlib Trainer class instance to use (optional - one of 'algorithm' or
+            'trainer' must be provided).
         num_episodes: The number of episodes to train for, distributed over all workers.
         seed: Optional seed to pass to environment.
         num_workers: Number of Ray workers to initialise (defaults to NUM CPU - 1).
@@ -131,6 +137,16 @@ def train(
     callbacks = callbacks or []
     copy_files_to_results_dir = copy_files_to_results_dir or []
 
+    if algorithm is None and trainer is None:
+        raise ValueError(
+            "One of the 'algorithm' or 'trainer' arguments must be provided"
+        )
+
+    if algorithm is not None and trainer is not None:
+        raise ValueError(
+            "Only one of the 'algorithm' or 'trainer' arguments must be provided"
+        )
+
     if contains_type(env_config, BaseSampler):
         raise Exception(
             "env_config should not contain instances of classes inheriting from BaseSampler"
@@ -173,8 +189,9 @@ def train(
                     "Could not find file '%s' to copy to results directory", path
                 )
 
-    config, policies = create_rllib_config_dict(
+    config, policies = _create_rllib_config_dict(
         env_class,
+        algorithm,
         alg_config,
         env_config,
         env_supertype,
@@ -187,7 +204,7 @@ def train(
     )
 
     if print_info:
-        print_experiment_info(
+        _print_experiment_info(
             config,
             policies,
             experiment_name,
@@ -195,6 +212,7 @@ def train(
             num_workers,
             num_episodes,
             algorithm,
+            trainer,
             checkpoint_freq,
         )
 
@@ -205,30 +223,9 @@ def train(
     def reg_env(config):
         env = env_class(**config)
 
-        # Give the supertypes to the correct objects in the environment
-        env.set_supertypes(env_supertype, agent_supertypes)
+        if env_supertype is not None or len(agent_supertypes) > 0:
+            env = SharedSupertypeEnvWrapper(env, env_supertype, agent_supertypes)
 
-        # Here we override the reset method on the environment class so we can generate
-        # values from the sampler before the main environment reset logic is run.
-        # Ideally in the future we will insert a layer between the env and RLlib to do
-        # this.
-        original_reset = env.reset
-
-        def overridden_reset(self) -> Dict[me.ID, Any]:
-            # Sample from samplers
-            for sampler in self._samplers:
-                sampler.value = sampler.sample()
-
-            # Update and apply env type
-            if self._env_supertype is not None:
-                self.env_type = self._env_supertype.sample()
-
-                if "__ENV" in self.network.actor_ids:
-                    self.network.actors["__ENV"].env_type = self.env_type
-
-            return original_reset()
-
-        env.reset = types.MethodType(overridden_reset, env)
         env.reset()
 
         return env
@@ -239,11 +236,29 @@ def train(
 
     results_dir = tempfile.mkdtemp() if discard_results else results_dir
 
+    phantom_config = PhantomExperimentConfig(
+        experiment_name,
+        env_class,
+        num_episodes,
+        seed,
+        algorithm,
+        trainer,
+        num_workers,
+        checkpoint_freq,
+        alg_config,
+        env_config,
+        env_supertype,
+        agent_supertypes,
+        policy_grouping,
+        metrics,
+        callbacks,
+    )
+
     ray.init(local_mode=local_mode)
 
     try:
         tune.run(
-            algorithm,
+            algorithm or trainer,
             name=experiment_name,
             local_dir=results_dir,
             checkpoint_freq=checkpoint_freq,
@@ -252,7 +267,7 @@ def train(
             config=config,
             callbacks=[
                 TBXExtendedLoggerCallback(),
-                TrialStartTasksCallback(env_class, local_dir, local_files_to_copy),
+                TrialStartTasksCallback(phantom_config, local_dir, local_files_to_copy),
             ],
         )
 
@@ -269,8 +284,9 @@ def train(
     return find_most_recent_results_dir(Path(results_dir, experiment_name))
 
 
-def create_rllib_config_dict(
+def _create_rllib_config_dict(
     env_class: Type[PhantomEnv],
+    algorithm: Optional[str],
     alg_config: Mapping[str, Any],
     env_config: Mapping[str, Any],
     env_supertype: Optional[BaseSupertype],
@@ -294,24 +310,10 @@ def create_rllib_config_dict(
     # the default parameters.
     env = env_class(**env_config)
 
-    env.set_supertypes(env_supertype, agent_supertypes)
-
-    # Update and apply env type
-    if env_supertype is not None:
-        env.env_type = env_supertype.sample()
-
-        if "__ENV" in env.network.actor_ids:
-            env_actor = env.network.actors["__ENV"]
-            assert isinstance(env_actor, EnvironmentActor)
-            env_actor.env_type = env.env_type
+    if env_supertype is not None or len(agent_supertypes) > 0:
+        env = SharedSupertypeEnvWrapper(env, env_supertype, agent_supertypes)
 
     env.reset()
-
-    def is_trained(policy_class=Optional[Type[rllib.Policy]]) -> bool:
-        # To find out if policy_class is an subclass of FixedPolicy normally
-        # would use isinstance() but since policy_class is a class and not
-        # an instance this doesn't work.
-        return policy_class is None or FixedPolicy not in policy_class.__mro__
 
     ma_config: Dict[str, Any] = {}
 
@@ -372,7 +374,7 @@ def create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=used_by,
-            trained=is_trained(policy_classes[0]),
+            fixed=issubclass(policy_classes[0] or object, FixedPolicy),
             obs_space=obs_spaces[0],
             action_space=action_spaces[0],
             policy_class=policy_classes[0],
@@ -410,7 +412,7 @@ def create_rllib_config_dict(
             # This is a standard agent, not part of a shared policy and with no stages
             policy_wrapper = PolicyWrapper(
                 used_by=[agent_id],
-                trained=is_trained(agent.policy_class),
+                fixed=issubclass(agent.policy_class or object, FixedPolicy),
                 obs_space=agent.get_observation_space(),
                 action_space=agent.get_action_space(),
                 policy_class=agent.policy_class,
@@ -431,7 +433,7 @@ def create_rllib_config_dict(
 
         policy_wrapper = PolicyWrapper(
             used_by=agent_and_stage_ids,
-            trained=is_trained(agent.policy_class),
+            fixed=issubclass(agent.policy_class or object, FixedPolicy),
             obs_space=stage_policy_handler.get_observation_space(agent),
             action_space=stage_policy_handler.get_action_space(agent),
             policy_class=stage_policy_handler.policy_class,
@@ -447,12 +449,17 @@ def create_rllib_config_dict(
             policy_mapping[f"{agent_id}__{stage_id}"] = policy_id
 
     ma_config["policies"] = {
-        policy.get_name(): policy.get_spec() for policy in policies
+        policy.get_name(): PolicySpec(
+            policy.policy_class,
+            policy.obs_space,
+            policy.action_space,
+            policy.policy_config,
+        )
+        for policy in policies
     }
     ma_config["policies_to_train"] = [
-        policy.get_name() for policy in policies if policy.trained
+        policy.get_name() for policy in policies if not policy.fixed
     ]
-    ma_config["policy_mapping"] = policy_mapping
     ma_config["policy_mapping_fn"] = lambda id, **kwargs: str(policy_mapping[id])
 
     if len(ma_config["policies_to_train"]) == 0:
@@ -468,12 +475,11 @@ def create_rllib_config_dict(
     config["rollout_fragment_length"] = env.clock.n_steps
 
     config["train_batch_size"] = int(
-        (config["rollout_fragment_length"] * num_workers)
-        if num_workers > 0
-        else config["rollout_fragment_length"]
+        config["rollout_fragment_length"] * max(1, num_workers)
     )
 
-    config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
+    if algorithm == "PPO":
+        config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
     if callbacks is not None:
         config["callbacks"] = MultiCallbacks(callbacks)
@@ -491,15 +497,16 @@ def create_rllib_config_dict(
     return config, policies
 
 
-def print_experiment_info(
+def _print_experiment_info(
     config: Dict[str, Any],
     policies: List[PolicyWrapper],
     experiment_name: str,
     env_name: str,
     num_workers: int,
     num_episodes: int,
-    algorithm: str,
-    checkpoint_freq: Optional[int],
+    algorithm: Optional[str] = None,
+    trainer: Optional[rllib.agents.Trainer] = None,
+    checkpoint_freq: Optional[int] = None,
 ) -> None:
     def get_space_size(space: gym.Space) -> int:
         if isinstance(space, gym.spaces.Box):
@@ -524,7 +531,11 @@ def print_experiment_info(
     print(f"Environment name : {env_name}")
     print(f"Num workers      : {num_workers}")
     print(f"Num episodes     : {num_episodes}")
-    print(f"Algorithm        : {algorithm}")
+    if algorithm is not None:
+        print(f"Algorithm        : {algorithm}")
+    if trainer is not None:
+        print(f"Trainer class    : {trainer.__class__.__name__}")
+
     print(f"Num steps        : {config['rollout_fragment_length']}")
     print(f"Checkpoint freq. : {checkpoint_freq}")
     print()
@@ -578,6 +589,25 @@ def print_experiment_info(
     print()
 
 
+@dataclass
+class PhantomExperimentConfig:
+    experiment_name: str
+    env_class: Type[PhantomEnv]
+    num_episodes: int
+    seed: int = 0
+    algorithm: Optional[str] = None
+    trainer: Optional[rllib.agents.Trainer] = None
+    num_workers: Optional[int] = None
+    checkpoint_freq: Optional[int] = None
+    alg_config: Optional[Mapping[str, Any]] = None
+    env_config: Optional[Mapping[str, Any]] = None
+    env_supertype: Optional[BaseSupertype] = None
+    agent_supertypes: Optional[Mapping[me.ID, BaseSupertype]] = None
+    policy_grouping: Optional[Mapping[str, List[str]]] = None
+    metrics: Optional[Mapping[str, Metric]] = None
+    callbacks: Optional[Iterable[DefaultCallbacks]] = None
+
+
 class TrialStartTasksCallback(LoggerCallback):
     """
     Internal Callback for performing tasks at the start of each trial such as copying
@@ -586,20 +616,22 @@ class TrialStartTasksCallback(LoggerCallback):
 
     def __init__(
         self,
-        env: Type[PhantomEnv],
+        config: PhantomExperimentConfig,
         local_dir: Optional[Path],
         files: List[Union[str, Path]],
     ) -> None:
-        self.env = env
+        self.config = config
         self.local_dir = local_dir
         self.files = files
 
     def log_trial_start(self, trial: tune.trial.Trial) -> None:
-        # Save environment for use by rollout script
-        cloudpickle.dump(self.env, open(Path(trial.logdir, "env.pkl"), "wb"))
+        # Save experiment config
+        cloudpickle.dump(
+            self.config, open(Path(trial.logdir, "phantom-config.pkl"), "wb")
+        )
 
         # Copy any files provided in the copy_files_to_results_dir field
-        if self.local_dir is not None:
+        if self.local_dir is not None and len(self.files) > 0:
             source_code_dir = Path(trial.logdir).joinpath("copied_files")
             os.mkdir(source_code_dir)
 
