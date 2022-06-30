@@ -15,4 +15,4 @@ from .supertype import Supertype
 from .trainers import Trainer
 from .types import AgentID
 from .utils import rllib
-from .view import View
+from .view import AgentView, EnvView, View
