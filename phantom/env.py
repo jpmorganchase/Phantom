@@ -196,15 +196,19 @@ class PhantomEnv:
                     if agent_id not in self._dones:
                         self._dones.add(agent_id)
                         observations[agent_id] = agent.encode_observation(ctx)
-                        rewards[agent_id] = agent.compute_reward(ctx)
                         infos[agent_id] = agent.collect_infos(ctx)
                         dones[agent_id] = True
+                        reward = agent.compute_reward(ctx)
+                        if reward is not None:
+                            rewards[agent_id] = reward
                     # otherwise just ignore
                 else:
                     observations[agent_id] = agent.encode_observation(ctx)
-                    rewards[agent_id] = agent.compute_reward(ctx)
                     infos[agent_id] = agent.collect_infos(ctx)
                     dones[agent_id] = False
+                    reward = agent.compute_reward(ctx)
+                    if reward is not None:
+                        rewards[agent_id] = reward
 
         dones["__all__"] = self.is_done()
 
@@ -225,7 +229,7 @@ class PhantomEnv:
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]
 
-    def _apply_samplers(self):
+    def _apply_samplers(self) -> None:
         for sampler in self._samplers:
             sampler.value = sampler.sample()
 
