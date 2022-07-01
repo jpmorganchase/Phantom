@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import gym
 import numpy as np
@@ -7,6 +7,7 @@ import phantom as ph
 from ray import rllib
 
 
+# Define fixed parameters:
 NUM_EPISODE_STEPS = 100
 NUM_SHOPS = 2
 NUM_CUSTOMERS = 5
@@ -14,8 +15,8 @@ NUM_CUSTOMERS = 5
 CUSTOMER_MAX_ORDER_SIZE = 5
 SHOP_MIN_PRICE = 0.0
 SHOP_MAX_PRICE = 1.0
-SHOP_MAX_STOCK = 1000
-SHOP_MAX_STOCK_REQUEST = 100
+SHOP_MAX_STOCK = 100
+SHOP_MAX_STOCK_REQUEST = 20
 
 
 @dataclass
@@ -46,7 +47,7 @@ class StockResponse:
     size: int
 
 
-class CustomerPolicy(ph.RLlibFixedPolicy):
+class CustomerPolicy(ph.Policy):
     # The size of the order made and the choice of shop to make the order to for each
     # customer is determined by this fixed policy.
     def compute_action(self, obs: np.ndarray) -> Tuple[int, int]:
@@ -68,7 +69,7 @@ class CustomerAgent(ph.MessageHandlerAgent):
             )
         )
         self.observation_space = gym.spaces.Box(
-            low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, size=(len(self.shop_ids),)
+            low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(len(self.shop_ids),)
         )
 
     @ph.agents.msg_handler(OrderResponse)
@@ -87,7 +88,9 @@ class CustomerAgent(ph.MessageHandlerAgent):
         return [(shop_id, OrderRequest(order_size))]
 
     def encode_observation(self, ctx: ph.Context):
-        return [ctx[shop_id].price for shop_id in self.shop_ids]
+        return np.array(
+            [ctx[shop_id].price for shop_id in self.shop_ids], dtype=np.float32
+        )
 
 
 class FactoryAgent(ph.MessageHandlerAgent):
@@ -104,29 +107,11 @@ class FactoryAgent(ph.MessageHandlerAgent):
         return [(sender_id, StockResponse(message.size))]
 
 
-class ShopRewardFunction(ph.RewardFunction):
-    # def __init__(self, missed_sales_weight: float):
-    #     self.missed_sales_weight = missed_sales_weight
-
-    def reward(self, ctx: ph.Context) -> float:
-        # We reward the agent for making sales.
-        # We penalise the agent for holding onto stock and for missing orders.
-        # return (
-        #     ctx.agent.sales
-        #     - self.missed_sales_weight * ctx.agent.missed_sales
-        #     - ctx.agent.stock
-        # )
-
-        return (
-            ctx.agent.sales * (ctx.agent.price - ctx.agent.cost_per_unit)
-            - ctx.agent.stock * ctx.agent.cost_of_carry
-        )
-
-
 class ShopAgent(ph.MessageHandlerAgent):
-    # @dataclass(frozen=True)
-    # class Supertype(ph.Supertype):
-    #     missed_sales_weight: float
+    @dataclass(frozen=True)
+    class Supertype(ph.Supertype):
+        cost_of_carry: float
+        cost_per_unit: float
 
     @dataclass(frozen=True)
     class View(ph.AgentView):
@@ -144,37 +129,46 @@ class ShopAgent(ph.MessageHandlerAgent):
         # ...and how many sales have been made...
         self.sales: int = 0
 
-        # # ...and how many orders the shop has missed due to not having enough stock.
+        # ...and how many orders the shop has missed due to not having enough stock.
         self.missed_sales: int = 0
 
+        # we initialise the price variable here, it's value will be set when the shop
+        # agent takes it's first action.
         self.price: float = 0.0
-
-        self.cost_per_unit: float = 0.5
-        self.cost_of_carry: float = 0.1
 
         self.action_space = gym.spaces.Tuple(
             (
-                gym.spaces.Box(
-                    low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, size=(len(self.shop_ids),)
-                ),
+                # The price to set for the current step:
+                gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
+                # The number of additional units to order from the factory:
                 gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
             )
         )
 
         self.observation_space = gym.spaces.Tuple(
             (
-                # We include the agent's type in it's observation space to allow it to
-                # learn a generalised policy.
-                # self.type.to_obs_space(),
-                # We also encode the shop's current stock in the observation.
+                # The agent's type:
+                gym.spaces.Dict(
+                    {
+                        "cost_of_carry": gym.spaces.Box(low=0.0, high=1.0, shape=(1,)),
+                        "cost_per_unit": gym.spaces.Box(low=0.0, high=1.0, shape=(1,)),
+                    }
+                ),
+                # The agent's current stock:
                 gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                # The number of sales made by the agent in the previous step:
                 gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
             )
         )
 
+    def view(self, neighbour_id: Optional[ph.AgentID] = None) -> "View":
+        """Return an immutable view to the agent's public state."""
+        return self.View(self.id, self.price)
+
     def pre_message_resolution(self, ctx: ph.Context):
         # At the start of each step we reset the number of missed orders to 0.
         self.sales = 0
+        self.missed_sales = 0
 
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(
@@ -206,34 +200,42 @@ class ShopAgent(ph.MessageHandlerAgent):
         # Send the customer their order.
         return [(sender_id, OrderResponse(stock_to_sell))]
 
-    def encode_obs(self, ctx: ph.Context):
+    def encode_observation(self, ctx: ph.Context):
         return (
-            # We include the agent's type in it's observation space to allow it to learn
+            # The agent's type is included in its observation space to allow it to learn
             # a generalised policy.
-            # self.type.to_obs_space_compatible_type(),
-            # We also encode the shop's current stock in the observation.
+            self.type.to_obs_space_compatible_type(),
+            # The current stock is included so the agent can learn to efficiently manage
+            # its inventory.
             self.stock,
+            # The number of sales made in the previous step is included so the agent can
+            # learn to maximise sales.
             self.sales,
         )
 
-    def decode_action(self, ctx: ph.Context, action: np.ndarray):
-        # The action the shop takes is the amount of new stock to request from the
-        # factory.
-        stock_to_request, price_to_set = action
+    def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
+        # The action the shop takes is the updated price for it's products and the
+        # amount of new stock to request from the factory.
 
-        self.price = price_to_set
+        # We update the agent's price:
+        self.price = action[0][0]
 
-        # We perform this action by sending a stock request message to the factory.
+        # And we send a stock request message to the factory:
+        stock_to_request = action[1]
+
         return [(self.factory_id, StockRequest(stock_to_request))]
 
-    def reset(self):
-        super().reset()  # self.type set here
-
-        self.reward_function = ShopRewardFunction(
-            # missed_sales_weight=self.type.missed_sales_weight
+    def compute_reward(self, ctx: ph.Context) -> float:
+        return (
+            self.sales * (self.price - self.type.cost_per_unit)
+            - self.stock * self.type.cost_of_carry
         )
 
+    def reset(self):
+        super().reset()  # sampled supertype is set as self.type here
+
         self.stock = 0
+        self.price = 0.0
 
 
 SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
@@ -284,20 +286,56 @@ ph.utils.rllib.train(
     algorithm="PPO",
     env_class=SupplyChainEnv2,
     env_config={
-        # "agent_supertypes": {
-        #     shop_id: {
-        #         "missed_sales_weight": ph.utils.samplers.UniformSampler(
-        #             low=0.0, high=8.0
-        #         ),
-        #     }
-        #     for shop_id in SHOP_IDS
-        # }
+        "agent_supertypes": {
+            shop_id: ShopAgent.Supertype(
+                # cost_of_carry=0.1,
+                # cost_per_unit=0.5,
+                cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
+                cost_per_unit=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
+            )
+            for shop_id in SHOP_IDS
+        }
     },
-    num_iterations=10,
     policies={
         "shop_policy": ShopAgent,
         "customer_policy": (CustomerPolicy, CustomerAgent),
     },
     policies_to_train=["shop_policy"],
     metrics=metrics,
+    rllib_config={
+        # "num_workers": 0,
+        "seed": 0,
+    },
+    tune_config={
+        "checkpoint_freq": 100,
+        "stop": {
+            "training_iteration": 5000,
+        },
+    },
 )
+
+
+# results = ph.utils.rllib.rollout(
+#     directory="PPO/LATEST",
+#     algorithm="PPO",
+#     env_class=SupplyChainEnv2,
+#     env_config={
+#         "agent_supertypes": {
+#             shop_id: ShopAgent.Supertype(
+#                 cost_of_carry=0.1,
+#                 cost_per_unit=0.5,
+#                 # cost_of_carry=ph.utils.ranges.UniformRange(
+#                 #     low=0.0, high=1.0, step=0.1,
+#                 # ),
+#                 # cost_per_unit=ph.utils.ranges.UniformRange(
+#                 #     low=0.0, high=1.0, step=0.1,
+#                 # ),
+#             )
+#             for shop_id in SHOP_IDS
+#         }
+#     },
+#     num_workers=4,
+#     num_repeats=100,
+#     metrics=metrics,
+#     record_messages=True,
+# )
