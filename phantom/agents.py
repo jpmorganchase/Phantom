@@ -114,7 +114,7 @@ class Agent(ABC):
 
         if self.observation_encoder is None:
             raise NotImplementedError(
-                "If the agent does not have an Encoder, a custom encode_obs method must be defined"
+                f"Agent '{self.id}' does not have an Encoder instance set as 'observation_encoder' or a custom 'encode_observation' method defined"
             )
 
         return self.observation_encoder.encode(ctx)
@@ -138,7 +138,7 @@ class Agent(ABC):
         """
         if self.action_decoder is None:
             raise NotImplementedError(
-                "If the agent does not have an Decoder, a custom decode_action method must be defined"
+                f"Agent '{self.id}' does not have an Decoder instance set as 'action_decoder' or a custom 'decode_action' method defined"
             )
 
         return self.action_decoder.decode(ctx, action)
