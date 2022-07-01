@@ -100,9 +100,9 @@ class PhantomEnv:
         """Return the number of agents in the environment."""
         return len(self.agent_ids)
 
-    def view(self, agent_id: Optional[AgentID] = None) -> EnvView:
+    def view(self, agent_id: Optional[AgentID] = None) -> Optional[EnvView]:
         """Return an immutable view to the environment's public state."""
-        return EnvView()
+        return None
 
     def pre_message_resolution(self) -> None:
         """Perform internal, pre-message resolution updates to the environment."""

@@ -70,9 +70,9 @@ class Agent(ABC):
         """The unique ID of the agent."""
         return self._id
 
-    def view(self, neighbour_id: Optional[AgentID] = None) -> AgentView:
+    def view(self, neighbour_id: Optional[AgentID] = None) -> Optional[AgentView]:
         """Return an immutable view to the agent's public state."""
-        return AgentView(agent_id=self._id)
+        return None
 
     def pre_message_resolution(self, ctx: Context) -> None:
         """Perform internal, pre-message resolution updates to the agent."""
