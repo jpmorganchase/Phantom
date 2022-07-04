@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterator, Mapping, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, Hashable, List, Optional, Mapping, TYPE_CHECKING
 
 from .types import AgentID
 from .view import AgentView, EnvView, View
@@ -32,20 +32,20 @@ class Context:
     def __init__(
         self,
         agent: "Agent",
-        agent_views: Mapping[AgentID, AgentView],
-        env_view: EnvView,
+        agent_views: Mapping[AgentID, Optional[AgentView]],
+        env_view: Optional[EnvView],
         subnet: "Network",
     ) -> None:
         self.agent = agent
-        self.views: Dict[str, View] = agent_views
+        self.views: Dict[Hashable, Optional[View]] = dict(agent_views)
         self.views["ENV"] = env_view
 
         self._subnet = subnet
 
     @property
-    def neighbour_ids(self) -> Iterator[str]:
+    def neighbour_ids(self) -> List[AgentID]:
         """List of IDs of the neighbouring agents."""
-        return iter(self.views.keys())
+        return list(self.views.keys())
 
     def __getitem__(self, view_id: str) -> Any:
         return self.views[view_id]

@@ -25,8 +25,8 @@ class Range(ABC, Generic[T]):
     def __repr__(self) -> str:
         if self.name is not None:
             return f"<{self.__class__.__name__} name='{self.name}'>"
-        else:
-            return f"<{self.__class__.__name__}>"
+
+        return f"<{self.__class__.__name__}>"
 
 
 class UniformRange(Range[float]):

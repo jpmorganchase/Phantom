@@ -155,16 +155,7 @@ def train(
         for agent_id in agent_ids:
             policy_mapping[agent_id] = policy_name
 
-    # for agent in env.agents.values():
-    #     if agent.action_space is not None and agent.id not in policy_mapping:
-    #         policy_specs[agent.id] = rllib.policy.policy.PolicySpec(
-    #             action_space=agent.action_space,
-    #             observation_space=agent.observation_space,
-    #         )
-
-    #         policy_mapping[agent_id] = agent_id
-
-    def policy_mapping_fn(agent_id, episode, worker, **kwargs):
+    def policy_mapping_fn(agent_id, *args, **kwargs):
         return policy_mapping[agent_id]
 
     ray.tune.registry.register_env(
@@ -212,12 +203,9 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
         self.env = env
 
         self._agent_ids = set(
-            [
-                agent.id
-                for agent in self.env.network.agents.values()
-                if agent.action_space is not None
-                and agent.observation_space is not None
-            ]
+            agent.id
+            for agent in self.env.network.agents.values()
+            if agent.action_space is not None and agent.observation_space is not None
         )
 
         self.action_space = gym.spaces.Dict(
@@ -236,8 +224,8 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
 
         rllib.MultiAgentEnv.__init__(self)
 
-    def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
-        return self.env.step(actions)
+    def step(self, action_dict: Mapping[AgentID, Any]) -> PhantomEnv.Step:
+        return self.env.step(action_dict)
 
     def reset(self) -> Dict[AgentID, Any]:
         return self.env.reset()
@@ -332,7 +320,7 @@ def rollout(
     directory: Union[str, Path],
     algorithm: str,
     env_class: Type[PhantomEnv],
-    env_config: Optional[Mapping[str, Any]] = None,
+    env_config: Optional[Dict[str, Any]] = None,
     num_workers: int = 0,
     num_repeats: int = 1,
     checkpoint: Optional[int] = None,
@@ -446,7 +434,7 @@ def rollout(
 
     # This 'variations' list is where we build up every combination of the expanded values
     # from the list of Ranges.
-    variations = [deepcopy(({}, env_config))]
+    variations: List[List[Dict[str, Any]]] = [deepcopy([{}, env_config])]
 
     unamed_range_count = 0
 
@@ -610,7 +598,7 @@ def _rollout_task_fn(
     checkpoint: int,
     algorithm: str,
     configs: List["_RolloutConfig"],
-    env_class: Type[PhantomEnv] = None,
+    env_class: Type[PhantomEnv],
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     result_queue: Optional[multiprocessing.Queue] = None,
@@ -655,13 +643,6 @@ def _rollout_task_fn(
             # Create environment instance from config from results directory
             env = env_class(**rollout_config.env_config)
 
-            # TODO:
-            # for agent_id, supertype in rollout_config.agent_supertypes.items():
-            #     env.agents[agent_id].supertype = supertype
-
-            # if rollout_config.env_supertype is not None:
-            #     env.env_type = rollout_config.env_supertype
-
             if record_messages:
                 env.network.resolver.enable_tracking = True
 
@@ -691,8 +672,9 @@ def _rollout_task_fn(
 
                 new_observation, reward, done, info = env.step(step_actions)
 
-                for name, metric in tracked_metrics.items():
-                    metrics[name].append(metric.extract(env))
+                if tracked_metrics is not None:
+                    for name, metric in tracked_metrics.items():
+                        metrics[name].append(metric.extract(env))
 
                 if record_messages:
                     messages = deepcopy(env.network.resolver.tracked_messages)
@@ -717,7 +699,7 @@ def _rollout_task_fn(
 
                 observation = new_observation
 
-            metrics = {k: np.array(v) for k, v in metrics.items()}
+            condensed_metrics = {k: np.array(v) for k, v in metrics.items()}
 
             result = Rollout(
                 rollout_config.rollout_id,
@@ -725,7 +707,7 @@ def _rollout_task_fn(
                 rollout_config.env_config,
                 rollout_config.rollout_params,
                 steps,
-                metrics,
+                condensed_metrics,
             )
 
             if result_mapping_fn is not None:
@@ -758,4 +740,4 @@ class _RolloutConfig:
     rollout_id: int
     repeat_id: int
     env_config: Mapping[str, Any]
-    rollout_params: Dict[str, Any]
+    rollout_params: Mapping[str, Any]

@@ -11,7 +11,7 @@ class StaticSampler(ph.utils.samplers.Sampler[float]):
         return self.value
 
 
-@dataclass(frozen=True)
+@dataclass
 class MockSupertype(ph.Supertype):
     type_value: float
 

@@ -143,7 +143,7 @@ class Agent(ABC):
 
         return self.action_decoder.decode(ctx, action)
 
-    def compute_reward(self, ctx: Context) -> float:
+    def compute_reward(self, ctx: Context) -> Optional[float]:
         """
         Computes a reward value based on an agents current state.
 
@@ -211,8 +211,8 @@ class MessageHandlerAgent(Agent):
 
         self.__handlers: DefaultDict[Type[Message], List[Handler]] = defaultdict(list)
 
-        for attr in dir(self):
-            attr = getattr(self, attr)
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
 
             if callable(attr) and hasattr(attr, "message_type"):
                 self.__handlers[attr.message_type].append(attr)

@@ -8,7 +8,6 @@ from typing import (
     Any,
     DefaultDict,
     Dict,
-    Hashable,
     List,
     Mapping,
     Optional,
@@ -46,7 +45,7 @@ PolicyMapping = Mapping[
 
 @dataclass(frozen=True)
 class TrainingResults:
-    policies: Dict[str, Policy]
+    policies: Dict[PolicyID, Policy]
 
 
 class Trainer(ABC):
@@ -71,7 +70,7 @@ class Trainer(ABC):
             raise ValueError
 
         self.tensorboard_log_dir = tensorboard_log_dir
-        self.metrics: Dict[str, Metric] = {}
+        self.metrics: Mapping[str, Metric] = {}
         self.logged_metrics: DefaultDict[str, List[float]] = defaultdict(list)
         self.logged_rewards: DefaultDict[AgentID, List[float]] = defaultdict(list)
 
@@ -152,7 +151,7 @@ class Trainer(ABC):
             self.tbx_write_scalar(f"rewards/{agent_id}", np.mean(rewards), step)
             group_reward_count += rewards
 
-        self.tbx_write_scalar(f"rewards/group", np.mean(group_reward_count), step)
+        self.tbx_write_scalar("rewards/group", np.mean(group_reward_count), step)
 
         self.logged_metrics = defaultdict(list)
         self.logged_rewards = defaultdict(list)
@@ -197,7 +196,7 @@ class Trainer(ABC):
             elif isinstance(policy_config, tuple):
                 if len(policy_config) == 2:
                     policy_class, agents_param = policy_config
-                    config = None
+                    config: Mapping[str, Any] = {}
                 else:
                     policy_class, agents_param, config = policy_config
 
@@ -246,4 +245,4 @@ class PolicySpec:
     observation_space: gym.Space
     action_space: gym.Space
     policy_class: Optional[Type[Policy]] = None
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: Mapping[str, Any] = field(default_factory=dict)

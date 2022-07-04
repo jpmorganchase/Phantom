@@ -3,9 +3,9 @@ from typing import (
     Any,
     Callable,
     Dict,
-    Iterable,
     Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
 )
@@ -54,13 +54,13 @@ class FSMStage:
     def __init__(
         self,
         stage_id: StageID,
-        next_stages: Optional[Iterable[StageID]] = None,
-        acting_agents: Optional[Iterable[AgentID]] = None,
-        rewarded_agents: Optional[Iterable[AgentID]] = None,
+        next_stages: Optional[Sequence[StageID]] = None,
+        acting_agents: Optional[Sequence[AgentID]] = None,
+        rewarded_agents: Optional[Sequence[AgentID]] = None,
         handler: Optional[Callable[[], StageID]] = None,
     ) -> None:
         self.stage_id = stage_id
-        self.next_stages = next_stages
+        self.next_stages = next_stages or []
         self.acting_agents = acting_agents
         self.rewarded_agents = rewarded_agents
         self.handler = handler
@@ -95,7 +95,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         env_supertype: Optional[Supertype] = None,
         agent_supertypes: Optional[Mapping[AgentID, Supertype]] = None,
         # fsm env specific:
-        stages: Optional[Iterable[FSMStage]] = None,
+        stages: Optional[Sequence[FSMStage]] = None,
     ) -> None:
         super().__init__(num_steps, network, env_supertype, agent_supertypes)
 
@@ -121,8 +121,8 @@ class FiniteStateMachineEnv(PhantomEnv):
                     self._stages[stage.stage_id] = stage
 
         # Register stages via FSMStage decorator
-        for attr in dir(self):
-            attr = getattr(self, attr)
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
             if callable(attr):
                 handler_fn = attr
                 if hasattr(handler_fn, "_decorator"):
@@ -175,13 +175,10 @@ class FiniteStateMachineEnv(PhantomEnv):
             A dictionary mapping AgentIDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
+        self.current_step = 0
         self.current_stage = self.initial_stage
 
         self._apply_samplers()
-
-        self._agent_ids = set(self.agent_ids)
-
-        self.current_step = 0
 
         # Reset network and call reset method on all agents in the network.
         # Message samplers should be called here from the respective agent's reset method.
@@ -236,7 +233,14 @@ class FiniteStateMachineEnv(PhantomEnv):
             self.network.resolve(self.view)
             self.post_message_resolution()
 
-            next_stage = self._stages[self.current_stage].next_stages[0]
+            next_stages = self._stages[self.current_stage].next_stages
+
+            if len(next_stages) == 0:
+                raise ValueError(
+                    f"Current stage '{self.current_stage}' does not have an env handler or a next stage defined"
+                )
+
+            next_stage = next_stages[0]
         elif hasattr(env_handler, "__self__"):
             # If the FSMStage is defined with the stage definitions the handler will be
             # a bound method of the env class.
@@ -272,7 +276,9 @@ class FiniteStateMachineEnv(PhantomEnv):
 
             rewarded_agents = self._stages[self.current_stage].rewarded_agents
             if rewarded_agents is None or agent_id in rewarded_agents:
-                rewards[agent_id] = agent.compute_reward(ctx)
+                reward = agent.compute_reward(ctx)
+                if reward is not None:
+                    rewards[agent_id] = reward
 
         self._observations.update(observations)
         self._rewards.update(rewards)

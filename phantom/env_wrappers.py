@@ -24,14 +24,14 @@ ActType = TypeVar("ActType")
 class SingleAgentEnvAdapter(gym.Env):
     def __init__(
         self,
-        env: PhantomEnv,
+        env: Type[PhantomEnv],
         agent_id: AgentID,
         other_policies: Mapping[AgentID, Tuple[Type[Policy], Mapping[str, Any]]],
-        config: Optional[Mapping[str, Any]] = None,
+        env_config: Optional[Mapping[str, Any]] = None,
     ) -> None:
-        config = config or {}
+        env_config = env_config or {}
 
-        self._env = env(**config)
+        self._env = env(**env_config)
 
         # Check selected agent exists
         assert agent_id in self._env.agent_ids

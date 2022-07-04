@@ -11,7 +11,7 @@ from .utils.samplers import Sampler
 ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 
 
-@dataclass(frozen=True)
+@dataclass
 class Supertype(ABC):
     def sample(self) -> "Supertype":
         fields = {}

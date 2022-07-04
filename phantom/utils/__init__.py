@@ -131,7 +131,7 @@ def update_val(obj: Any, path: ObjPath, new_val: Any) -> None:
     elif path[-1][0] is True:
         obj[path[-1][1]] = new_val
     else:
-        obj = setattr(obj, path[-1][1], new_val)
+        setattr(obj, path[-1][1], new_val)
 
 
 def check_env_config(env_config: Mapping[str, Any]) -> None:

@@ -44,7 +44,10 @@ def gym_env():
         env=PhantomEnv,
         agent_id="A",
         other_policies={"B": (MockPolicy, {})},
-        config={"network": Network([MockAgent("A"), MockAgent("B")]), "num_steps": 2},
+        env_config={
+            "network": Network([MockAgent("A"), MockAgent("B")]),
+            "num_steps": 2,
+        },
     )
 
 
@@ -100,7 +103,7 @@ def test_bad_env():
             env=PhantomEnv,
             agent_id="X",
             other_policies={"B": (MockPolicy, {})},
-            config={
+            env_config={
                 "network": Network([MockAgent("A"), MockAgent("B")]),
                 "num_steps": 2,
             },
@@ -112,7 +115,7 @@ def test_bad_env():
             env=PhantomEnv,
             agent_id="A",
             other_policies={"A": (MockPolicy, {}), "B": (MockPolicy, {})},
-            config={
+            env_config={
                 "network": Network([MockAgent("A"), MockAgent("B")]),
                 "num_steps": 2,
             },
@@ -124,7 +127,7 @@ def test_bad_env():
             env=PhantomEnv,
             agent_id="A",
             other_policies={"X": (MockPolicy, {})},
-            config={
+            env_config={
                 "network": Network([MockAgent("A"), MockAgent("B")]),
                 "num_steps": 2,
             },
@@ -136,7 +139,7 @@ def test_bad_env():
             env=PhantomEnv,
             agent_id="A",
             other_policies={},
-            config={
+            env_config={
                 "network": Network([MockAgent("A"), MockAgent("B")]),
                 "num_steps": 2,
             },

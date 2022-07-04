@@ -1,5 +1,4 @@
 from copy import deepcopy
-from functools import lru_cache
 from itertools import chain, product
 from typing import (
     cast,
@@ -62,7 +61,9 @@ class Network:
         if agents is not None:
             self.add_agents(agents)
 
-        self.env_view: Optional["EnvView"] = None
+        self.env_view_fn: Optional[
+            Callable[[Optional[AgentID]], Optional["EnvView"]]
+        ] = None
 
     @property
     def agent_ids(self) -> KeysView[AgentID]:
@@ -164,8 +165,8 @@ class Network:
         for agent in self.agents.values():
             agent.reset()
 
-    # TODO: test this is safe
-    @lru_cache()
+    # TODO: if network is known to be static can cache subnets to improve performance
+    # @lru_cache()
     def subnet_for(self, agent_id: AgentID) -> "Network":
         """Returns a Sub Network associated with a given agent
 
@@ -198,12 +199,14 @@ class Network:
             agent_id: The ID of the focal agent.
         """
         subnet = self.subnet_for(agent_id)
-        views = {
+        agent_views = {
             neighbour_id: self.agents[neighbour_id].view(agent_id)
             for neighbour_id in subnet.graph.neighbors(agent_id)
         }
 
-        return Context(self.agents[agent_id], views, self.env_view, subnet)
+        env_view = self.env_view_fn(agent_id) if self.env_view_fn is not None else None
+
+        return Context(self.agents[agent_id], agent_views, env_view, subnet)
 
     def send(self, sender_id: AgentID, receiver_id: AgentID, message: Message) -> None:
         """Send message batches across the network.
@@ -219,23 +222,28 @@ class Network:
 
         self.resolver.push(sender_id, receiver_id, message)
 
-    def resolve(self, env_view: Optional["EnvView"] = None) -> None:
+    def resolve(
+        self,
+        env_view_fn: Optional[
+            Callable[[Optional[AgentID]], Optional["EnvView"]]
+        ] = None,
+    ) -> None:
         """Resolve all messages in the network and clear volatile memory.
 
         This process does three things in a strictly sequential manner:
             1. Execute the chosen resolver to handle messages in the network.
             2. Clear all edges of any remaining messages instances.
         """
-        self.env_view = env_view
+        self.env_view_fn = env_view_fn
 
-        ctx_map = {agent_id: self.context_for(agent_id) for agent_id in self.agents}
+        ctxs = [self.context_for(agent_id) for agent_id in self.agents]
 
-        for ctx in ctx_map.values():
+        for ctx in ctxs:
             ctx.agent.pre_message_resolution(ctx)
 
         self.resolver.resolve(self)
 
-        for ctx in ctx_map.values():
+        for ctx in ctxs:
             ctx.agent.post_message_resolution(ctx)
 
         self.resolver.reset()
