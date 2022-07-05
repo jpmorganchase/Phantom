@@ -3,6 +3,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence
 import numpy as np
 
 from ...env import PhantomEnv
+from ...policy import Policy
 from ...types import AgentID, PolicyID
 from ..trainer import Trainer
 from .policy import QLearningPolicy
@@ -13,11 +14,11 @@ class QLearningTrainer(Trainer):
     Simple QLearning algorithm implementation.
 
     Arguments:
-        tensorboard_log_dir: If provided, will save metrics to the given directory
-            in a format that can be viewed with tensorboard.
         alpha: Learning rate.
         gamma: Discount factor.
         epsilon: Exploration rate.
+        tensorboard_log_dir: If provided, will save metrics to the given directory
+            in a format that can be viewed with tensorboard.
     """
 
     policy_class = QLearningPolicy
@@ -39,7 +40,7 @@ class QLearningTrainer(Trainer):
         self,
         env: PhantomEnv,
         policy_mapping: Mapping[AgentID, PolicyID],
-        policies: Mapping[PolicyID, QLearningPolicy],
+        policies: Mapping[PolicyID, Policy],
         policies_to_train: Sequence[PolicyID],
     ) -> None:
         batch_size = 10

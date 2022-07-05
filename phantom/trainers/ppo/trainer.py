@@ -18,9 +18,10 @@ from .utils import update_linear_schedule
 
 class PPOTrainer(Trainer):
     """
-    PPO implementation derived from https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail.
+    Proximal Policy Optimisation (PPO) algorithm implementation derived from
+    https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail.
 
-    For performance and correctness reasons, it is recommended that the RLlib
+    For performance and stability reasons, it is recommended that the RLlib
     implementation is used using the ``utils.rllib.train`` function.
 
     Arguments:
