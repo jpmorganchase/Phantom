@@ -1,12 +1,21 @@
 import collections
 import inspect
 import os
-from typing import Any, Mapping, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Mapping, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
 from termcolor import colored
 
 from .ranges import Range
 from .samplers import Sampler
+
+
+def flatten(xs: Iterable[Any]) -> List[Any]:
+    """Recursively flatten an iterable object into a list.
+
+    Arguments:
+        xs: The iterable object.
+    """
+    return sum(([x] if not isinstance(x, Iterable) else flatten(x) for x in xs), [])
 
 
 def contains_type(value: Any, type_: Type) -> bool:

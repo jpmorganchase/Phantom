@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, Optional, TypeVar
+from typing import Generic, Optional, Sequence, TypeVar
 
 import numpy as np
 
@@ -9,17 +9,23 @@ T = TypeVar("T")
 
 class Range(ABC, Generic[T]):
     """
-    Samplers are used in Agent/Environment Types to make Supertypes.
+    Ranges are used in Agent/Environment Supertypes to define how they are sampled.
 
-    When training, at the start of each episode concrete values will be sampled from all
-    the samplers and Types generated from the Supertypes.
+    Ranges are designed to be used when generating rollouts post-training and a
+    non-stochastic distribution of values is required for the Supertype sampling.
+
+    Ranges return a fixed number of total values and as such all values must be returned
+    in one go with the ``values`` method.
     """
 
     def __init__(self, name: Optional[str] = None) -> None:
         self.name = name
 
     @abstractmethod
-    def values(self) -> Iterable[T]:
+    def values(self) -> Sequence[T]:
+        """
+        Returns the complete set of values defined by the Range.
+        """
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -32,6 +38,8 @@ class Range(ABC, Generic[T]):
 class UniformRange(Range[float]):
     """
     Returns an array of values spaced by a step between a start and end value.
+
+    Uses ``np.arange()`` internally.
     """
 
     def __init__(
@@ -54,6 +62,8 @@ class UniformRange(Range[float]):
 class LinspaceRange(Range[float]):
     """
     Returns an array of n values evenly distributed between a start and end value.
+
+    Uses ``np.linspace()`` internally.
     """
 
     def __init__(

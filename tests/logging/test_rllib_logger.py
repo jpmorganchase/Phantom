@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
 
-import matplotlib.pyplot as plt
-import numpy as np
-
-from phantom.logging import RLlibMetricLogger, Metric
+from phantom.logging import Metric
+from phantom.utils.rllib import RLlibMetricLogger
 
 
 @dataclass

@@ -26,6 +26,7 @@ import gym
 import numpy as np
 import ray
 from ray import rllib
+from ray.rllib.agents.callbacks import DefaultCallbacks
 from ray.rllib.agents.registry import get_trainer_class
 from ray.rllib.evaluation import Episode, MultiAgentEpisode
 from ray.rllib.policy.sample_batch import SampleBatch
@@ -36,7 +37,7 @@ from tqdm import tqdm
 from ..agents import Agent
 from ..env import PhantomEnv
 from ..fsm import FiniteStateMachineEnv
-from ..logging import Metric, RLlibMetricLogger
+from ..logging import Metric
 from ..policy import Policy
 from ..types import AgentID
 from .rollout import Rollout, Step
@@ -81,10 +82,12 @@ def train(
     metrics: Optional[Mapping[str, Metric]] = None,
 ):
     """
-    Performs training of a Phantom experiment.
+    Performs training of a Phantom experiment using the RLlib library.
+
     Any objects that inherit from BaseSampler in the env_supertype or agent_supertypes
     parameters will be automatically sampled from and fed back into the environment at
     the start of each episode.
+
     Arguments:
         algorithm: RL algorithm to use (optional - one of 'algorithm' or 'trainer' must
             be provided).
@@ -198,7 +201,41 @@ def train(
         return results
 
 
+class RLlibMetricLogger(DefaultCallbacks):
+    """
+    RLlib callback that logs Phantom metrics.
+    """
+
+    def __init__(self, metrics: Mapping[str, "Metric"]) -> None:
+        super().__init__()
+        self.metrics = metrics
+
+    def on_episode_start(self, *, episode, **kwargs) -> None:
+        for metric_id in self.metrics.keys():
+            episode.user_data[metric_id] = []
+
+    def on_episode_step(self, *, base_env, episode, **kwargs) -> None:
+        env = base_env.envs[0]
+
+        for (metric_id, metric) in self.metrics.items():
+            episode.user_data[metric_id].append(metric.extract(env))
+
+    def on_episode_end(self, *, episode, **kwargs) -> None:
+        for (metric_id, metric) in self.metrics.items():
+            episode.custom_metrics[metric_id] = metric.reduce(
+                episode.user_data[metric_id]
+            )
+
+    def __call__(self) -> "RLlibMetricLogger":
+        return self
+
+
 class RLlibEnvWrapper(rllib.MultiAgentEnv):
+    """
+    Wrapper around a :class:`PhantomEnv` that provides compatibility with the RLlib
+    ``MultiAgentEnv`` interface.
+    """
+
     def __init__(self, env: PhantomEnv) -> None:
         self.env = env
 
@@ -432,8 +469,8 @@ def rollout(
     # the data structure. Eg. shared across multiple agents.
     ranges = collect_instances_of_type_with_paths(Range, ({}, env_config))
 
-    # This 'variations' list is where we build up every combination of the expanded values
-    # from the list of Ranges.
+    # This 'variations' list is where we build up every combination of the expanded
+    # values from the list of Ranges.
     variations: List[List[Dict[str, Any]]] = [deepcopy([{}, env_config])]
 
     unamed_range_count = 0
@@ -713,8 +750,8 @@ def _rollout_task_fn(
             if result_mapping_fn is not None:
                 result = result_mapping_fn(result)
 
-            # If in multiprocess mode, add the results to the queue, otherwise store locally
-            # until all rollouts for this function call are complete.
+            # If in multiprocess mode, add the results to the queue, otherwise store
+            # locally until all rollouts for this function call are complete.
             if result_queue is None:
                 results.append(result)
             else:

@@ -6,9 +6,12 @@ import gym
 
 class Policy(ABC):
     """
+    Base Policy class for defining custom policies.
+
     Arguments:
         observation_space: Observation space of the policy.
         action_space: Action space of the policy.
+        config: Optional configuration parameters.
     """
 
     def __init__(

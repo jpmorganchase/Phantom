@@ -21,7 +21,6 @@ class PhantomEnv:
     Base Phantom environment.
 
     Usage:
-
         >>> env = PhantomEnv({ ... })
         >>> env.reset()
         <Observation: dict>
@@ -32,11 +31,15 @@ class PhantomEnv:
         num_steps: The maximum number of steps the environment allows per episode.
         network: A Network class or derived class describing the connections between
             agents and agents in the environment.
+        env_supertype: Optional Supertype class instance for the environment. If this is
+            set, it will be sampled from and the ``env_type`` property set on the class
+            with every call to ``reset()``.
+        agent_supertypes: Optional mapping of agent IDs to Supertype class instances. If
+            these are set, each supertype will be sampled from and the ``type`` property
+            set on the related agent with every call to ``reset()``.
     """
 
     class Step(NamedTuple):
-        """Type alias for the PhantomEnv::step return object."""
-
         observations: Dict[AgentID, Any]
         rewards: Dict[AgentID, float]
         dones: Dict[AgentID, bool]

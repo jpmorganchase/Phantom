@@ -17,17 +17,16 @@ class Context:
 
     Arguments:
         agent: Focal node of the ego network.
-        views: A collections of view objects, each one associated with an
-            adjacent agent.
+        agent_views: A collection of view objects, each one associated with an adjacent
+            agent.
+        env_views: An optional view object associated with the environment.
         subnet: The subgraph representing the ego network of the agent.
 
     Attributes:
         agent: Focal node of the ego network.
-        views: A collections of view objects, each one associated with an
-            adjacent agent.
+        views: A collection of view objects, each one associated with an adjacent agent
+            or the environment.
     """
-
-    # TODO: should env view be part of agent views or separate?
 
     def __init__(
         self,

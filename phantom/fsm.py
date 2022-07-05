@@ -43,8 +43,8 @@ class FSMStage:
         stage_id: The name of this stage.
         next_stages: The stages that this stage can transition to.
         acting_agents: If provided, only the given agents will make observations at the
-            end of the previous step and take actions in that steps. If not provided, all
-            agents will make observations and take actions.
+            end of the previous step and take actions in that steps. If not provided,
+            all agents will make observations and take actions.
         rewarded_agents: If provided, only the given agents will calculate and return a
             reward at the end of the step for this stage. If not provided, all agents
             will calculate and return a reward.
@@ -74,15 +74,40 @@ class FSMStage:
 
 @dataclass(frozen=True)
 class FSMEnvView(EnvView):
+    """
+    Extension of the :class:`EnvView` class that records the current stage that the
+    environment is in.
+    """
+
     stage: StageID
 
 
 class FiniteStateMachineEnv(PhantomEnv):
     """
+    Base environment class that allows implementation of a finite state machine to
+    handle complex environment multi-step setups.
+    This class should not be used directly and instead should be subclassed.
+    Use the :class:`FSMStage` decorator on handler methods within subclasses of this
+    class to register stages to the FSM.
+
+    A 'stage' corresponds to a state in the finite state machine, however to avoid any
+    confusion with Environment states we refer to them as stages.
+    Stage IDs can be anything type that is hashable, eg. strings, ints, enums.
+
     Attributes:
+        initial_stage: The initial starting stage of the FSM. When the reset() method is
+            called the environment is initialised into this stage.
         num_steps: The maximum number of steps the environment allows per episode.
         network: A Network class or derived class describing the connections between
             agents and agents in the environment.
+        env_supertype: Optional Supertype class instance for the environment. If this is
+            set, it will be sampled from and the ``env_type`` property set on the class
+            with every call to ``reset()``.
+        agent_supertypes: Optional mapping of agent IDs to Supertype class instances. If
+            these are set, each supertype will be sampled from and the ``type`` property
+            set on the related agent with every call to ``reset()``.
+        stages: List of FSM stages. FSM stages can be defined via this list or
+            alternatively via the :class:`FSMStage` decorator.
     """
 
     def __init__(

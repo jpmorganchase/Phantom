@@ -165,8 +165,6 @@ class Network:
         for agent in self.agents.values():
             agent.reset()
 
-    # TODO: if network is known to be static can cache subnets to improve performance
-    # @lru_cache()
     def subnet_for(self, agent_id: AgentID) -> "Network":
         """Returns a Sub Network associated with a given agent
 

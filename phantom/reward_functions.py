@@ -4,9 +4,10 @@ from .context import Context
 
 
 class RewardFunction(ABC):
-    """A trait for types that can compute rewards from a local context.
+    """
+    A trait for types that can compute rewards from a local context.
 
-    Note - this trait only support scalar rewards for the time being.
+    Note: this trait only support scalar rewards for the time being.
     """
 
     @abstractmethod
@@ -23,7 +24,8 @@ class RewardFunction(ABC):
 
 
 class Constant(RewardFunction):
-    """A reward function that always returns a given constant.
+    """
+    A reward function that always returns a given constant.
 
     Attributes:
         value: The reward to be returned in any state.

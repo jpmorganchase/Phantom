@@ -1,35 +1,9 @@
 from abc import abstractmethod, ABC
-from typing import Generic, Iterable, Mapping, Optional, Sequence, TypeVar
+from typing import Generic, Iterable, Optional, Sequence, TypeVar
 
 import numpy as np
-from ray.rllib.agents.callbacks import DefaultCallbacks
 
 from .env import PhantomEnv
-
-
-class RLlibMetricLogger(DefaultCallbacks):
-    def __init__(self, metrics: Mapping[str, "Metric"]) -> None:
-        super().__init__()
-        self.metrics = metrics
-
-    def on_episode_start(self, *, episode, **kwargs) -> None:
-        for metric_id in self.metrics.keys():
-            episode.user_data[metric_id] = []
-
-    def on_episode_step(self, *, base_env, episode, **kwargs) -> None:
-        env = base_env.envs[0]
-
-        for (metric_id, metric) in self.metrics.items():
-            episode.user_data[metric_id].append(metric.extract(env))
-
-    def on_episode_end(self, *, episode, **kwargs) -> None:
-        for (metric_id, metric) in self.metrics.items():
-            episode.custom_metrics[metric_id] = metric.reduce(
-                episode.user_data[metric_id]
-            )
-
-    def __call__(self) -> "RLlibMetricLogger":
-        return self
 
 
 MetricValue = TypeVar("MetricValue")

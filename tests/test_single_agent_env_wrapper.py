@@ -98,7 +98,7 @@ def test_step(gym_env):
 
 def test_bad_env():
     # Bad selected agent ID
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
             env=PhantomEnv,
             agent_id="X",
@@ -110,7 +110,7 @@ def test_bad_env():
         )
 
     # Selected agent has other policy
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
             env=PhantomEnv,
             agent_id="A",
@@ -122,7 +122,7 @@ def test_bad_env():
         )
 
     # Bad other policy agent ID
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
             env=PhantomEnv,
             agent_id="A",
@@ -134,7 +134,7 @@ def test_bad_env():
         )
 
     # Agent B missing from other policies
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
             env=PhantomEnv,
             agent_id="A",

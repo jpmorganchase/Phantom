@@ -1,10 +1,11 @@
+from abc import ABC
 from dataclasses import dataclass
 from typing import TypeVar
 
 
 @dataclass(frozen=True)
-class Message:
-    """Message structure."""
+class Message(ABC):
+    """Base dataclass for defining message payloads."""
 
 
 MessageType = TypeVar("MessageType", bound=Message)

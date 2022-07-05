@@ -55,6 +55,8 @@ class Supertype(ABC):
 
 
 def _to_compatible_type(field: str, obj: Any) -> ObsSpaceCompatibleTypes:
+    """Internal function."""
+
     if isinstance(obj, dict):
         return {key: _to_compatible_type(key, value) for key, value in obj.items()}
     if isinstance(obj, (float, int)):
@@ -76,6 +78,8 @@ def _to_compatible_type(field: str, obj: Any) -> ObsSpaceCompatibleTypes:
 
 
 def _to_obs_space(field: str, obj: Any, low: float, high: float) -> gym.Space:
+    """Internal function."""
+
     if isinstance(obj, dict):
         return gym.spaces.Dict(
             {key: _to_obs_space(key, value, low, high) for key, value in obj.items()}

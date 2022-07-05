@@ -31,7 +31,8 @@ MessageList = List[Tuple[AgentID, Message]]
 
 
 class Agent(ABC):
-    """Representation of a behavioural agent in the network.
+    """
+    Representation of a behavioural agent in the network.
 
     Instances of :class:`phantom.Agent` occupy the nodes on the network graph.
     They are resonsible for storing and monitoring internal state, constructing
@@ -86,7 +87,7 @@ class Agent(ABC):
         """Handle a messages sent from other agents.
 
         Arguments:
-            ctx: The context in which the messages are being processed.
+            ctx: A Context object representing agent's the local view of the environment.
             sender_id: The sender of the message.
             message: The contents of the message
 
@@ -106,7 +107,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Context object representing the local view of the environment.
+            ctx: A Context object representing agent's the local view of the environment.
 
         Returns:
             A numpy array encoding the observations.
@@ -130,7 +131,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Context object representing the local view of the environment.
+            ctx: A Context object representing the agent's local view of the environment.
             action: The action taken by the agent.
 
         Returns:
@@ -151,7 +152,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Context object representing the local view of the environment.
+            ctx: A Context object representing the agent's local view of the environment.
 
         Returns:
             A float representing the present reward value.
@@ -169,7 +170,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Context object representing the local view of the environment.
+            ctx: A Context object representing the agent's local view of the environment.
 
         Returns:
             A boolean representing the terminal status of the agent.
@@ -184,7 +185,7 @@ class Agent(ABC):
             This method may be extended by sub-classes to provide additional functionality.
 
         Arguments:
-            ctx: A Context object representing the local view of the environment.
+            ctx: A Context object representing the agent's local view of the environment.
 
         Returns:
             A dictionary containing informations about the agent
@@ -206,6 +207,11 @@ Handler = Callable[[Context, AgentID, Message], List[Tuple[AgentID, Message]]]
 
 
 class MessageHandlerAgent(Agent):
+    """
+    Agent sub-class that makes it easier to handle multiple types of incoming messages
+    via the use of the ``msg_handler`` function decorator.
+    """
+
     def __init__(self, agent_id: AgentID) -> None:
         super().__init__(agent_id)
 

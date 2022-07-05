@@ -22,6 +22,22 @@ ActType = TypeVar("ActType")
 
 
 class SingleAgentEnvAdapter(gym.Env):
+    """
+    Wraps a :class:`PhantomEnv` instance or sub-class providing a fully compatible
+    :class:`gym.Env` interface, from the perspective of a single agent.
+
+    This can be used to test and experiment with Phantom environments using other
+    single-agent only frameworks when only one agent is an active learning agent.
+
+    Arguments:
+        env: The :class:`PhantomEnv` class or sub-class to wrap (note: not an already
+            initialised class instance)
+        agent_id: The ID of the agent that the wrapper will explicitly control.
+        other_policies: A mapping of all other agent IDs to their policies and policy
+            configs. The policies must be fixed/pre-trained policies.
+        env_config: Any config options to pass to the underlying env when initialising.
+    """
+
     def __init__(
         self,
         env: Type[PhantomEnv],
@@ -29,23 +45,28 @@ class SingleAgentEnvAdapter(gym.Env):
         other_policies: Mapping[AgentID, Tuple[Type[Policy], Mapping[str, Any]]],
         env_config: Optional[Mapping[str, Any]] = None,
     ) -> None:
-        env_config = env_config or {}
-
-        self._env = env(**env_config)
+        self._env = env(**(env_config or {}))
 
         # Check selected agent exists
-        assert agent_id in self._env.agent_ids
+        if agent_id not in self._env.agent_ids:
+            raise ValueError(
+                f"Selected agent '{agent_id}' of SingleAgentEnvAdapter not found in underlying env '{env.__name__}'"
+            )
 
         # Check selected agent isn't given policy
-        assert agent_id not in other_policies.keys()
+        if agent_id in other_policies:
+            raise ValueError(
+                f"Selected agent '{agent_id}' of SingleAgentEnvAdapter found in agent ID to policy mapping"
+            )
 
-        # Check all acting agents have policies
-        acting_agents = set(
-            aid for aid, a in self._env.agents.items() if a.action_space is not None
-        )
-        policies = set(list(other_policies.keys()) + [agent_id])
+        # Check all acting agents have assigned policies
+        policies = list(other_policies.keys()) + [agent_id]
 
-        assert acting_agents == policies
+        for agent in self._env.agents.values():
+            if agent.action_space is not None and agent.id not in policies:
+                raise ValueError(
+                    f"Agent '{agent_id}' has not been defined a policy via the 'other_policies' parameter of SingleAgentEnvAdapter"
+                )
 
         self._agent_id = agent_id
 

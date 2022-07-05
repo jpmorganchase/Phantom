@@ -50,10 +50,13 @@ ComparableT = TypeVar("ComparableT", bound=ComparableType)
 
 class Sampler(ABC, Generic[T]):
     """
-    Samplers are used in Agent/Environment Types to make Supertypes.
+    Samplers are used in Agent/Environment Supertypes to define how they are sampled.
 
-    When training, at the start of each episode concrete values will be sampled from all
-    the samplers and Types generated from the Supertypes.
+    Samplers are designed to be used when training policies and a stochastic
+    distribution of values is required for the Supertype sampling.
+
+    Samplers return an unbounded number of total values with one value being returned at
+    a time with the ``sample`` method.
     """
 
     def __init__(self):
@@ -62,6 +65,9 @@ class Sampler(ABC, Generic[T]):
 
     @abstractmethod
     def sample(self) -> T:
+        """
+        Returns a single value defined by the Sampler's internal distribution.
+        """
         raise NotImplementedError
 
 
@@ -109,6 +115,8 @@ class ComparableSampler(Sampler[ComparableT], Generic[ComparableT]):
 class UniformSampler(ComparableSampler[float]):
     """
     Samples a single float value from a uniform distribution.
+
+    Uses ``np.random.uniform()`` internally.
     """
 
     def __init__(
@@ -137,6 +145,8 @@ class UniformSampler(ComparableSampler[float]):
 class UniformArraySampler(ComparableSampler[np.ndarray]):
     """
     Samples an array of float values from a uniform distribution.
+
+    Uses ``np.random.uniform()`` internally.
     """
 
     def __init__(
@@ -167,6 +177,8 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
 class NormalSampler(ComparableSampler[float]):
     """
     Samples a single float value from a normal distribution.
+
+    Uses ``np.random.normal()`` internally.
     """
 
     def __init__(
@@ -195,6 +207,8 @@ class NormalSampler(ComparableSampler[float]):
 class NormalArraySampler(ComparableSampler[np.ndarray]):
     """
     Samples an array of float values from a normal distribution.
+
+    Uses ``np.random.normal()`` internally.
     """
 
     def __init__(

@@ -8,18 +8,10 @@ import numpy as np
 from .context import Context
 from .message import Message
 from .types import AgentID
+from .utils import flatten
 
 
 Action = TypeVar("Action")
-
-
-def flatten(xs: Iterable[Any]) -> List[Any]:
-    """Recursively flatten an iterable object into a list.
-
-    Arguments:
-        xs: The iterable object.
-    """
-    return sum(([x] if not isinstance(x, Iterable) else flatten(x) for x in xs), [])
 
 
 class Decoder(Generic[Action], ABC):

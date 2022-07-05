@@ -5,18 +5,10 @@ import gym
 import numpy as np
 
 from .context import Context
+from .utils import flatten
 
 
 Observation = TypeVar("Observation")
-
-
-def flatten(xs: Iterable[Any]) -> List[Any]:
-    """Recursively flatten an iterable object into a list.
-
-    Arguments:
-        xs: The iterable object.
-    """
-    return sum(([x] if not isinstance(x, Iterable) else flatten(x) for x in xs), [])
 
 
 class Encoder(Generic[Observation], ABC):
