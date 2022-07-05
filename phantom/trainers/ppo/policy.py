@@ -20,14 +20,13 @@ class Flatten(nn.Module):
 class PPOPolicy(nn.Module, Policy):
     def __init__(
         self,
-        obs_space: gym.Space,
+        observation_space: gym.Space,
         action_space: gym.Space,
-        config: Optional[Mapping[str, Any]] = None,
         base_type: Optional[Type["NNBase"]] = None,
         base_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         nn.Module.__init__(self)
-        Policy.__init__(self, obs_space, action_space, config)
+        Policy.__init__(self, observation_space, action_space)
 
         base_kwargs = base_kwargs or {}
 
@@ -42,12 +41,14 @@ class PPOPolicy(nn.Module, Policy):
         if base_type is not None:
             self.base = base_type(**base_kwargs)
         else:
-            if obs_space.__class__.__name__ == "Discrete":
+            if observation_space.__class__.__name__ == "Discrete":
                 self.base = MLPBase(1, **base_kwargs)
-            elif obs_space.__class__.__name__ == "Box":
-                self.base = MLPBase(reduce(mul, obs_space.shape, 1), **base_kwargs)
+            elif observation_space.__class__.__name__ == "Box":
+                self.base = MLPBase(
+                    reduce(mul, observation_space.shape, 1), **base_kwargs
+                )
             else:
-                raise NotImplementedError(obs_space.__class__.__name__)
+                raise NotImplementedError(observation_space.__class__.__name__)
 
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n

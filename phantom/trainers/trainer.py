@@ -233,7 +233,7 @@ class Trainer(ABC):
         policy_instances = {
             name: (
                 self.policy_class if spec.policy_class is None else spec.policy_class
-            )(spec.observation_space, spec.action_space, spec.config)
+            )(spec.observation_space, spec.action_space, **spec.config)
             for name, spec in policy_specs.items()
         }
 

@@ -74,7 +74,7 @@ class SingleAgentEnvAdapter(gym.Env):
             agent_id: policy_class(
                 self._env[agent_id].observation_space,
                 self._env[agent_id].action_space,
-                policy_config,
+                **policy_config,
             )
             for agent_id, (policy_class, policy_config) in other_policies.items()
         }
