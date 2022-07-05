@@ -47,10 +47,10 @@ def test_lambda_sampler():
 
     a = 5
     b = 1
-    sampler = LambdaSampler(a, b_=b, func=_my_func)
+    sampler = LambdaSampler(_my_func, a, b_=b)
     assert sampler.sample() == 6
     assert sampler.sample() == 6
 
-    sampler = LambdaSampler(a, func=_my_func)
+    sampler = LambdaSampler(_my_func, a)
     assert sampler.sample() == 5
     assert sampler.sample() == 5

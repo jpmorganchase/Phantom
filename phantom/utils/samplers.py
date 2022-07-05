@@ -227,10 +227,7 @@ class LambdaSampler(Sampler[T]):
     Samples using an arbitrary lambda function
     """
 
-    def __init__(self, *args, func: Callable[..., T] = None, **kwargs):
-        if func is None:
-            raise ValueError("You must provide a `func`")
-
+    def __init__(self, func: Callable[..., T], *args, **kwargs):
         self.func = func
         self.args = args
         self.kwargs = kwargs

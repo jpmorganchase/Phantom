@@ -40,7 +40,7 @@ def test_tracking():
 
     n.send("A", "B", _TestMessage(4))
     n.send("A", "C", _TestMessage(4))
-    n.resolve(MockEnv())
+    n.resolve()
 
     assert resolver.tracked_messages == [
         TrackedMessage("A", "B", _TestMessage(4)),

@@ -18,7 +18,7 @@ class StaticSampler(Sampler[float]):
 
 
 def test_base_supertype_sample():
-    @dataclass(frozen=True)
+    @dataclass
     class TestSupertype(Supertype):
         a: float
         b: float
@@ -42,7 +42,7 @@ def test_base_supertype_sample():
 
 
 def test_base_type_utilities():
-    @dataclass(frozen=True)
+    @dataclass
     class Type(Supertype):
         a: int
         b: float
@@ -104,7 +104,7 @@ def test_base_type_utilities():
     assert t_space.contains(t_compat)
 
     # String is not currently a supported type
-    @dataclass(frozen=True)
+    @dataclass
     class Type(Supertype):
         s: str = "s"
 
