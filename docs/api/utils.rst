@@ -3,33 +3,10 @@
 Utilities
 =========
 
-Training (RLlib)
-----------------
-
-.. autofunction:: phantom.utils.rllib.train
-
-
-.. Rollouts
-.. --------
-
-.. .. autofunction:: phantom.utils.rollout.rollout
-
-
-.. Rollout Trajectories & Steps
-.. ----------------------------
-
-.. .. autoclass:: phantom.utils.rollout_class.AgentStep
-..    :members:
-
-.. .. autoclass:: phantom.utils.rollout_class.Step
-..    :members:
-
-.. .. autoclass:: phantom.utils.rollout_class.Rollout
-..    :members:
-
-
 Samplers
 --------
+
+TODO: link to supertypes
 
 Interface
 ^^^^^^^^^
@@ -55,6 +32,8 @@ Implementations
 
 Ranges
 ------
+
+TODO: link to supertypes
 
 Interface
 ^^^^^^^^^

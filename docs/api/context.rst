@@ -3,5 +3,7 @@
 Context
 =======
 
+TODO: explain why used
+
 .. autoclass:: phantom.Context
    :inherited-members:

@@ -1,5 +1,7 @@
 .. _tutorial2:
 
+TODO: check
+
 Tutorial - Part 2
 =================
 
@@ -405,7 +407,7 @@ value will be independently sampled from a random uniform distribution between 0
 1.0.
 
 The supertype system in Phantom is very powerful. To see a full guide to its features
-see the :ref:`_supertypes` page.
+see the :ref:`supertypes` page.
 
 
 Messages & Custom Handlers

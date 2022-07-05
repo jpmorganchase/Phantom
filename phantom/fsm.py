@@ -126,7 +126,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         self.initial_stage: StageID = initial_stage
 
-        self._rewards: Dict[PolicyID, float] = {}
+        self._rewards: Dict[PolicyID, Optional[float]] = {}
         self._observations: Dict[PolicyID, Any] = {}
         self._dones: Set[AgentID] = set()
         self._infos: Dict[PolicyID, Dict[str, Any]] = {}

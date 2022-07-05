@@ -3,7 +3,6 @@
 Decoders
 ========
 
-
 Decoders are used to translate actions received from the agent's policy into messages
 that are sent in the network to other actors and mutators that can update the agent'same
 own state:

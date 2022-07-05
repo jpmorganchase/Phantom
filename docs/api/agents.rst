@@ -3,6 +3,8 @@
 Agents
 ======
 
+TODO: rewrite, mention differences between agent types
+
 There are three main elements that must be provided for any Agent class instance:
 
 - Functionality that encodes observations.
@@ -19,10 +21,10 @@ Each of these parts can be provided in two ways:
 These two options can be mixed between the three elements.
 
 If the ``encode_observation()`` method is provided with a custom implementation, the
-``observation_space`` method must also be as well.
+``observation_space`` property of the agent must be set.
 
 If the ``decode_action()`` method is provided with a custom implementation, the
-``action_space`` method must also be as well.
+``action_space`` property of the agent must be set.
 
 .. figure:: /img/agent.svg
    :figclass: align-center
@@ -38,11 +40,4 @@ MessageHandlerAgent
 -------------------
 
 .. autoclass:: phantom.agents.MessageHandlerAgent
-   :inherited-members:
-
-
-View
-----
-
-.. autoclass:: phantom.agents.View
    :inherited-members:

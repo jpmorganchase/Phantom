@@ -1,5 +1,7 @@
 .. _api_fsm:
 
+TODO: check
+
 Finite State Machine Environment
 ================================
 
@@ -23,18 +25,18 @@ The first uses the :class:`FSMStage` as a decorator directly on the state handle
 
 .. code-block:: python
 
-   class CustomEnv(FiniteStateMachineEnv):
+   class CustomEnv(ph.FiniteStateMachineEnv):
       def __init__(self):
          agents = [MinimalAgent("agent")]
 
          network = ph.Network(agents)
 
-         super().__init__(network=network, n_steps=1, initial_stage="A")
+         super().__init__(num_steps=10, network=network, initial_stage="A")
 
-      @FSMStage(stage_id="A", next_stages=["A"])
+      @ph.FSMStage(stage_id="A", next_stages=["A"])
       def handle(self):
          # Perform any pre-resolve tasks
-         self.network.resolve()
+         self.resolve_network()
          # Perform any post-resolve tasks
 
 
@@ -45,18 +47,18 @@ environment class is initialised (eg. lists of agent IDs).
 
 .. code-block:: python
 
-   class CustomEnv(FiniteStateMachineEnv):
+   class CustomEnv(ph.FiniteStateMachineEnv):
       def __init__(self):
          agents = [MinimalAgent("agent")]
 
          network = ph.Network(agents)
 
          super().__init__(
+               num_steps=10,
                network=network,
-               n_steps=1,
                initial_stage="A",
                stages=[
-                  FSMStage(
+                  ph.FSMStage(
                      stage_id="A",
                      next_stages=["A"],
                      handler=self.handle,
@@ -66,29 +68,33 @@ environment class is initialised (eg. lists of agent IDs).
 
       def handle(self):
          # Perform any pre-resolve tasks
-         self.network.resolve()
+         self.resolve_network()
          # Perform any post-resolve tasks
 
-.. Environment
-.. ===========
+Environment
+===========
 
-.. .. autoclass:: phantom.fsm.env.FiniteStateMachineEnv
-..    :inherited-members:
-
-
-.. Stages
-.. ======
-
-.. .. autoclass:: phantom.fsm.env.FSMStage
-..    :inherited-members:
+.. autoclass:: phantom.fsm.FiniteStateMachineEnv
+   :inherited-members:
 
 
-.. Errors
-.. ======
-
-.. .. autoclass:: phantom.fsm.env.FSMValidationError
-..    :inherited-members:
+.. autoclass:: phantom.fsm.FSMEnvView
+   :inherited-members:
 
 
-.. .. autoclass:: phantom.fsm.env.FSMRuntimeError
-..    :inherited-members:
+Stages
+======
+
+.. autoclass:: phantom.fsm.FSMStage
+   :inherited-members:
+
+
+Errors
+======
+
+.. autoclass:: phantom.fsm.FSMValidationError
+   :inherited-members:
+
+
+.. autoclass:: phantom.fsm.FSMRuntimeError
+   :inherited-members:

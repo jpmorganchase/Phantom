@@ -6,6 +6,8 @@ Environment
 PhantomEnv
 ----------
 
+TODO: explain compatibility with RLlib, reference env wrappers
+
 .. autoclass:: phantom.PhantomEnv
    :inherited-members:
 

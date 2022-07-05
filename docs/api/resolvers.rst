@@ -3,6 +3,9 @@
 Resolvers
 =========
 
+TODO: add diagram
+
+
 .. autoclass:: phantom.resolvers.Resolver
    :inherited-members:
    

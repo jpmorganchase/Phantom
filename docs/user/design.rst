@@ -26,6 +26,7 @@ each step and the progression of the actors and agents through the episode (In a
 use-cases it is possible to override this). It is up to the user to define the actors
 and agents and define how they are connected and how they interact.
 
+TODO:
 The base environment derives directly from the RLlib ``MulitAgentEnv`` class which
 itself is based off the widely used OpenAI gym Environment interface. Users of either
 will therefore be familiar with the Phantom environment setup.

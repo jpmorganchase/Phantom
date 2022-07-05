@@ -7,7 +7,7 @@ Trainer
 -------
 
 .. autoclass:: phantom.trainers.ppo.PPOTrainer
-   :inherited-members:
+   :members:
    :noindex:
 
 
@@ -15,4 +15,4 @@ Policy
 ------
 
 .. autoclass:: phantom.trainers.ppo.PPOPolicy
-   :inherited-members:
+   :members:

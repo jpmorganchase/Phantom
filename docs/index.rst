@@ -1,7 +1,6 @@
 Phantom
 =======
 
-
 .. toctree::
     :caption: User Guide
     :maxdepth: 2
@@ -16,7 +15,6 @@ Phantom
     user/network
     user/supertypes
 
-
 .. toctree::
     :caption: API Reference
     :maxdepth: 2
@@ -26,13 +24,16 @@ Phantom
     api/decoders
     api/encoders
     api/env
+    api/env_wrappers
     api/fsm
     api/logging
     api/message
     api/network
-    api/policies
+    api/policy
     api/resolvers
     api/reward_functions
+    api/rllib
     api/supertypes
     api/trainers/index
     api/utils
+    api/views

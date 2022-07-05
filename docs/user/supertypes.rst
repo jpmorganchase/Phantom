@@ -20,12 +20,12 @@ Below is an example demonstrating what can be acheived:
 
     # We define a base supertype dataclass for our agent:
     @dataclass
-    class SimpleAgentSupertype(ph.BaseSupertype):
+    class SimpleAgentSupertype(ph.Supertype):
         # Each field in the dataclass is a parameter of the Type.
-        skill_weight: ph.SupertypeField[float]
+        skill_weight: float
 
     # Next we define our agent that encodes this type:
-    class SimpleAgent(ph.Agent[SimpleAgentSupertype]):
+    class SimpleAgent():
         # We don't need to provide an instance of the SimpleAgentSupertype class when we
         # create instances of the agent class.
         def __init__(self, agent_id: ph.AgentID):
@@ -50,22 +50,28 @@ agent IDs to supertype instances. We initialise each supertype instance with eit
 fixed values or 'Sampler' classes. Each time the supertype is sampled, a new 'type'
 object is created containing the sampled values, and is attached to the respective agent.
 
+TODO: add general example of initing env
+
 .. code-block:: python
     
-    ph.train(
+    ph.utils.rllib.train(
         ...
-        agent_supertypes={
-            "SIMPLE_AGENT": SimpleAgentSupertype(
-                # When training is run, for each episode the 'skill_weight' parameter
-                # will be uniformly sampled from the range 0.0 to 1.0:
-                skill_weight: UniformSampler(0.0, 1.0)
-            )
+        env_config={
+            "agent_supertypes": {
+                "SIMPLE_AGENT": SimpleAgentSupertype(
+                    # When training is run, for each episode the 'skill_weight' parameter
+                    # will be uniformly sampled from the range 0.0 to 1.0:
+                    skill_weight: UniformSampler(0.0, 1.0)
+                )
+            }
         }
         ...
     )
 
 Afterwards, when we call the rollout method we instead initialise each supertype with
 either fixed values or 'Range' classes:
+
+TODO: update
 
 .. code-block:: python
     

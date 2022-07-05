@@ -101,3 +101,6 @@ once:
     dealer = network.get_actors_without_type(PlayerAgent)
 
     odd_players = network.get_actors_where(lambda a: a.id in ["p1", "p3"])
+
+
+TODO: add stochastic network diagram

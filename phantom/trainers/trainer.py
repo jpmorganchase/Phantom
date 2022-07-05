@@ -45,6 +45,15 @@ PolicyMapping = Mapping[
 
 @dataclass(frozen=True)
 class TrainingResults:
+    """
+    Returned when ``Trainer.train()`` is run. By default, only contains all policy
+    objects. Can be extended by :class:`Trainer` subclasses to return additional info.
+
+    Attributes:
+        policies: A mapping of policy IDs to policy objects for all policies, not just
+            trained policies.
+    """
+    
     policies: Dict[PolicyID, Policy]
 
 

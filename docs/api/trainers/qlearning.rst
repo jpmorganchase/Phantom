@@ -1,13 +1,13 @@
 .. _api_trainers_qlearning:
 
-QLearning
-=========
+Q-Learning
+==========
 
 Trainer
 -------
 
 .. autoclass:: phantom.trainers.qlearning.QLearningTrainer
-   :inherited-members:
+   :members:
    :noindex:
 
 
@@ -15,4 +15,4 @@ Policy
 ------
 
 .. autoclass:: phantom.trainers.qlearning.QLearningPolicy
-   :inherited-members:
+   :members:

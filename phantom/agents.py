@@ -210,6 +210,22 @@ class MessageHandlerAgent(Agent):
     """
     Agent sub-class that makes it easier to handle multiple types of incoming messages
     via the use of the ``msg_handler`` function decorator.
+
+    Example:
+
+    .. code-block:: python
+
+        class SomeAgent(ph.MessageHandlerAgent):
+            ...
+
+            @ph.agents.msg_handler(RequestMessage)
+            def handle_request_msg(
+                self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
+            ):
+                response_msgs = do_something_with_msg(message)
+
+                return [response_msgs]
+
     """
 
     def __init__(self, agent_id: AgentID) -> None:
