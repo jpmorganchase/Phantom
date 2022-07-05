@@ -196,15 +196,14 @@ class Network:
         Arguments:
             agent_id: The ID of the focal agent.
         """
-        subnet = self.subnet_for(agent_id)
         agent_views = {
             neighbour_id: self.agents[neighbour_id].view(agent_id)
-            for neighbour_id in subnet.graph.neighbors(agent_id)
+            for neighbour_id in self.graph.neighbors(agent_id)
         }
 
         env_view = self.env_view_fn(agent_id) if self.env_view_fn is not None else None
 
-        return Context(self.agents[agent_id], agent_views, env_view, subnet)
+        return Context(self.agents[agent_id], agent_views, env_view)
 
     def send(self, sender_id: AgentID, receiver_id: AgentID, message: Message) -> None:
         """Send message batches across the network.
