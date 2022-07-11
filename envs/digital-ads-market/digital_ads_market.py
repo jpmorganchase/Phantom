@@ -1,13 +1,19 @@
 import datetime
 import logging
-import typing
 from dataclasses import dataclass
+from typing import Iterable, Sequence, Tuple
 
 import gym
 import numpy as np
 import phantom as ph
 
 LOG_LEVEL = "WARN"
+
+
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("digital-ads")
+logger.setLevel(LOG_LEVEL)
+
 
 #######################################
 ##  Payloads
@@ -17,7 +23,7 @@ LOG_LEVEL = "WARN"
 
 
 @dataclass(frozen=True)
-class ImpressionRequest(ph.Message):
+class ImpressionRequest(ph.MsgPayload):
     """
     The message indicating that a user  is visiting a website and might be
     interested in an advertisement offer
@@ -45,7 +51,7 @@ class ImpressionRequest(ph.Message):
 
 
 @dataclass(frozen=True)
-class Bid(ph.Message):
+class Bid(ph.MsgPayload):
     """
     The message sent by the advertiser to the exchange
     to win the impression
@@ -64,7 +70,7 @@ class Bid(ph.Message):
 
 
 @dataclass(frozen=True)
-class AuctionResult(ph.Message):
+class AuctionResult(ph.MsgPayload):
     """
     The message sent by the exchange to the advertiser
     to inform her of the auction's result
@@ -81,7 +87,7 @@ class AuctionResult(ph.Message):
 
 
 @dataclass(frozen=True)
-class Ads(ph.Message):
+class Ads(ph.MsgPayload):
     """
     The message sent by an advertisers containing the ads to show to the user.
     For simplicity, it only contains a theme.
@@ -100,7 +106,7 @@ class Ads(ph.Message):
 
 
 @dataclass(frozen=True)
-class ImpressionResult(ph.Message):
+class ImpressionResult(ph.MsgPayload):
     """
     The result of the ad display. i.e whether or not the user clicked
     on the ad
@@ -123,7 +129,7 @@ class ImpressionResult(ph.Message):
 #   - AdExchange
 
 
-class PublisherAgent(ph.ZeroIntelligenceAgent):
+class PublisherAgent(ph.MessageHandlerAgent):
     """
     A `PublisherAgent` generates `ImpressionRequest` which corresponds to
     real-estate on their website rented to advertisers to display their ads.
@@ -145,17 +151,15 @@ class PublisherAgent(ph.ZeroIntelligenceAgent):
 
         self.exchange_id = exchange_id
 
-    def decode_action(self, _ctx: ph.Context, _action: np.ndarray):
+    def generate_messages(self, _ctx: ph.Context):
         """@override
         Method called at each step of the episode and generating a new impression
         each time.
         """
-        return ph.packet.Packet(
-            messages={self.exchange_id: [ImpressionRequest.generate_random()]}
-        )
+        return [(self.exchange_id, ImpressionRequest.generate_random())]
 
     @ph.agents.msg_handler(Ads)
-    def handle_ads(self, _ctx: ph.Context, msg: ph.Message):
+    def handle_ads(self, _ctx: ph.Context, msg: ph.MsgPayload):
         """
         Method to process messages with the payload type `Ads`
 
@@ -167,24 +171,24 @@ class PublisherAgent(ph.ZeroIntelligenceAgent):
         -------
         ctx (ph.Context): the partially observable context available for
             the agent
-        msg (ph.Message): the message received by the agent.
+        msg (ph.MsgPayload): the message received by the agent.
 
         Returns:
         --------
         receiver_id (ph.AgentID): the unique identifier of the agent the messages are
             intended to
-        messages ([ph.Message]): the messages to send
+        messages ([ph.MsgPayload]): the messages to send
 
         """
-        _get_logger().debug("PublisherAgent %s ads: %s", self.id, msg.payload)
+        logger.debug("PublisherAgent %s ads: %s", self.id, msg.payload)
 
         clicked = np.random.binomial(
             1, self._USER_CLICK_PROBABILITIES[msg.payload.user_id][msg.payload.theme]
         )
-        yield (msg.payload.advertiser_id, [ImpressionResult(clicked=clicked)])
+        return [(msg.payload.advertiser_id, ImpressionResult(clicked=clicked))]
 
 
-class AdvertiserAgent(ph.Agent):
+class AdvertiserAgent(ph.MessageHandlerAgent):
     """
     An `AdvertiserAgent` learns to bid efficiently and within its budget limit, on an impression
     in order to maximize the number of clicks it gets.
@@ -210,9 +214,16 @@ class AdvertiserAgent(ph.Agent):
 
         self.left = budget
 
+        self.action_space = gym.spaces.Box(low=np.array([0.0]), high=np.array([budget]))
+
+        self.observation_space = gym.spaces.Box(
+            low=np.array([0.0, 0.0, 0.0, 0.0]),
+            high=np.array([budget, 5.0, np.inf, np.inf]),
+        )
+
         super().__init__(agent_id)
 
-    def pre_resolution(self, _ctx: ph.Context):
+    def pre_msg_resolution(self, _ctx: ph.Context):
         """@override
         The `pre_resolution` method is called at the beginning of each step.
         We use this method to reset the number of clicks received during the step.
@@ -220,7 +231,7 @@ class AdvertiserAgent(ph.Agent):
         self.step_clicks = 0
 
     @ph.agents.msg_handler(ImpressionRequest)
-    def handle_impression_request(self, ctx: ph.Context, msg: ph.Message):
+    def handle_impression_request(self, ctx: ph.Context, msg: ph.MsgPayload):
         """
         Once an `ImpressionRequest` is received we cache the information about the user.
 
@@ -229,9 +240,7 @@ class AdvertiserAgent(ph.Agent):
         We receive the user id in the message but we collect extra user information from
         the `ctx` object.
         """
-        _get_logger().debug(
-            "AdvertiserAgent %s impression request: %s", self.id, msg.payload
-        )
+        logger.debug("AdvertiserAgent %s impression request: %s", self.id, msg.payload)
 
         self._current_user_id = msg.payload.user_id
 
@@ -242,34 +251,30 @@ class AdvertiserAgent(ph.Agent):
             "zipcode"
         ]
 
-        yield from ()
+        return []
 
     @ph.agents.msg_handler(AuctionResult)
-    def handle_auction_result(self, _ctx: ph.Context, msg: ph.Message):
+    def handle_auction_result(self, _ctx: ph.Context, msg: ph.MsgPayload):
         """
         If the `AdvertiserAgent` wins the auction it needs to update its budget left.
         """
-        _get_logger().debug(
-            "AdvertiserAgent %s auction result: %s", self.id, msg.payload
-        )
+        logger.debug("AdvertiserAgent %s auction result: %s", self.id, msg.payload)
 
         self.left -= msg.payload.cost
 
-        yield from ()
+        return []
 
     @ph.agents.msg_handler(ImpressionResult)
-    def handle_impression_result(self, _ctx: ph.Context, msg: ph.Message):
+    def handle_impression_result(self, _ctx: ph.Context, msg: ph.MsgPayload):
         """
         When the result of the ad display is received, update the number of clicks.
         """
-        _get_logger().debug(
-            "AdvertiserAgent %s impression result: %s", self.id, msg.payload
-        )
+        logger.debug("AdvertiserAgent %s impression result: %s", self.id, msg.payload)
 
         self.step_clicks += int(msg.payload.clicked)
         self.total_clicks += int(msg.payload.clicked)
 
-        yield from ()
+        return []
 
     def encode_observation(self, _ctx: ph.Context):
         """@override
@@ -290,15 +295,16 @@ class AdvertiserAgent(ph.Agent):
         We receive the "optimal" bid from the learnt Policy and send a message to the
         exchange to try to win the impression.
         """
-        _get_logger().debug("AdvertiserAgent %s decode action: %s", self.id, action)
+        logger.debug("AdvertiserAgent %s decode action: %s", self.id, action)
         msgs = []
 
         self.bid = min(action[0], self.left)
 
         if self.bid > 0.0:
             msg = Bid(bid=self.bid, theme=self.theme, user_id=self._current_user_id)
-            msgs.append(msg)
-        return ph.packet.Packet(messages={self.exchange_id: msgs})
+            msgs.append((self.exchange_id, msg))
+
+        return msgs
 
     def compute_reward(self, _ctx: ph.Context) -> float:
         """@override
@@ -327,32 +333,15 @@ class AdvertiserAgent(ph.Agent):
         self._current_age = 0.0
         self._current_zipcode = 0.0
 
-    @property
-    def observation_space(self):
-        """@override
-        `gym.spaces` definition of the Observation space
-        """
-        return gym.spaces.Box(
-            low=np.array([0.0, 0.0, 0.0, 0.0]),
-            high=np.array([self.budget, 5.0, np.inf, np.inf]),
-        )
 
-    @property
-    def action_space(self):
-        """@override
-        `gym.spaces` definition of the Action space
-        """
-        return gym.spaces.Box(low=np.array([0.0]), high=np.array([self.budget]))
-
-
-class AdExchangeAgent(ph.Agent):
+class AdExchangeAgent(ph.MessageHandlerAgent):
     """
     The `AdExchangeAgent` is actually just an actor who reacts to messages reveived.
     It doesn't perform any action on its own.
     """
 
     @dataclass(frozen=True)
-    class AdExchangeView(ph.View):
+    class AdExchangeView(ph.AgentView):
         """
         The view is used to expose additional information to other actors in the system.
         It is accessible via the `ph.Context` object passed as a parameters
@@ -368,7 +357,7 @@ class AdExchangeAgent(ph.Agent):
         self,
         agent_id: str,
         publisher_id: str,
-        advertiser_ids: typing.Iterable = tuple(),
+        advertiser_ids: Iterable = tuple(),
         strategy: str = "second",
     ):
         super().__init__(agent_id)
@@ -387,7 +376,7 @@ class AdExchangeAgent(ph.Agent):
         """
         if neighbour_id.startswith("ADV"):
             return self.AdExchangeView(
-                actor_id=self._id,
+                agent_id=self.id,
                 users_info={
                     1: {"age": 18, "zipcode": 94025},
                     2: {"age": 40, "zipcode": 90250},
@@ -397,18 +386,23 @@ class AdExchangeAgent(ph.Agent):
             return super().view(neighbour_id)
 
     @ph.agents.msg_handler(ImpressionRequest)
-    def handle_impression_request(self, _ctx: ph.Context, msg: ph.Message):
+    def handle_impression_request(
+        self, _ctx: ph.Context, msg: ph.Message[ImpressionRequest]
+    ):
         """
         The exchange acts as an intermediary between the publisher and the
         advertisers, upon the reception of an `ImpressionRequest`, the exchange
         simply forward that request to the advertisers
         """
-        _get_logger().debug("AdExchange impression request %s", msg)
+        logger.debug("AdExchange impression request %s", msg)
 
-        for adv_id in self.advertiser_ids:
-            yield (adv_id, [msg.payload])
+        return [(adv_id, msg.payload) for adv_id in self.advertiser_ids]
 
-    def handle_batch(self, ctx: "ph.Context", batch: ph.Message.Batch):
+    def handle_batch(
+        self,
+        ctx: ph.Context,
+        batch: Sequence[ph.Message],
+    ):
         """@override
         We override the method `handle_batch` to consume all the bids messages
         as one block in order to perform the auction. The batch object contains
@@ -419,17 +413,19 @@ class AdExchangeAgent(ph.Agent):
         The default logic is to consume each message individually.
         """
         bids = []
-        for sender_id in batch:
-            for message in batch.messages_from(sender_id):
-                if isinstance(message.payload, Bid):
-                    bids.append(message)
-                else:
-                    yield from self.handle_message(ctx, message)
+        msgs = []
+        for message in batch:
+            if isinstance(message.payload, Bid):
+                bids.append(message)
+            else:
+                msgs += self.handle_message(ctx, message)
 
-        if bids:
-            yield from self.auction(bids)
+        if len(bids) > 0:
+            msgs += self.auction(bids)
 
-    def auction(self, bids):
+        return msgs
+
+    def auction(self, bids: Sequence[ph.Message[Bid]]):
         """
         Classic auction mechanism. We implement two types of auctions here:
             - first price: the cost corresponds to the highest bid
@@ -443,33 +439,36 @@ class AdExchangeAgent(ph.Agent):
         else:
             raise ValueError(f"Unknown auction strategy: {self.strategy}")
 
-        _get_logger().debug("AdExchange auction done winner: %s cost: %s", winner, cost)
+        logger.debug("AdExchange auction done winner: %s cost: %s", winner, cost)
 
-        yield (
-            self.publisher_id,
-            [
+        msgs = []
+
+        msgs.append(
+            (
+                self.publisher_id,
                 Ads(
                     advertiser_id=winner.sender_id,
                     theme=winner.payload.theme,
                     user_id=winner.payload.user_id,
-                )
-            ],
+                ),
+            )
         )
 
         for adv_id in self.advertiser_ids:
             adv_cost = cost if adv_id == winner.sender_id else 0.0
-            yield (
-                adv_id,
-                [AuctionResult(cost=adv_cost, winning_bid=winner.payload.bid)],
+            msgs.append(
+                (adv_id, AuctionResult(cost=adv_cost, winning_bid=winner.payload.bid)),
             )
 
-    def _first_price_auction(self, bids):
+        return msgs
+
+    def _first_price_auction(self, bids: Sequence[ph.Message[Bid]]):
         sorted_bids = sorted(bids, key=lambda m: m.payload.bid, reverse=True)
         winner = sorted_bids[0]
         cost = sorted_bids[0].payload.bid
         return winner, cost
 
-    def _second_price_auction(self, bids):
+    def _second_price_auction(self, bids: Sequence[ph.Message[Bid]]):
         sorted_bids = sorted(bids, key=lambda m: m.payload.bid, reverse=True)
         winner = sorted_bids[0]
         cost = (
@@ -484,10 +483,7 @@ class AdExchangeAgent(ph.Agent):
 
 
 class DigitalAdsEnv(ph.PhantomEnv):
-
-    env_name: str = "digital-ads-v1"
-
-    def __init__(self, seed: int = 0):
+    def __init__(self):
         # agent ids
         self.exchange_id = "ADX"
         self.publisher_id = "PUB"
@@ -519,12 +515,12 @@ class DigitalAdsEnv(ph.PhantomEnv):
 
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
-        network = ph.Network(ph.resolvers.BatchResolver(chain_limit=5), actors)
+        network = ph.Network(actors, ph.resolvers.BatchResolver(chain_limit=5))
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
         network.add_connections_between([self.publisher_id], self.advertiser_ids)
 
-        super().__init__(network=network, n_steps=100, seed=seed)
+        super().__init__(num_steps=100, network=network)
 
     def reset(self):
         """@override
@@ -536,7 +532,7 @@ class DigitalAdsEnv(ph.PhantomEnv):
         """
         obs = super().reset()
 
-        return {aid: o for aid, o in obs.items() if aid in [self.publisher_id]}
+        return {aid: o for aid, o in obs.items() if aid == self.publisher_id}
 
     def is_done(self):
         """@override
@@ -551,17 +547,6 @@ class DigitalAdsEnv(ph.PhantomEnv):
 #######################################
 ##  Metrics
 #######################################
-
-
-class AdvertiserTotalClicks(ph.logging.Metric[float]):
-    def __init__(self, agent_id: str) -> None:
-        self.agent_id: str = agent_id
-
-    def extract(self, env: ph.PhantomEnv) -> float:
-        """@override
-        Extracts the per-step value to track
-        """
-        return env[self.agent_id].total_clicks
 
 
 class AdvertiserAverageBidUser(ph.logging.Metric[float]):
@@ -585,33 +570,31 @@ class AdvertiserAverageBidUser(ph.logging.Metric[float]):
         return np.nanmean(values)
 
 
-METRICS = {}
+metrics = {}
 for aid in (f"ADV_{i}" for i in range(1, 9)):
-    METRICS[f"{aid}/clicks"] = AdvertiserTotalClicks(aid)
-    METRICS[f"{aid}/avg_bid_user_1"] = AdvertiserAverageBidUser(aid, 1)
-    METRICS[f"{aid}/avg_bid_user_2"] = AdvertiserAverageBidUser(aid, 2)
+    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(aid, "total_clicks", "mean")
+    metrics[f"{aid}/avg_bid_user_1"] = AdvertiserAverageBidUser(aid, 1)
+    metrics[f"{aid}/avg_bid_user_2"] = AdvertiserAverageBidUser(aid, 2)
 
 #######################################
 ##  Params
 #######################################
 
-ph.train(
-    experiment_name="digital-ads",
+ph.utils.rllib.train(
     algorithm="PPO",
     num_workers=0,
-    num_episodes=5,
     env_class=DigitalAdsEnv,
-    env_config={"seed": 0},
-    metrics=METRICS,
+    policies={f"adv_policy_{i}": [f"ADV_{i}"] for i in range(1, 9)},
+    policies_to_train=[f"adv_policy_{i}" for i in range(1, 9)],
+    metrics=metrics,
+    rllib_config={
+        "seed": 0,
+        "disable_env_checking": True,
+    },
+    tune_config={
+        "checkpoint_freq": 5,
+        "stop": {
+            "training_iteration": 5,
+        },
+    },
 )
-
-#######################################
-##  Helpers
-#######################################
-
-
-def _get_logger(log_level=LOG_LEVEL):
-    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    logger = logging.getLogger("digital-ads")
-    logger.setLevel(log_level)
-    return logger

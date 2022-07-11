@@ -20,29 +20,29 @@ SHOP_MAX_STOCK = 100
 SHOP_MAX_STOCK_REQUEST = 20
 
 
-@dataclass
-class OrderRequest:
+@dataclass(frozen=True)
+class OrderRequest(ph.MsgPayload):
     """Customer --> Shop"""
 
     size: int
 
 
-@dataclass
-class OrderResponse:
+@dataclass(frozen=True)
+class OrderResponse(ph.MsgPayload):
     """Shop --> Customer"""
 
     size: int
 
 
-@dataclass
-class StockRequest:
+@dataclass(frozen=True)
+class StockRequest(ph.MsgPayload):
     """Shop --> Factory"""
 
     size: int
 
 
-@dataclass
-class StockResponse:
+@dataclass(frozen=True)
+class StockResponse(ph.MsgPayload):
     """Factory --> Shop"""
 
     size: int
@@ -73,9 +73,7 @@ class CustomerAgent(ph.MessageHandlerAgent):
         )
 
     @ph.agents.msg_handler(OrderResponse)
-    def handle_order_response(
-        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
-    ):
+    def handle_order_response(self, ctx: ph.Context, message: ph.Message):
         return []
 
     def decode_action(self, ctx: ph.Context, action: Tuple[int, int]):
@@ -98,13 +96,11 @@ class FactoryAgent(ph.MessageHandlerAgent):
         super().__init__(agent_id)
 
     @ph.agents.msg_handler(StockRequest)
-    def handle_stock_request(
-        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
-    ):
+    def handle_stock_request(self, ctx: ph.Context, message: ph.Message):
         # The factory receives stock request messages from shop agents. We simply
         # reflect the amount of stock requested back to the shop as the factory can
         # produce unlimited stock.
-        return [(sender_id, StockResponse(message.size))]
+        return [(message.sender_id, StockResponse(message.payload.size))]
 
 
 class ShopAgent(ph.MessageHandlerAgent):
@@ -175,21 +171,17 @@ class ShopAgent(ph.MessageHandlerAgent):
         self.missed_sales = 0
 
     @ph.agents.msg_handler(StockResponse)
-    def handle_stock_response(
-        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
-    ):
+    def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
-        self.stock = min(self.stock + message.size, SHOP_MAX_STOCK)
+        self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
 
         # We do not need to respond to these messages.
         return []
 
     @ph.agents.msg_handler(OrderRequest)
-    def handle_order_request(
-        self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
-    ):
+    def handle_order_request(self, ctx: ph.Context, message: ph.Message):
         # All other messages are from customers and contain orders.
-        amount_requested = message.size
+        amount_requested = message.payload.size
 
         # If the order size is more than the amount of stock, partially fill the order.
         if amount_requested > self.stock:
@@ -204,7 +196,7 @@ class ShopAgent(ph.MessageHandlerAgent):
         self.sales += stock_to_sell
 
         # Send the customer their order.
-        return [(sender_id, OrderResponse(stock_to_sell))]
+        return [(message.sender_id, OrderResponse(stock_to_sell))]
 
     def encode_observation(self, ctx: ph.Context):
         return (

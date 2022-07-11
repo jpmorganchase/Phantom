@@ -1,22 +1,12 @@
 import abc
-from dataclasses import dataclass
-from typing import Generic, List, Tuple, TYPE_CHECKING
+from collections import defaultdict
+from typing import DefaultDict, List, TYPE_CHECKING
 
 from .types import AgentID
-from .message import Message, MessageType
+from .message import Message
 
 if TYPE_CHECKING:
     from .network import Network
-
-
-@dataclass(frozen=True)
-class TrackedMessage(Generic[MessageType]):
-    """Immutable message structure."""
-
-    sender_id: AgentID
-    receiver_id: AgentID
-
-    message: MessageType
 
 
 class Resolver(abc.ABC):
@@ -35,27 +25,23 @@ class Resolver(abc.ABC):
 
     def __init__(self, enable_tracking: bool = False) -> None:
         self.enable_tracking = enable_tracking
-        self._tracked_messages: List[TrackedMessage] = []
+        self._tracked_messages: List[Message] = []
 
-    def push(self, sender_id: AgentID, receiver_id: AgentID, message: Message) -> None:
+    def push(self, message: Message) -> None:
         if self.enable_tracking:
-            self._tracked_messages.append(
-                TrackedMessage(sender_id, receiver_id, message)
-            )
+            self._tracked_messages.append(message)
 
-        self.handle_push(sender_id, receiver_id, message)
+        self.handle_push(message)
 
     def clear_tracked_messages(self) -> None:
         self._tracked_messages.clear()
 
     @property
-    def tracked_messages(self) -> List[TrackedMessage]:
+    def tracked_messages(self) -> List[Message]:
         return self._tracked_messages
 
     @abc.abstractmethod
-    def handle_push(
-        self, sender_id: AgentID, receiver_id: AgentID, message: Message
-    ) -> None:
+    def handle_push(self, message: Message) -> None:
         """
         Called by the resolver to handle batches of messages. Any further created
         messages (e.g. responses from agents) must be handled by being passed to the
@@ -83,28 +69,27 @@ class BatchResolver(Resolver):
 
         self.chain_limit = chain_limit
 
-        self.queue: List[Tuple[AgentID, AgentID, Message]] = []
+        self.messages: DefaultDict[AgentID, List[Message]] = defaultdict(list)
 
     def reset(self) -> None:
-        self.queue.clear()
+        self.messages.clear()
 
-    def handle_push(
-        self, sender_id: AgentID, receiver_id: AgentID, message: Message
-    ) -> None:
-        self.queue.append((sender_id, receiver_id, message))
+    def handle_push(self, message: Message) -> None:
+        self.messages[message.receiver_id].append(message)
 
     def resolve(self, network: "Network") -> None:
+        # TODO: add warning if chain limit is reached and messages still unresolved
         for _ in range(self.chain_limit):
-            if len(self.queue) == 0:
+            if len(self.messages) == 0:
                 break
 
-            processing_queue = self.queue
-            self.queue = []
+            processing_messages = self.messages
+            self.messages = defaultdict(list)
 
-            for sender_id, receiver_id, message in processing_queue:
+            for receiver_id, messages in processing_messages.items():
                 ctx = network.context_for(receiver_id)
 
-                for sub_msg_receiver_id, sub_message in ctx.agent.handle_message(
-                    ctx, sender_id, message
+                for sub_receiver_id, sub_payload in ctx.agent.handle_batch(
+                    ctx, messages
                 ):
-                    self.push(ctx.agent.id, sub_msg_receiver_id, sub_message)
+                    self.push(Message(receiver_id, sub_receiver_id, sub_payload))
