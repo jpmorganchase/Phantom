@@ -1,10 +1,11 @@
+import pickle
+import sys
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import gym
 import numpy as np
 import phantom as ph
-from ray import rllib
 
 
 # Define fixed parameters:
@@ -51,7 +52,6 @@ class CustomerPolicy(ph.Policy):
     # The size of the order made and the choice of shop to make the order to for each
     # customer is determined by this fixed policy.
     def compute_action(self, obs: np.ndarray) -> Tuple[int, int]:
-        # return (np.random.poisson(5), np.random.randint(self.config["n_shops"]))
         return (np.random.randint(CUSTOMER_MAX_ORDER_SIZE), np.argmin(obs))
 
 
@@ -108,13 +108,17 @@ class FactoryAgent(ph.MessageHandlerAgent):
 
 
 class ShopAgent(ph.MessageHandlerAgent):
-    @dataclass(frozen=True)
+    @dataclass
     class Supertype(ph.Supertype):
+        # The cost of holding onto one unit of inventory overnight:
         cost_of_carry: float
+        # The cost of producing one unit of inventory:
         cost_per_unit: float
 
     @dataclass(frozen=True)
     class View(ph.AgentView):
+        # The shop broadcasts its price to customers so they can choose which shop to
+        # purchase from:
         price: float
 
     def __init__(self, agent_id: str, factory_id: str):
@@ -187,10 +191,12 @@ class ShopAgent(ph.MessageHandlerAgent):
         # All other messages are from customers and contain orders.
         amount_requested = message.size
 
+        # If the order size is more than the amount of stock, partially fill the order.
         if amount_requested > self.stock:
             self.missed_sales += amount_requested - self.stock
             stock_to_sell = self.stock
             self.stock = 0
+        # ... Otherwise completely fill the order.
         else:
             stock_to_sell = amount_requested
             self.stock -= amount_requested
@@ -202,13 +208,13 @@ class ShopAgent(ph.MessageHandlerAgent):
 
     def encode_observation(self, ctx: ph.Context):
         return (
-            # The agent's type is included in its observation space to allow it to learn
+            # The shop's type is included in its observation space to allow it to learn
             # a generalised policy.
             self.type.to_obs_space_compatible_type(),
-            # The current stock is included so the agent can learn to efficiently manage
+            # The current stock is included so the shop can learn to efficiently manage
             # its inventory.
             self.stock,
-            # The number of sales made in the previous step is included so the agent can
+            # The number of sales made in the previous step is included so the shop can
             # learn to maximise sales.
             self.sales,
         )
@@ -217,7 +223,7 @@ class ShopAgent(ph.MessageHandlerAgent):
         # The action the shop takes is the updated price for it's products and the
         # amount of new stock to request from the factory.
 
-        # We update the agent's price:
+        # We update the shop's price:
         self.price = action[0][0]
 
         # And we send a stock request message to the factory:
@@ -241,7 +247,7 @@ class ShopAgent(ph.MessageHandlerAgent):
 SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
 
 
-class SupplyChainEnv2(ph.PhantomEnv, rllib.MultiAgentEnv):
+class SupplyChainEnv2(ph.PhantomEnv):
     def __init__(self, n_customers: int = 5, **kwargs):
         # Define actor and agent IDs
         factory_id = "FACTORY"
@@ -265,10 +271,7 @@ class SupplyChainEnv2(ph.PhantomEnv, rllib.MultiAgentEnv):
         # Connect the shop to the customers
         network.add_connections_between(SHOP_IDS, customer_ids)
 
-        rllib.MultiAgentEnv.__init__(self)
-        ph.PhantomEnv.__init__(
-            self, network=network, num_steps=NUM_EPISODE_STEPS, **kwargs
-        )
+        super().__init__(num_steps=NUM_EPISODE_STEPS, network=network, **kwargs)
 
 
 metrics = {}
@@ -282,60 +285,65 @@ for id in SHOP_IDS:
     )
 
 
-ph.utils.rllib.train(
-    algorithm="PPO",
-    env_class=SupplyChainEnv2,
-    env_config={
-        "agent_supertypes": {
-            shop_id: ShopAgent.Supertype(
-                # cost_of_carry=0.1,
-                # cost_per_unit=0.5,
-                cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
-                cost_per_unit=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
-            )
-            for shop_id in SHOP_IDS
-        }
-    },
-    policies={
-        "shop_policy": ShopAgent,
-        "customer_policy": (CustomerPolicy, CustomerAgent),
-    },
-    policies_to_train=["shop_policy"],
-    metrics=metrics,
-    rllib_config={
-        # "num_workers": 0,
-        "seed": 0,
-    },
-    tune_config={
-        "checkpoint_freq": 100,
-        "stop": {
-            "training_iteration": 5000,
+if sys.argv[1] == "train":
+    ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=SupplyChainEnv2,
+        env_config={
+            "agent_supertypes": {
+                shop_id: ShopAgent.Supertype(
+                    cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=0.1),
+                    cost_per_unit=ph.utils.samplers.UniformSampler(low=0.2, high=0.8),
+                )
+                for shop_id in SHOP_IDS
+            }
         },
-    },
-)
+        policies={
+            "shop_policy": ShopAgent,
+            "customer_policy": (CustomerPolicy, CustomerAgent),
+        },
+        policies_to_train=["shop_policy"],
+        metrics=metrics,
+        rllib_config={
+            "seed": 0,
+            "model": {
+                "fcnet_hiddens": [64, 64],
+            },
+        },
+        tune_config={
+            "checkpoint_freq": 100,
+            "stop": {
+                "training_iteration": 1000,
+            },
+        },
+    )
 
 
-# results = ph.utils.rllib.rollout(
-#     directory="PPO/LATEST",
-#     algorithm="PPO",
-#     env_class=SupplyChainEnv2,
-#     env_config={
-#         "agent_supertypes": {
-#             shop_id: ShopAgent.Supertype(
-#                 cost_of_carry=0.1,
-#                 cost_per_unit=0.5,
-#                 # cost_of_carry=ph.utils.ranges.UniformRange(
-#                 #     low=0.0, high=1.0, step=0.1,
-#                 # ),
-#                 # cost_per_unit=ph.utils.ranges.UniformRange(
-#                 #     low=0.0, high=1.0, step=0.1,
-#                 # ),
-#             )
-#             for shop_id in SHOP_IDS
-#         }
-#     },
-#     num_workers=4,
-#     num_repeats=100,
-#     metrics=metrics,
-#     record_messages=True,
-# )
+elif sys.argv[1] == "test":
+    results = ph.utils.rllib.rollout(
+        directory="PPO/LATEST",
+        algorithm="PPO",
+        env_class=SupplyChainEnv2,
+        env_config={
+            "agent_supertypes": {
+                shop_id: ShopAgent.Supertype(
+                    cost_of_carry=ph.utils.ranges.UniformRange(
+                        start=0.0,
+                        end=0.1 + 0.001,
+                        step=0.01,
+                    ),
+                    cost_per_unit=ph.utils.ranges.UniformRange(
+                        start=0.2,
+                        end=0.8 + 0.001,
+                        step=0.05,
+                    ),
+                )
+                for shop_id in SHOP_IDS
+            }
+        },
+        num_repeats=1,
+        metrics=metrics,
+        record_messages=False,
+    )
+
+    pickle.dump(results, open("results.pkl", "wb"))
