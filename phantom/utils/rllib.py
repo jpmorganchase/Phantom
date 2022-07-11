@@ -292,8 +292,9 @@ def make_rllib_wrapped_policy_class(policy_class: Type[Policy]) -> Type[rllib.Po
             observation_space: gym.Space,
             action_space: gym.Space,
             config: Mapping[str, Any],
+            **kwargs,
         ):
-            self.policy = policy_class(observation_space, action_space, **config)
+            self.policy = policy_class(observation_space, action_space, **kwargs)
 
             super().__init__(observation_space, action_space, config)
 

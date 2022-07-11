@@ -75,17 +75,13 @@ class PPOPolicy(nn.Module, Policy):
         return self.base.recurrent_hidden_state_size
 
     def forward(self, inputs, rnn_hxs, masks):
-        # TODO: is this correct?
         return self.base.forward(inputs, rnn_hxs, masks)
 
     def act(self, inputs, rnn_hxs, masks, deterministic=False) -> Tuple:
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
 
-        if deterministic:
-            action = dist.mode()
-        else:
-            action = dist.sample()
+        action = dist.mode() if deterministic else dist.sample()
 
         action_log_probs = dist.log_probs(action)
         # dist_entropy = dist.entropy().mean()
