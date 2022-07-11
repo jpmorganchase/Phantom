@@ -60,7 +60,6 @@ Before the merge is made the following should be done:
   and the date.
 - The version should be updated in the following files:
   - `phantom/__init__.py`
-  - `docs/conf.py`
 
 After the merge is made the following should then be done:
 
@@ -86,13 +85,13 @@ ahead of time.
 To build the documentation pages for Phantom run the following:
 
 ```sh
-make doc
+make build-docs
 ```
 
 To view the pages in a web browser on your local machine run:
 
 ```sh
-make host-doc
+make host-docs
 ```
 
 Then navigate to the URL displayed on the terminal in your web browser.
