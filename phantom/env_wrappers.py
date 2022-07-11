@@ -119,22 +119,33 @@ class SingleAgentEnvAdapter(gym.Env):
         return self._env[self._agent_id].observation_space
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
-        """Run one timestep of the environment's dynamics.
-        When end of episode is reached, you are responsible for calling :meth:`reset` to reset this environment's state.
+        """
+        Run one timestep of the environment's dynamics.
+
+        When end of episode is reached, you are responsible for calling :meth:`reset` to
+        reset this environment's state.
+
         Accepts an action and returns a tuple `(observation, reward, done, info)`.
+
         Args:
-            action (ActType): an action provided by the agent
+            action: an action provided by the agent
+
         Returns:
-            observation (object): this will be an element of the environment's :attr:`observation_space`.
-                This may, for instance, be a numpy array containing the positions and velocities of certain objects.
-            reward (float): The amount of reward returned as a result of taking the action.
-            done (bool): A boolean value for if the episode has ended, in which case further :meth:`step` calls will return undefined results.
-                A done signal may be emitted for different reasons: Maybe the task underlying the environment was solved successfully,
-                a certain timelimit was exceeded, or the physics simulation has entered an invalid state.
-            info (dictionary): A dictionary that may contain additional information regarding the reason for a ``done`` signal.
-                `info` contains auxiliary diagnostic information (helpful for debugging, learning, and logging).
-                This might, for instance, contain: metrics that describe the agent's performance state, variables that are
-                hidden from observations, information that distinguishes truncation and termination or individual reward terms
+            observation: this will be an element of the environment's
+                :attr:`observation_space`. This may, for instance, be a numpy array
+                containing the positions and velocities of certain objects.
+            reward: The amount of reward returned as a result of taking the action.
+            done: A boolean value for if the episode has ended, in which case further
+                :meth:`step` calls will return undefined results. A done signal may be
+                emitted for different reasons: Maybe the task underlying the environment
+                was solved successfully, a certain timelimit was exceeded, or the
+                physics simulation has entered an invalid state.
+            info: A dictionary that may contain additional information regarding the
+                reason for a ``done`` signal. `info` contains auxiliary diagnostic
+                information (helpful for debugging, learning, and logging). This might,
+                for instance, contain: metrics that describe the agent's performance
+                state, variables that are hidden from observations, information that
+                distinguishes truncation and termination or individual reward terms
                 that are combined to produce the total reward
         """
 
@@ -157,15 +168,17 @@ class SingleAgentEnvAdapter(gym.Env):
         )
 
     def reset(self) -> Union[ObsType, Tuple[ObsType, dict]]:
-        """Resets the environment to an initial state and returns an initial
-        observation.
-        Note that this function should not reset the environment's random
-        number generator(s); random variables in the environment's state should
-        be sampled independently between multiple calls to `reset()`. In other
-        words, each call of `reset()` should yield an environment suitable for
-        a new episode, independent of previous episodes.
+        """
+        Resets the environment to an initial state and returns an initial observation.
+
+        Note that this function should not reset the environment's random number
+        generator(s); random variables in the environment's state should be sampled
+        independently between multiple calls to `reset()`. In other words, each call of
+        `reset()` should yield an environment suitable for a new episode, independent of
+        previous episodes.
+
         Returns:
-            observation (object): the initial observation.
+            observation: the initial observation.
         """
 
         # TODO: update function interface when gym version is updated

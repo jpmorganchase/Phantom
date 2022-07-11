@@ -53,7 +53,7 @@ class TrainingResults:
         policies: A mapping of policy IDs to policy objects for all policies, not just
             trained policies.
     """
-    
+
     policies: Dict[PolicyID, Policy]
 
 

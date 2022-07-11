@@ -220,9 +220,7 @@ class PhantomEnv:
         )
 
     def is_done(self) -> bool:
-        """
-        Implements the logic to decide when the episode is completed
-        """
+        """Implements the logic to decide when the episode is completed."""
         is_at_max_step = (
             self.num_steps is not None and self.current_step == self.num_steps
         )

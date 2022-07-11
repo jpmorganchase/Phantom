@@ -37,6 +37,18 @@ class Agent(ABC):
     Instances of :class:`phantom.Agent` occupy the nodes on the network graph.
     They are resonsible for storing and monitoring internal state, constructing
     :class:`View` instances and handling messages.
+
+    Arguments:
+        agent_id: Unique identifier for the agent.
+        observation_encoder: Optional :class:`Encoder` instance, otherwise define an
+            ``encode_observation`` method on the :class:`Agent` sub-class.
+        action_decoder: Optional :class:`Decoder` instance, otherwise define an
+            ``decode_action`` method on the :class:`Agent` sub-class.
+        reward_function: Optional :class:`RewardFunction` instance, otherwise define an
+            ``compute_reward`` method on the :class:`Agent` sub-class.
+        supertype: Optional :class:`Supertype` instance. When the agent's reset function
+            is called the supertype will be sampled from and the values set as the
+            agent's ``type`` property.
     """
 
     def __init__(
@@ -84,7 +96,8 @@ class Agent(ABC):
     def handle_message(
         self, ctx: Context, sender_id: AgentID, message: Message
     ) -> List[Tuple[AgentID, Message]]:
-        """Handle a messages sent from other agents.
+        """
+        Handle a messages sent from other agents.
 
         Arguments:
             ctx: A Context object representing agent's the local view of the environment.
@@ -226,10 +239,30 @@ class MessageHandlerAgent(Agent):
 
                 return [response_msgs]
 
+    Arguments:
+        agent_id: Unique identifier for the agent.
+        observation_encoder: Optional :class:`Encoder` instance, otherwise define an
+            ``encode_observation`` method on the :class:`Agent` sub-class.
+        action_decoder: Optional :class:`Decoder` instance, otherwise define an
+            ``decode_action`` method on the :class:`Agent` sub-class.
+        reward_function: Optional :class:`RewardFunction` instance, otherwise define an
+            ``compute_reward`` method on the :class:`Agent` sub-class.
+        supertype: Optional :class:`Supertype` instance. When the agent's reset function
+            is called the supertype will be sampled from and the values set as the
+            agent's ``type`` property.
     """
 
-    def __init__(self, agent_id: AgentID) -> None:
-        super().__init__(agent_id)
+    def __init__(
+        self,
+        agent_id: AgentID,
+        observation_encoder: Optional[Encoder] = None,
+        action_decoder: Optional[Decoder] = None,
+        reward_function: Optional[RewardFunction] = None,
+        supertype: Optional[Supertype] = None,
+    ) -> None:
+        super().__init__(
+            agent_id, observation_encoder, action_decoder, reward_function, supertype
+        )
 
         self.__handlers: DefaultDict[Type[Message], List[Handler]] = defaultdict(list)
 
@@ -242,6 +275,11 @@ class MessageHandlerAgent(Agent):
     def handle_message(
         self, ctx: Context, sender_id: AgentID, message: Message
     ) -> List[Tuple[AgentID, Message]]:
+        """
+        Note: This method should not be overridden by :class:`MessageHandlerAgent`
+        sub-classes.
+        """
+
         ptype = type(message)
 
         if ptype not in self.__handlers:
