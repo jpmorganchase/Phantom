@@ -3,7 +3,7 @@
 RLlib Utilities
 ===============
 
-TODO: add explanation
+.. TODO: add explanation
 
 Training
 --------

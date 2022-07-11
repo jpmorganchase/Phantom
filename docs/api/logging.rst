@@ -3,7 +3,7 @@
 Logging
 =======
 
-# TODO: explain how to use
+.. TODO: explain how to use
 
 Metric
 ------

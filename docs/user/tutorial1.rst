@@ -1,6 +1,6 @@
 .. _tutorial1:
 
-TODO: check
+.. TODO: check
 
 Tutorial - Part 1
 =================
@@ -109,7 +109,7 @@ Factory Agent
    :figclass: align-center
 
 The factory is the simplest to implement as it does not take actions and does not
-store state. We inherit from the ``Agent`` class:
+store state. We inherit from the :class:`Agent` class:
 
 .. code-block:: python
 
@@ -118,14 +118,10 @@ store state. We inherit from the ``Agent`` class:
             super().__init__(actor_id)
 
 
-The ``SimpleSyncActor`` class requires that we implement a ``handle_message`` method in
-our sub-class. Here we take any stock request we receive from the shop (the ``payload``
-of the message) and reflect it back to the shop as the factory will always fulfils
-stock requests.
-
-The ``handle_message`` method must return messages as an iterator and hence we use the
-``yield`` statement instead of the usual ``return`` statement.
-
+The :class:`Agent` class requires that we implement a :meth:`handle_message` method in
+our sub-class. Here we take any stock request we receive from the shop (the
+:attr:`payload` of the message) and reflect it back to the shop as the factory will
+always fulfils stock requests.
 
 .. code-block:: python
 
@@ -133,7 +129,7 @@ The ``handle_message`` method must return messages as an iterator and hence we u
             # The factory receives stock request messages from shop agents. We
             # simply reflect the amount of stock requested back to the shop as the
             # factory has unlimited stock.
-            yield (msg.sender_id, [msg.payload])
+            return [(msg.sender_id, msg.payload)]
     #
 
 Customer Agent
@@ -147,23 +143,24 @@ The implementation of the customer agent class takes more work as it stores stat
 takes actions. For any agent to be able to interact with the RLlib framework we need to
 define methods to decode actions, encode observations, compute reward functions. Our
 customer agent takes actions according to a pre-defined policy - it does not actively
-learn - and so we can use a ``FixedPolicy`` derived class to define this simple policy:
+learn - and so we can use a :class:`Policy` derived class to define this simple policy:
 
 .. code-block:: python
 
-    class CustomerPolicy(ph.FixedPolicy):
+    class CustomerPolicy(ph.Policy):
         # The size of the order made for each customer is determined by this fixed policy.
         def compute_action(self, obs) -> int:
-            return np.random.poisson(5)
+            return np.random.uniform(5)
 
-Next we define the customer agent class. We make sure to set the policy to be our
-custom fixed policy.
+Next we define the customer agent class.
+
+.. TODO: change to generate_messages
 
 .. code-block:: python
 
     class CustomerAgent(ph.Agent):
         def __init__(self, agent_id: str, shop_id: str):
-            super().__init__(agent_id, policy_class=CustomerPolicy)
+            super().__init__(agent_id)
 
             # We need to store the shop's ID so we can send order requests to it.
             self.shop_id: str = shop_id
@@ -171,7 +168,7 @@ custom fixed policy.
 We take the ID of the shop as an initialisation parameter and store it as local state.
 It is recommended to always handle IDs this way rather than hard-coding them.
 
-We define a custom ``decode_action`` method. This is called every step and allows the
+We define a :meth:`decode_action` method. This is called every step and allows the
 customer agent to make orders to the shop. We use a random number generator to create
 varying order sizes.
 
@@ -183,12 +180,8 @@ varying order sizes.
             order_size = action
 
             # We perform this action by sending a stock request message to the factory.
-            return ph.packet.Packet(messages={self.shop_id: [order_size]})
+            return [(self.shop_id, order_size)]
     #
-
-From this method we return a ``Packet`` object. This is a simple container than contains
-``Mutators`` and ``Messages``. In this instance we are only filling it with messages --
-mutators will be covered in a later tutorial.
 
 The ``messages`` parameter of the ``Packet`` object is a mapping of recipient IDs to a
 list of message payloads. This allows multiple messages to be send to a single
@@ -205,27 +198,7 @@ empty iterator using the ``yield from ()`` syntactic sugar.
         def handle_message(self, ctx: ph.Context, msg: ph.Message):
             # The customer will receive it's order from the shop but we do not need
             # to take any actions on it.
-            yield from ()
-    #
-
-As our customer agent does not learn we do not need to construct a reward function but
-we do need to still return a value to satisfy RLlib:
-
-.. code-block:: python
-
-        def compute_reward(self, ctx: ph.Context) -> float:
-            return 0.0
-
-        def encode_observation(self, ctx: ph.Context):
-            return 0
-
-        @property
-        def observation_space(self):
-            return gym.spaces.Discrete(1)
-
-        @property
-        def action_space(self):
-            return gym.spaces.Discrete(100)
+            return
     #
 
 

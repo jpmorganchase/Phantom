@@ -11,8 +11,8 @@ as to allow the policy to learn and improve future policy decisions.
    :figclass: align-center
 
 RewardFunction classes are a fully optional feature of Phantom. There is no functional
-difference between defining an ``compute_reward()`` method on an Agent and defining a
-:class:`RewardFunction` (whose ``reward()`` method performs the same actions) and
+difference between defining an :meth:`compute_reward()` method on an Agent and defining
+a :class:`RewardFunction` (whose :meth:`reward()` method performs the same actions) and
 attaching it to the Agent.
 
 

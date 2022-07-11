@@ -56,7 +56,7 @@ class Sampler(ABC, Generic[T]):
     distribution of values is required for the Supertype sampling.
 
     Samplers return an unbounded number of total values with one value being returned at
-    a time with the ``sample`` method.
+    a time with the :meth:`sample` method.
     """
 
     def __init__(self):
@@ -73,8 +73,8 @@ class Sampler(ABC, Generic[T]):
 
 class ComparableSampler(Sampler[ComparableT], Generic[ComparableT]):
     """
-    Extension of the `BaseSampler` for ComparableTypes in order
-    to treat the `ComparableSampler` like its actual internal value.
+    Extension of the :class:`Sampler` for ComparableTypes in order to treat the
+    :class:`ComparableSampler` like its actual internal value.
 
     Example:
     >>> s = UniformSampler()
@@ -116,7 +116,7 @@ class UniformSampler(ComparableSampler[float]):
     """
     Samples a single float value from a uniform distribution.
 
-    Uses ``np.random.uniform()`` internally.
+    Uses :func:`np.random.uniform` internally.
     """
 
     def __init__(
@@ -146,7 +146,7 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
     """
     Samples an array of float values from a uniform distribution.
 
-    Uses ``np.random.uniform()`` internally.
+    Uses :func:`np.random.uniform()` internally.
     """
 
     def __init__(
@@ -178,7 +178,7 @@ class NormalSampler(ComparableSampler[float]):
     """
     Samples a single float value from a normal distribution.
 
-    Uses ``np.random.normal()`` internally.
+    Uses :func:`np.random.normal()` internally.
     """
 
     def __init__(
@@ -208,7 +208,7 @@ class NormalArraySampler(ComparableSampler[np.ndarray]):
     """
     Samples an array of float values from a normal distribution.
 
-    Uses ``np.random.normal()`` internally.
+    Uses :func:`np.random.normal()` internally.
     """
 
     def __init__(
@@ -237,9 +237,7 @@ class NormalArraySampler(ComparableSampler[np.ndarray]):
 
 
 class LambdaSampler(Sampler[T]):
-    """
-    Samples using an arbitrary lambda function
-    """
+    """Samples using an arbitrary lambda function."""
 
     def __init__(self, func: Callable[..., T], *args, **kwargs):
         self.func = func

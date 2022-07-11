@@ -233,7 +233,7 @@ class RLlibMetricLogger(DefaultCallbacks):
 class RLlibEnvWrapper(rllib.MultiAgentEnv):
     """
     Wrapper around a :class:`PhantomEnv` that provides compatibility with the RLlib
-    ``MultiAgentEnv`` interface.
+    :class:`MultiAgentEnv` interface.
     """
 
     def __init__(self, env: PhantomEnv) -> None:

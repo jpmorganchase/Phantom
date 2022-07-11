@@ -13,9 +13,9 @@ class View(ABC):
     Views are used to share state between agents (and the Env) in a formalised manner
     and in a way that is easier than using request and response messages.
 
-    Views should be created via the calling of the agent/env's ``view()`` method. Views
-    can be tailored to particular agents, i.e. the view given can depend on the agent
-    that the view is being given to.
+    Views should be created via the calling of the agent/env's :meth:`view()` method.
+    Views can be tailored to particular agents, i.e. the view given can depend on the
+    agent that the view is being given to.
     """
 
 

@@ -22,7 +22,7 @@ class PPOTrainer(Trainer):
     https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail.
 
     For performance and stability reasons, it is recommended that the RLlib
-    implementation is used using the ``utils.rllib.train`` function.
+    implementation is used using the :func:`utils.rllib.train` function.
 
     Arguments:
         tensorboard_log_dir: If provided, will save metrics to the given directory

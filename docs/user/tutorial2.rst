@@ -1,6 +1,6 @@
 .. _tutorial2:
 
-TODO: check
+.. TODO: check
 
 Tutorial - Part 2
 =================

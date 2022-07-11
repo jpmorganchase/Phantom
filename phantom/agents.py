@@ -42,14 +42,14 @@ class Agent(ABC):
     Arguments:
         agent_id: Unique identifier for the agent.
         observation_encoder: Optional :class:`Encoder` instance, otherwise define an
-            ``encode_observation`` method on the :class:`Agent` sub-class.
+            :meth:`encode_observation` method on the :class:`Agent` sub-class.
         action_decoder: Optional :class:`Decoder` instance, otherwise define an
-            ``decode_action`` method on the :class:`Agent` sub-class.
+            :meth:`decode_action` method on the :class:`Agent` sub-class.
         reward_function: Optional :class:`RewardFunction` instance, otherwise define an
-            ``compute_reward`` method on the :class:`Agent` sub-class.
+            :meth:`compute_reward` method on the :class:`Agent` sub-class.
         supertype: Optional :class:`Supertype` instance. When the agent's reset function
             is called the supertype will be sampled from and the values set as the
-            agent's ``type`` property.
+            agent's :attr:`type` property.
     """
 
     def __init__(
@@ -247,7 +247,7 @@ class Agent(ABC):
 Handler = Callable[[Context, Message], List[Tuple[AgentID, MsgPayload]]]
 
 
-class MessageHandlerAgent(Agent):
+class MessageHandlerAgent(Agent, ABC):
     """
     Agent sub-class that makes it easier to handle multiple types of incoming messages
     via the use of the ``msg_handler`` function decorator.
@@ -260,9 +260,7 @@ class MessageHandlerAgent(Agent):
             ...
 
             @ph.agents.msg_handler(RequestMessage)
-            def handle_request_msg(
-                self, ctx: ph.Context, message: ph.Message
-            ):
+            def handle_request_msg(self, ctx: ph.Context, message: ph.Message):
                 response_msgs = do_something_with_msg(message)
 
                 return [response_msgs]
@@ -270,14 +268,14 @@ class MessageHandlerAgent(Agent):
     Arguments:
         agent_id: Unique identifier for the agent.
         observation_encoder: Optional :class:`Encoder` instance, otherwise define an
-            ``encode_observation`` method on the :class:`Agent` sub-class.
+            :meth:`encode_observation` method on the :class:`Agent` sub-class.
         action_decoder: Optional :class:`Decoder` instance, otherwise define an
-            ``decode_action`` method on the :class:`Agent` sub-class.
+            :meth:`decode_action` method on the :class:`Agent` sub-class.
         reward_function: Optional :class:`RewardFunction` instance, otherwise define an
-            ``compute_reward`` method on the :class:`Agent` sub-class.
+            :meth:`compute_reward` method on the :class:`Agent` sub-class.
         supertype: Optional :class:`Supertype` instance. When the agent's reset function
             is called the supertype will be sampled from and the values set as the
-            agent's ``type`` property.
+            agent's :attr:`type` property.
     """
 
     def __init__(

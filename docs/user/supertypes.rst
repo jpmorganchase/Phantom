@@ -25,7 +25,7 @@ Below is an example demonstrating what can be acheived:
         skill_weight: float
 
     # Next we define our agent that encodes this type:
-    class SimpleAgent():
+    class SimpleAgent(ph.Agent):
         # We don't need to provide an instance of the SimpleAgentSupertype class when we
         # create instances of the agent class.
         def __init__(self, agent_id: ph.AgentID):
@@ -47,10 +47,11 @@ Below is an example demonstrating what can be acheived:
 
 When we call the train method we setup the sampling of the supertype with a mapping of
 agent IDs to supertype instances. We initialise each supertype instance with either
-fixed values or 'Sampler' classes. Each time the supertype is sampled, a new 'type'
-object is created containing the sampled values, and is attached to the respective agent.
+fixed values or :class:`Sampler` classes. Each time the supertype is sampled, a new
+'type' object is created containing the sampled values, and is attached to the
+respective agent.
 
-TODO: add general example of initing env
+.. TODO: add general example of initing env
 
 .. code-block:: python
     
@@ -68,14 +69,16 @@ TODO: add general example of initing env
         ...
     )
 
-Afterwards, when we call the rollout method we instead initialise each supertype with
-either fixed values or 'Range' classes:
+Afterwards, when we perform rollouts we instead initialise each supertype with either
+fixed values or :class:`Range` classes that will sample over a fixed set of values.
 
-TODO: update
+The following shows the use of :class:`Ranges` with the :func:`utils.rllib.rollout`
+function:
+
 
 .. code-block:: python
     
-    ph.rollout(
+    ph.utils.rllib.rollout(
         ...
         agent_supertypes={
             "SIMPLE_AGENT": SimpleAgentSupertype(

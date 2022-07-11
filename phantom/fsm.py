@@ -46,8 +46,8 @@ class FSMStage:
             end of the previous step and take actions in that steps. If not provided,
             all agents will make observations and take actions.
         rewarded_agents: If provided, only the given agents will calculate and return a
-            reward at the end of the step for this stage. If not provided, all agents
-            will calculate and return a reward.
+            reward at the end of the step for this stage. If not provided, a reward will
+            be computed for all acting agents for the current stage.
         handler: Environment class method to be called when the FSM enters this stage.
     """
 
@@ -101,11 +101,11 @@ class FiniteStateMachineEnv(PhantomEnv):
         network: A Network class or derived class describing the connections between
             agents and agents in the environment.
         env_supertype: Optional Supertype class instance for the environment. If this is
-            set, it will be sampled from and the ``env_type`` property set on the class
-            with every call to ``reset()``.
+            set, it will be sampled from and the :attr:`env_type` property set on the
+            class with every call to :meth:`reset()`.
         agent_supertypes: Optional mapping of agent IDs to Supertype class instances. If
-            these are set, each supertype will be sampled from and the ``type`` property
-            set on the related agent with every call to ``reset()``.
+            these are set, each supertype will be sampled from and the :attr:`type`
+            property set on the related agent with every call to :meth:`reset()`.
         stages: List of FSM stages. FSM stages can be defined via this list or
             alternatively via the :class:`FSMStage` decorator.
     """
@@ -299,7 +299,9 @@ class FiniteStateMachineEnv(PhantomEnv):
                 infos[agent_id] = agent.collect_infos(ctx)
 
             rewarded_agents = self._stages[self.current_stage].rewarded_agents
-            if rewarded_agents is None or agent_id in rewarded_agents:
+            if (
+                rewarded_agents is not None and agent_id in rewarded_agents
+            ) or agent_id in acting_agents:
                 reward = agent.compute_reward(ctx)
                 if reward is not None:
                     rewards[agent_id] = reward

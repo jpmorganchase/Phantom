@@ -8,7 +8,6 @@ Trainer
 
 .. autoclass:: phantom.trainers.qlearning.QLearningTrainer
    :members:
-   :noindex:
 
 
 Policy

@@ -19,13 +19,13 @@ is allowed. Connected entities also have read-only access to each others
 to send messages.
 
 Consider a simple environment where we have some agents learn to play a card game. We
-have several ``PlayerAgent`` s and a single ``DealerAgent``.
+have several 'PlayerAgent's and a single 'DealerAgent'.
 
 
 Creating the Network
 --------------------
 
-The :class:`Network` class is always initialised in the ``__init__`` method of our
+The :class:`Network` class is always initialised in the :meth:`__init__` method of our
 environments. First we need to gather all our actors and agents into a single list:
 
 .. code-block:: python
@@ -36,8 +36,9 @@ environments. First we need to gather all our actors and agents into a single li
 
     agents = players + [dealer]
 
-Next we create our network. We must pass in a :class:`Resolver` class instance along with
-our list of agents.
+Next we create our network with the list of agents. By default a :class:`BatchResolver`
+is used as the message resolver. Alternatively a custom :class:`Resolver` class instance
+can be provided.
 
 .. code-block:: python
 
@@ -53,8 +54,9 @@ each other. We can manually add each connection one by one:
     network.add_connection("p2", "d1")
     network.add_connection("p3", "d1")
 
-Or we can use one of the convenience methods of the :class:`Network` class. The following
-examples all acheive the same outcome. Use whichever one works best for your situation.
+Or we can use one of the convenience methods of the :class:`Network` class. The
+following examples all acheive the same outcome. Use whichever one works best for your
+situation.
 
 .. code-block:: python
 
@@ -85,8 +87,8 @@ examples all acheive the same outcome. Use whichever one works best for your sit
 Accessing the Network
 ---------------------
 
-The easiest way to retrieve a single actor/agent from the Network is to use the subscript
-operator:
+The easiest way to retrieve a single actor/agent from the Network is to use the
+subscript operator:
 
 .. code-block:: python
 
@@ -103,4 +105,13 @@ once:
     odd_players = network.get_actors_where(lambda a: a.id in ["p1", "p3"])
 
 
-TODO: add stochastic network diagram
+StochasticNetwork
+-----------------
+
+Phantom has a :class:`StochasticNetwork` class that implements connection sampling once
+top of the standard :class:`Network` class where each connection has a strength
+`0.0 <= x <= 1.0`. Every time the network's :meth:`reset` method is called connections
+are created or destroyed randomly, weighted by the connection's strength.
+
+.. figure:: /img/stochastic-network.svg
+   :figclass: align-center

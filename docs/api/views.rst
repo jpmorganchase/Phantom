@@ -3,7 +3,11 @@
 Views
 =====
 
-TODO: add views diagram
+An example use of the agent/env :meth:`view` method's :attr:`neighbour_id` argument for
+providing tailored views to different agents:
+
+.. figure:: /img/views.svg
+   :figclass: align-center
 
 
 View

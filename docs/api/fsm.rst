@@ -11,12 +11,12 @@ observations and at the start of the next step the agents provide actions based 
 observations and their respective policies.
 
 It is possible to restrict which agents take actions and compute rewards for each state
-with the ``acting_agents`` and ``rewarded_agents`` properties of the :class:`FSMStage`
-class.
+with the :attr:`acting_agents` and :attr:`rewarded_agents` properties of the
+:class:`FSMStage` class.
 
-In each handler method the user must take care to call ``self.network.resolve()``. This
-is left to the user as to allow full flexibility on both when the messages on the network
-are resolved and also, in advanced cases, which resolve method is called.
+In each handler method the user must take care to call :func:`self.network.resolve()`.
+This is left to the user as to allow full flexibility on both when the messages on the
+network are resolved and also, in advanced cases, which resolve method is called.
 
 There are two methods to define the finite state machine structure. It is possible to
 use a mix of both methods. The following two examples are equivalent.

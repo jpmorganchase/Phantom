@@ -6,7 +6,7 @@ Utilities
 Samplers
 --------
 
-TODO: link to supertypes
+.. TODO: link to supertypes
 
 Interface
 ^^^^^^^^^
@@ -33,7 +33,7 @@ Implementations
 Ranges
 ------
 
-TODO: link to supertypes
+.. TODO: link to supertypes
 
 Interface
 ^^^^^^^^^

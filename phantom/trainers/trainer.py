@@ -46,7 +46,7 @@ PolicyMapping = Mapping[
 @dataclass(frozen=True)
 class TrainingResults:
     """
-    Returned when ``Trainer.train()`` is run. By default, only contains all policy
+    Returned when :func:`Trainer.train` is run. By default, only contains all policy
     objects. Can be extended by :class:`Trainer` subclasses to return additional info.
 
     Attributes:
@@ -63,8 +63,8 @@ class Trainer(ABC):
 
     Some basic tensorboard logging via tensorboardX is included.
 
-    Subclasses must set the ``policy_class`` class property and implement either the
-    ``train`` or ``training_step`` methods.
+    Subclasses must set the :attr:`policy_class` class property and implement either the
+    :meth:`train` or :meth:`training_step` methods.
 
     Arguments:
         tensorboard_log_dir: If provided, will save metrics to the given directory
@@ -108,9 +108,9 @@ class Trainer(ABC):
         Entry point to training.
 
         For some algorithms this implementation is sufficient and only the
-        ``training_step`` method needs to be implemented by the sub-class (for example,
-        see the Q-Learning Trainer). For other algorithms it may be necessary to
-        override this implementation (for example, see the PPO Trainer).
+        :meth:`training_step` method needs to be implemented by the sub-class (for
+        example, see the Q-Learning Trainer). For other algorithms it may be necessary
+        to override this implementation (for example, see the PPO Trainer).
 
         Arguments:
             env_class: The environment class to train the policy/policies with.
@@ -262,7 +262,7 @@ class Trainer(ABC):
         Parses a policy mapping object, validates it against an env instance and returns
         mappings of AgentID -> PolicyID and PolicyID -> Policy.
 
-        Useful for when defining custom ``Trainer.train()`` methods.
+        Useful for when defining custom :meth:`train` methods.
         """
 
         @dataclass(frozen=True)

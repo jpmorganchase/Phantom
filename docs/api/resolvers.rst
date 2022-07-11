@@ -3,7 +3,7 @@
 Resolvers
 =========
 
-TODO: add diagram
+.. TODO: add diagram
 
 
 .. autoclass:: phantom.resolvers.Resolver

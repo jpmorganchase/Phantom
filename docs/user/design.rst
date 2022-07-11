@@ -21,15 +21,11 @@ the environment describes all the agents and actors that are part of the environ
 how these interact and how in each step these agents and actors progress through the
 episode.
 
-Phantom provides a ``PhantomEnv`` class that provides sensible defaults for controlling
-each step and the progression of the actors and agents through the episode (In advanced
-use-cases it is possible to override this). It is up to the user to define the actors
-and agents and define how they are connected and how they interact.
+Phantom provides a :class:`PhantomEnv` class that provides sensible defaults for
+controlling each step and the progression of the actors and agents through the episode
+(In advanced use-cases it is possible to override this). It is up to the user to define
+the actors and agents and define how they are connected and how they interact.
 
-TODO:
-The base environment derives directly from the RLlib ``MulitAgentEnv`` class which
-itself is based off the widely used OpenAI gym Environment interface. Users of either
-will therefore be familiar with the Phantom environment setup.
 
 Episode Cycle
 -------------
@@ -39,8 +35,8 @@ is reset - this includes all actors, agents and supertypes. This reset provides 
 observations from the agents.
 
 The episode then enters a loop of producing actions from these observations using the
-policy, acting on the actions with the ``step`` function, producing more observations
-and so on.
+policy, acting on the actions with the :meth:`step` function, producing more
+observations and so on.
 
 This continues until the end of the episode which is either a fixed number of steps or
 at a point when all agents have finished.

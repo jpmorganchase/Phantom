@@ -3,28 +3,46 @@
 Agents
 ======
 
-TODO: rewrite, mention differences between agent types
+Phantom has one base agent class, :class:`Agent`. One extra class,
+:class:`MessageHandlerAgent`, builds on this by adding some additional message handling
+functionality. All user implemented agent classes should be derived from one of these
+two classes.
 
-There are three main elements that must be provided for any Agent class instance:
+Depending on which methods are implemented / properties set, agents can have differing
+levels of functionality:
 
-- Functionality that encodes observations.
-- Functionality that decodes actions.
-- Functionality that computes rewards.
+The most basic type of agent is one that only responds to messages sent from other agents.
+This agent does not take actions by itself and as such does not have a defined Policy or
+reward function.
 
-Each of these parts can be provided in two ways:
+To implement this agent type the :meth:`handle_message` method must be implemented if
+deriving from the :class:`Agent` class or at least one message handler method must be
+implemented if deriving from the :class:`MessageHandlerAgent` class.
+
+If the :meth:`generate_messages` method is implemented then the agent can now also create
+messages.
+
+Finally there is a full agent that has a Policy, reward function, observation encoder
+and action decoder. The :meth:`generate_messages` should not be implemented here as the
+action decoder provides the message generation functionality.
+
+Each of the reward function, observation encoder and action decoder components can be
+provided in two ways:
 
 - By setting an Encoder/Decoder/RewardFunction object to this class's
-   ``self.observation_encoder``/``self.action_decoder``/``self.reward_function`` properties.
+   :attr:`observation_encoder` / :attr:`action_decoder` / :attr:`reward_function` properties.
 - By subclassing this class and providing a custom implementation to this class's
-   ``encode_observation()``/``decode_action()``/``compute_reward()`` methods.
+   :meth:`encode_observation` / :meth:`decode_action` / :meth:`compute_reward` methods.
 
 These two options can be mixed between the three elements.
 
-If the ``encode_observation()`` method is provided with a custom implementation, the
-``observation_space`` property of the agent must be set.
+If the :meth:`encode_observation` method is provided with a custom implementation, the
+:attr:`observation_space` property of the agent must be set. Otherwise the :class:`Encoder`
+will provide the observation space.
 
-If the ``decode_action()`` method is provided with a custom implementation, the
-``action_space`` property of the agent must be set.
+If the :meth:`decode_action` method is provided with a custom implementation, the
+:attr:`action_space` property of the agent must be set. Otherwise the :class:`Decoder`
+will provide the action space.
 
 .. figure:: /img/agent.svg
    :figclass: align-center

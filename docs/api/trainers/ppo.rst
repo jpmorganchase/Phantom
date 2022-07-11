@@ -8,7 +8,6 @@ Trainer
 
 .. autoclass:: phantom.trainers.ppo.PPOTrainer
    :members:
-   :noindex:
 
 
 Policy

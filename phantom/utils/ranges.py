@@ -15,7 +15,7 @@ class Range(ABC, Generic[T]):
     non-stochastic distribution of values is required for the Supertype sampling.
 
     Ranges return a fixed number of total values and as such all values must be returned
-    in one go with the ``values`` method.
+    in one go with the :meth:`values` method.
     """
 
     def __init__(self, name: Optional[str] = None) -> None:
@@ -39,7 +39,7 @@ class UniformRange(Range[float]):
     """
     Returns an array of values spaced by a step between a start and end value.
 
-    Uses ``np.arange()`` internally.
+    Uses :func:`np.arange` internally.
     """
 
     def __init__(
@@ -63,7 +63,7 @@ class LinspaceRange(Range[float]):
     """
     Returns an array of n values evenly distributed between a start and end value.
 
-    Uses ``np.linspace()`` internally.
+    Uses :func:`np.linspace` internally.
     """
 
     def __init__(
