@@ -67,6 +67,8 @@ class PhantomEnv:
         self._samplers: List[Sampler] = []
 
         if env_supertype is not None:
+            env_supertype._managed = True
+
             # Extract samplers from env supertype dict
             for value in env_supertype.__dict__.values():
                 if isinstance(value, Sampler) and value not in self._samplers:
@@ -76,6 +78,8 @@ class PhantomEnv:
 
         if agent_supertypes is not None:
             for agent_id, agent_supertype in agent_supertypes.items():
+                agent_supertype._managed = True
+
                 # Extract samplers from agent supertype dict
                 for value in agent_supertype.__dict__.values():
                     if isinstance(value, Sampler) and value not in self._samplers:

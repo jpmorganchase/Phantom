@@ -14,13 +14,20 @@ ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 @dataclass
 class Supertype(ABC):
     def sample(self) -> "Supertype":
-        fields = {}
+        sampled_fields = {}
 
         for field_name in self.__dataclass_fields__:
             field = getattr(self, field_name)
-            fields[field_name] = field.value if isinstance(field, Sampler) else field
 
-        return self.__class__(**fields)
+            if isinstance(field, Sampler):
+                if hasattr(self, "_managed"):
+                    sampled_fields[field_name] = field.value
+                else:
+                    sampled_fields[field_name] = field.sample()
+            else:
+                sampled_fields[field_name] = field
+
+        return self.__class__(**sampled_fields)
 
     def to_obs_space_compatible_type(self) -> Dict[str, ObsSpaceCompatibleTypes]:
         """
