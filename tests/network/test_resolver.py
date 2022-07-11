@@ -1,19 +1,20 @@
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
-from phantom import AgentID, Context, Network, Message, Message
+from phantom import AgentID, Context, Network, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
+from phantom.message import MsgPayload
 from phantom.resolvers import BatchResolver
 
 
 @dataclass(frozen=True)
-class Request(Message):
+class Request(MsgPayload):
     cash: float
 
 
 @dataclass(frozen=True)
-class Response(Message):
+class Response(MsgPayload):
     cash: float
 
 
@@ -26,19 +27,19 @@ class _TestAgent(MessageHandlerAgent):
 
     @msg_handler(Request)
     def handle_request(
-        self, _: Context, sender_id: AgentID, message: Request
-    ) -> List[Tuple[AgentID, Message]]:
+        self, _: Context, message: Request
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         self.req_time = time.time()
 
-        return [(sender_id, Response(message.cash / 2.0))]
+        return [(message.sender_id, Response(message.payload.cash / 2.0))]
 
     @msg_handler(Response)
     def handle_response(
-        self, _: Context, sender_id: AgentID, message: Response
-    ) -> List[Tuple[AgentID, Message]]:
+        self, _: Context, message: Response
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         self.res_time = time.time()
 
-        return [(sender_id, None)]
+        return []
 
 
 def test_ordering():

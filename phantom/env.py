@@ -174,12 +174,16 @@ class PhantomEnv:
         self.current_step += 1
 
         # Handle the updates due to active/strategic behaviours:
-        for agent_id, action in actions.items():
-            ctx = self.network.context_for(agent_id)
-            messages = self.network.agents[agent_id].decode_action(ctx, action)
+        for agent in self.agents.values():
+            ctx = self.network.context_for(agent.id)
+
+            if agent.id in actions:
+                messages = self.agents[agent.id].decode_action(ctx, actions[agent.id])
+            else:
+                messages = agent.generate_messages(ctx)
 
             for receiver_id, message in messages:
-                self.network.send(agent_id, receiver_id, message)
+                self.network.send(agent.id, receiver_id, message)
 
         # Resolve the messages on the network and perform mutations:
         self.resolve_network()

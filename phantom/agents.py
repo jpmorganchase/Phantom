@@ -8,6 +8,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -18,7 +19,7 @@ import numpy as np
 from .context import Context
 from .decoders import Decoder
 from .encoders import Encoder
-from .message import Message, MessageType
+from .message import Message, MsgPayload
 from .reward_functions import RewardFunction
 from .supertype import Supertype
 from .types import AgentID
@@ -93,19 +94,37 @@ class Agent(ABC):
     def post_message_resolution(self, ctx: Context) -> None:
         """Perform internal, post-message resolution updates to the agent."""
 
+    def handle_batch(
+        self, ctx: Context, batch: Sequence[Message]
+    ) -> Sequence[Tuple[AgentID, MsgPayload]]:
+        """
+        Handle a batch of messages from multiple potential senders.
+
+        Arguments:
+            ctx: A Context object representing agent's the local view of the environment.
+            batch: The incoming batch of messages to handle.
+
+        Returns:
+            A list of receiver ID / message payload pairs to form into messages in
+            response to further resolve.
+        """
+        return list(
+            chain.from_iterable(self.handle_message(ctx, message) for message in batch)
+        )
+
     def handle_message(
-        self, ctx: Context, sender_id: AgentID, message: Message
-    ) -> List[Tuple[AgentID, Message]]:
+        self, ctx: Context, message: Message
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         """
         Handle a messages sent from other agents.
 
         Arguments:
             ctx: A Context object representing agent's the local view of the environment.
-            sender_id: The sender of the message.
-            message: The contents of the message
+            message: The contents of the message.
 
         Returns:
-            A list of messages (tuples of (receiver_id, message)) to send to other agents.
+            A list of receiver ID / message payload pairs to form into messages in
+            response to further resolve.
         """
 
         raise NotImplementedError(
@@ -135,7 +154,7 @@ class Agent(ABC):
 
     def decode_action(
         self, ctx: Context, action: Action
-    ) -> List[Tuple[AgentID, Message]]:
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         """
         Decodes an action taken by the agent policy into a set of messages to be
         sent to other agents in the network.
@@ -148,7 +167,8 @@ class Agent(ABC):
             action: The action taken by the agent.
 
         Returns:
-            A Packet object containing messages to be sent to other agents.
+            A list of receiver ID / message payload pairs to form into messages in
+            response to further resolve.
         """
         if self.action_decoder is None:
             raise NotImplementedError(
@@ -156,6 +176,9 @@ class Agent(ABC):
             )
 
         return self.action_decoder.decode(ctx, action)
+
+    def generate_messages(self, ctx: Context) -> List[Tuple[AgentID, MsgPayload]]:
+        return []
 
     def compute_reward(self, ctx: Context) -> Optional[float]:
         """
@@ -216,7 +239,7 @@ class Agent(ABC):
         return f"[{self.__class__.__name__} {self.id}]"
 
 
-Handler = Callable[[Context, AgentID, Message], List[Tuple[AgentID, Message]]]
+Handler = Callable[[Context, Message], List[Tuple[AgentID, MsgPayload]]]
 
 
 class MessageHandlerAgent(Agent):
@@ -233,7 +256,7 @@ class MessageHandlerAgent(Agent):
 
             @ph.agents.msg_handler(RequestMessage)
             def handle_request_msg(
-                self, ctx: ph.Context, sender_id: ph.AgentID, message: ph.Message
+                self, ctx: ph.Context, message: ph.Message
             ):
                 response_msgs = do_something_with_msg(message)
 
@@ -264,7 +287,9 @@ class MessageHandlerAgent(Agent):
             agent_id, observation_encoder, action_decoder, reward_function, supertype
         )
 
-        self.__handlers: DefaultDict[Type[Message], List[Handler]] = defaultdict(list)
+        self.__handlers: DefaultDict[Type[MsgPayload], List[Handler]] = defaultdict(
+            list
+        )
 
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
@@ -273,29 +298,28 @@ class MessageHandlerAgent(Agent):
                 self.__handlers[attr.message_type].append(attr)
 
     def handle_message(
-        self, ctx: Context, sender_id: AgentID, message: Message
-    ) -> List[Tuple[AgentID, Message]]:
+        self, ctx: Context, message: Message
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         """
         Note: This method should not be overridden by :class:`MessageHandlerAgent`
         sub-classes.
         """
 
-        ptype = type(message)
+        ptype = type(message.payload)
 
         if ptype not in self.__handlers:
             raise KeyError(
-                f"Unknown message type {ptype} in message sent from '{sender_id}' to '{self.id}'. Agent '{self.id}' needs a message handler function capable of receiving this mesage type."
+                f"Unknown message type {ptype} in message sent from '{message.sender_id}' to '{self.id}'. Agent '{self.id}' needs a message handler function capable of receiving this mesage type."
             )
 
         return list(
             chain.from_iterable(
-                bound_handler(ctx, sender_id, message)
-                for bound_handler in self.__handlers[ptype]
+                bound_handler(ctx, message) for bound_handler in self.__handlers[ptype]
             )
         )
 
 
-def msg_handler(message_type: Type[MessageType]) -> Callable[[Handler], Handler]:
+def msg_handler(message_type: Type[MsgPayload]) -> Callable[[Handler], Handler]:
     def decorator(fn: Handler) -> Handler:
         setattr(fn, "message_type", message_type)
         return fn

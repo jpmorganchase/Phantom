@@ -13,7 +13,7 @@ from typing import (
 
 import numpy as np
 
-from ..resolvers import TrackedMessage
+from ..message import Message
 from ..types import AgentID, StageID
 
 
@@ -44,7 +44,7 @@ class Step:
     dones: Dict[AgentID, bool]
     infos: Dict[AgentID, Dict[str, Any]]
     actions: Dict[AgentID, Any]
-    messages: Optional[List[TrackedMessage]] = None
+    messages: Optional[List[Message]] = None
     stage: Optional[StageID] = None
 
 

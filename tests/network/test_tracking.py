@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from phantom import AgentID, Context, Network, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
-from phantom.resolvers import BatchResolver, TrackedMessage
+from phantom.message import MsgPayload
+from phantom.resolvers import BatchResolver
 
 
 class MockEnv:
@@ -12,17 +13,17 @@ class MockEnv:
 
 
 @dataclass(frozen=True)
-class _TestMessage(Message):
+class _TestMessage(MsgPayload):
     value: int
 
 
 class _TestActor(MessageHandlerAgent):
     @msg_handler(_TestMessage)
     def handle_request(
-        self, _: Context, sender_id: AgentID, message: _TestMessage
+        self, _: Context, message: _TestMessage
     ) -> List[Tuple[AgentID, Message]]:
-        if message.value > 1:
-            return [(sender_id, _TestMessage(message.value // 2))]
+        if message.payload.value > 1:
+            return [(message.sender_id, _TestMessage(message.payload.value // 2))]
 
 
 def test_tracking():
@@ -43,12 +44,12 @@ def test_tracking():
     n.resolve()
 
     assert resolver.tracked_messages == [
-        TrackedMessage("A", "B", _TestMessage(4)),
-        TrackedMessage("A", "C", _TestMessage(4)),
-        TrackedMessage("B", "A", _TestMessage(2)),
-        TrackedMessage("C", "A", _TestMessage(2)),
-        TrackedMessage("A", "B", _TestMessage(1)),
-        TrackedMessage("A", "C", _TestMessage(1)),
+        Message("A", "B", _TestMessage(4)),
+        Message("A", "C", _TestMessage(4)),
+        Message("B", "A", _TestMessage(2)),
+        Message("C", "A", _TestMessage(2)),
+        Message("A", "B", _TestMessage(1)),
+        Message("A", "C", _TestMessage(1)),
     ]
 
     n.resolver.clear_tracked_messages()

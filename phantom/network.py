@@ -213,11 +213,10 @@ class Network:
         """
         if (sender_id, receiver_id) not in self.graph.edges:
             raise NetworkError(
-                f"No connection between {self.agents[sender_id]} "
-                f"and {self.agents[receiver_id]}."
+                f"No connection between {self.agents[sender_id]} and {self.agents[receiver_id]}."
             )
 
-        self.resolver.push(sender_id, receiver_id, message)
+        self.resolver.push(Message(sender_id, receiver_id, message))
 
     def resolve(
         self,

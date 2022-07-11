@@ -8,7 +8,7 @@ from .encoders import Encoder
 from .env import PhantomEnv
 from .env_wrappers import SingleAgentEnvAdapter
 from .fsm import FiniteStateMachineEnv, FSMStage
-from .message import Message
+from .message import Message, MsgPayload
 from .network import Network, StochasticNetwork
 from .policy import Policy
 from .reward_functions import RewardFunction

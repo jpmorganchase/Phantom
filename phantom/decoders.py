@@ -23,7 +23,7 @@ class Decoder(Generic[Action], ABC):
         """The action/input space of the decoder type."""
 
     @abstractmethod
-    def decode(self, ctx: Context, action: Action) -> List[Tuple[AgentID, Message]]:
+    def decode(self, ctx: Context, action: Action) -> List[Message]:
         """Convert an action into a packet given a network context.
 
         Arguments:
@@ -77,7 +77,7 @@ class ChainedDecoder(Decoder[Tuple]):
     def action_space(self) -> gym.Space:
         return gym.spaces.Tuple(tuple(d.action_space for d in self.decoders))
 
-    def decode(self, ctx: Context, action: Tuple) -> List[Tuple[AgentID, Message]]:
+    def decode(self, ctx: Context, action: Tuple) -> List[Message]:
         return list(
             chain.from_iterable(
                 decoder.decode(ctx, sub_action)
@@ -109,9 +109,7 @@ class DictDecoder(Decoder[Dict[str, Any]]):
             {name: decoder.action_space for name, decoder in self.decoders.items()}
         )
 
-    def decode(
-        self, ctx: Context, action: Dict[str, Any]
-    ) -> List[Tuple[AgentID, Message]]:
+    def decode(self, ctx: Context, action: Dict[str, Any]) -> List[Message]:
         return list(
             chain.from_iterable(
                 decoder.decode(ctx, action[name])

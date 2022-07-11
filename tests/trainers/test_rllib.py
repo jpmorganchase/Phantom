@@ -17,7 +17,7 @@ def test_rllib_trainer():
             tune_config={
                 "local_dir": tmp_dir,
                 "stop": {
-                    "training_iteration": 500,
+                    "training_iteration": 10,
                 },
             },
         )

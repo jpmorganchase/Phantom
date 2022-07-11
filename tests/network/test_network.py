@@ -6,11 +6,12 @@ import pytest
 
 from phantom import AgentID, Context, Message, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
+from phantom.message import MsgPayload
 from phantom.network import BatchResolver, Network
 
 
 @dataclass(frozen=True)
-class MyMessage(Message):
+class MyMessage(MsgPayload):
     cash: float
 
 
@@ -25,11 +26,11 @@ class MyAgent(MessageHandlerAgent):
 
     @msg_handler(MyMessage)
     def handle_message(
-        self, _: Context, sender_id: AgentID, message: MyMessage
-    ) -> List[Tuple[AgentID, Message]]:
-        self.total_cash += message.cash / 2.0
+        self, _: Context, message: MyMessage
+    ) -> List[Tuple[AgentID, MsgPayload]]:
+        self.total_cash += message.payload.cash / 2.0
 
-        return [(sender_id, MyMessage(message.cash / 2.0))]
+        return [(message.sender_id, MyMessage(message.payload.cash / 2.0))]
 
 
 @pytest.fixture

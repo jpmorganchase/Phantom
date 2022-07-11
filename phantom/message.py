@@ -1,11 +1,20 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, Generic, TypeVar
+
+from .types import AgentID
 
 
 @dataclass(frozen=True)
-class Message(ABC):
-    """Base dataclass for defining message payloads."""
+class MsgPayload:
+    """Message payload structure."""
 
 
-MessageType = TypeVar("MessageType", bound=Message)
+MsgPayloadType = TypeVar("MsgPayloadType", bound=MsgPayload)
+
+
+@dataclass(frozen=True)
+class Message(Generic[MsgPayloadType]):
+    sender_id: AgentID
+    receiver_id: AgentID
+    payload: MsgPayload
