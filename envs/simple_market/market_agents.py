@@ -10,12 +10,12 @@ from gym.spaces import Box, Discrete
 
 # Could extend to include price + vol / price curve
 @dataclass(frozen=True)
-class Price:
+class Price(ph.MsgPayload):
     price: float
 
 
 @dataclass(frozen=True)
-class Order:
+class Order(ph.MsgPayload):
     vol: int
 
 
@@ -24,33 +24,28 @@ class Order:
 
 # Buyer type = buyer's intrinsic value for the good
 @dataclass
-class Value(ph.AgentType):
+class BuyerSupertype(ph.Supertype):
     value: float
 
 
-class BuyerSupertype(ph.Supertype):
-    def __init__(self, min_val, max_val):
-        self.min_val = min_val
-        self.max_val = max_val
-
-    def sample(self) -> Value:
-        return Value(np.random.uniform(self.min_val, self.max_val))
-
-
-class BuyerAgent(ph.Agent):
+class BuyerAgent(ph.MessageHandlerAgent):
     # Buyer agent decides whether to buy/not buy and from whom
     # Demand (if it exists) is always 1 unit
 
     def __init__(self, agent_id, demand_prob, supertype):
         super().__init__(agent_id, supertype=supertype)
-        self.seller_prices = dict()
+        self.seller_prices = {}
         self.demand_prob = demand_prob
         self.current_reward = 0
 
-    def decode_action(
-        self, ctx, action
-    ):  # TODO: could do this with an action decoder if we used a view-implementation of a seller
-        msgs = dict()
+        # buy (1) or no-buy (0)
+        self.action_space = Discrete(2)
+
+        self.observation_space = Box(low=0, high=1, shape=(3,))
+
+    def decode_action(self, ctx, action):
+        # TODO: could do this with an action decoder if we used a view-implementation of a seller
+        msgs = []
         min_price = min(self.seller_prices.values())
 
         if action:
@@ -59,38 +54,28 @@ class BuyerAgent(ph.Agent):
             seller = random.choice(min_sellers)
 
             # Send an order to the seller
-            msgs[seller] = [Order(action)]
+            msgs.append((seller, Order(action)))
             self.current_reward += -action * min_price + self.type.value
 
-        return ph.packet.Packet([], msgs)
-
-    @property
-    def action_space(self):
-        # buy (1) or no-buy (0)
-        return Discrete(2)
+        return msgs
 
     def encode_observation(self, ctx):
         min_price = min(self.seller_prices.values())
         demand = np.random.binomial(1, self.demand_prob)
         return np.array([min_price, demand, self.type.value])
 
-    @property
-    def observation_space(self):
-        return Box(low=0, high=1, shape=(3,))
-
     def compute_reward(self, ctx):
         reward = self.current_reward
         self.current_reward = 0
         return reward
 
-    def handle_message(self, ctx, message):
-        if isinstance(message.payload, Price):
-            self.seller_prices[message.sender_id] = message.payload.price
-        yield from ()
+    @ph.agents.msg_handler(Price)
+    def handle_price_message(self, ctx, message):
+        self.seller_prices[message.sender_id] = message.payload.price
 
     def reset(self):
         super().reset()
-        self.seller_prices = dict()
+        self.seller_prices = {}
         self.current_reward = 0
 
 
@@ -98,7 +83,7 @@ class BuyerAgent(ph.Agent):
 ####################################################################################################
 
 
-class SellerAgent(ph.Agent):
+class SellerAgent(ph.MessageHandlerAgent):
     # Infinite supply
     # No inventory costs
     # TODO: could publish a view containing its price - alternate implementation
@@ -109,28 +94,22 @@ class SellerAgent(ph.Agent):
         self.current_revenue = 0
         self.current_tx = 0  # volume transacted
 
+        # price in [0, 1]
+        self.action_space = Box(low=0, high=1, shape=(1,))
+
+        # [total transaction vol, avg market price]
+        self.observation_space = Box(np.array([0, 0]), np.array([np.inf, 1]))
+
     def decode_action(self, ctx, action):
         # simple decoder - send price to all connected agents
         self.current_price = action
-        msgs = dict()
-        for nid in ctx.neighbour_ids:
-            msgs[nid] = [Price(action)]
-        return ph.packet.Packet([], msgs)
 
-    @property
-    def action_space(self):
-        # price in [0, 1]
-        return Box(low=0, high=1, shape=(1,))
+        return [(nid, Price(action)) for nid in ctx.neighbour_ids]
 
     def encode_observation(self, ctx):
-        obs = np.array([self.current_tx, ctx.views["__ENV"].avg_price])
+        obs = np.array([self.current_tx, ctx["ENV"].avg_price])
         self.current_tx = 0
         return obs
-
-    @property
-    def observation_space(self):
-        # [ total transaction vol, Avg market price]
-        return Box(np.array([0, 0]), np.array([np.Inf, 1]))
 
     def compute_reward(self, ctx):
         reward = self.current_revenue
@@ -142,43 +121,7 @@ class SellerAgent(ph.Agent):
         self.current_revenue = 0
         self.current_tx = 0
 
-    def handle_message(self, ctx, message):
-        if isinstance(message.payload, Order):
-            self.current_revenue += self.current_price * message.payload.vol
-            self.current_tx += message.payload.vol
-
-        yield from ()
-
-
-# Environment Actor - Not an agent ; a utility for computing average price
-#########################################################################################
-
-
-class SimpleMktEnvActor(ph.env.EnvironmentActor):
-    @dataclass(frozen=True)
-    class View(ph.View):
-        avg_price: float
-
-    def __init__(self):
-        super().__init__()
-        self.seller_prices = dict()
-        self.avg_price = 0.0
-
-    def handle_message(self, ctx, message):
-        if isinstance(message.payload, Price):
-            self.seller_prices[message.sender_id] = message.payload.price
-        yield from ()
-
-    def post_resolution(self, ctx):
-        self.avg_price = np.mean(np.array(list(self.seller_prices.values())))
-
-    def view(self, neighbour_id=None) -> "SimpleMktEnvActor.View":
-        return self.View(
-            actor_id=self._id,
-            avg_price=self.avg_price,
-        )
-
-    def reset(self):
-        super().reset()
-        self.seller_prices = dict()
-        self.avg_price = 0.0
+    @ph.agents.msg_handler(Order)
+    def handle_order_message(self, ctx, message):
+        self.current_revenue += self.current_price * message.payload.vol
+        self.current_tx += message.payload.vol

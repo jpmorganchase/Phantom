@@ -5,9 +5,9 @@ import phantom as ph
 from simple_mkt_env import SimpleMarketEnv
 
 
-@dataclass
+@dataclass(frozen=True)
 class AdversarialSetup:
-    adv_seller: ph.AgentID
+    leaky_buyer: ph.AgentID
     victim_seller: ph.AgentID
     adv_seller: ph.AgentID
 
@@ -53,46 +53,14 @@ class LeakySimpleMarketEnv(SimpleMarketEnv):
         return -self.victim_coeff * victim_reward + self.adv_coeff * attacker_reward
 
     def step(self, actions, verbose=False):
-        self.current_step += 1
-        if verbose:
-            print("messages sent")
-
-        # Decode actions and send messages
-        for aid, action in actions.items():
-            ctx = self.network.context_for(aid)
-            packet = self.agents[aid].decode_action(ctx, action)
-            self.network.send_from(aid, packet.messages)
-            if verbose:
-                print(packet.messages)
-
-        self.network.resolve()
-
-        # Pass the turn
-        self.turn = (self.turn + 1) % self.num_groups
-
-        # Return observations for agents with the turn
-        # so they can act in the next step
-        obs = dict()
-        rewards = dict()
-        info = dict()
-        for aid in self.agent_groups[self.turn]:
-            agent = self.agents[aid]
-            ctx = self.network.context_for(aid)
-            obs[aid] = agent.encode_observation(ctx)
-            rewards[aid] = agent.compute_reward(ctx)
-            info[aid] = {"turn": True}
+        step = super().step(actions)
 
         # Modify reward for adv seller
         # TODO - pass in the adv reward function
-        if self.leaky and self.turn == 0:
+        if self.leaky and self.current_stage == "Sellers":
             # rewards[self.adv_seller] = -1*rewards[self.victim_seller]
-            rewards[self.adv_seller] = self.compute_adv_reward(
-                rewards[self.adv_seller], rewards[self.victim_seller]
+            step.rewards[self.adv_seller] = self.compute_adv_reward(
+                step.rewards[self.adv_seller], step.rewards[self.victim_seller]
             )
 
-        return self.Step(
-            observations=obs,
-            rewards=rewards,
-            terminals={"__all__": self.current_step == self.num_steps},
-            infos=info,
-        )
+        return step

@@ -251,8 +251,6 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
             "zipcode"
         ]
 
-        return []
-
     @ph.agents.msg_handler(AuctionResult)
     def handle_auction_result(self, _ctx: ph.Context, msg: ph.MsgPayload):
         """
@@ -261,8 +259,6 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         logger.debug("AdvertiserAgent %s auction result: %s", self.id, msg.payload)
 
         self.left -= msg.payload.cost
-
-        return []
 
     @ph.agents.msg_handler(ImpressionResult)
     def handle_impression_result(self, _ctx: ph.Context, msg: ph.MsgPayload):
@@ -273,8 +269,6 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
 
         self.step_clicks += int(msg.payload.clicked)
         self.total_clicks += int(msg.payload.clicked)
-
-        return []
 
     def encode_observation(self, _ctx: ph.Context):
         """@override

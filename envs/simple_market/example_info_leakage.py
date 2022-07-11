@@ -1,41 +1,44 @@
 import phantom as ph
-from market_agents import BuyerSupertype, BuyerAgent, SellerAgent
+from phantom.utils.samplers import UniformSampler
+
 from base_policy import BuyerPolicy, SellerPolicy
 from info_leakage_agents import MaybeLeakyBuyer, MaybeSneakySeller
 from info_leakage_env import LeakySimpleMarketEnv
+from market_agents import BuyerSupertype, BuyerAgent, SellerAgent
 
 
 def rollout(env):
-    out = env.reset()
+    observations = env.reset()
+    rewards = {}
 
     while env.current_step < env.num_steps:
         print(env.current_step)
 
-        print("obs")
-        print(out.observations)
-        print("rewards")
-        print(out.rewards)
+        print("\nobservations:")
+        print(observations)
+        print("\nrewards:")
+        print(rewards)
 
         # Only the agents that got observations can act
-        actions = dict()
-        for aid, obs in out.observations.items():
+        actions = {}
+        for aid, obs in observations.items():
             agent = env.agents[aid]
             if isinstance(agent, BuyerAgent):
                 actions[aid] = BuyerPolicy(obs)
             elif isinstance(agent, SellerAgent):
                 actions[aid] = SellerPolicy(obs)
 
-        print("actions")
+        print("\nactions:")
         print(actions)
 
-        out = env.step(actions)
+        observations, rewards, _, _ = env.step(actions)
 
 
 if __name__ == "__main__":
     # Setup some benign Agents; fixed types
-    b1 = MaybeLeakyBuyer("b1", 0.2, supertype=BuyerSupertype(0.2, 0.2))
-    b2 = MaybeLeakyBuyer("b2", 0.9, supertype=BuyerSupertype(1, 1))
-    b3 = MaybeLeakyBuyer("b3", 0.9, supertype=BuyerSupertype(0.5, 0.5))
+    b1 = MaybeLeakyBuyer("b1", 0.2, supertype=BuyerSupertype(UniformSampler(0.2, 0.2)))
+    b2 = MaybeLeakyBuyer("b2", 0.9, supertype=BuyerSupertype(UniformSampler(1, 1)))
+    b3 = MaybeLeakyBuyer("b3", 0.9, supertype=BuyerSupertype(UniformSampler(0.5, 0.5)))
     s1 = MaybeSneakySeller("s1")
     s2 = MaybeSneakySeller("s2")
     buyer_agents = [b1, b2, b3]
@@ -43,7 +46,7 @@ if __name__ == "__main__":
     all_agents = buyer_agents + seller_agents
 
     # Network definition
-    network = ph.Network(ph.resolvers.BatchResolver(chain_limit=4), actors=all_agents)
+    network = ph.Network(all_agents, ph.resolvers.BatchResolver(chain_limit=4))
 
     # Add connections in the network
     network.add_connections_between(["b1", "b2", "b3"], ["s1", "s2"])
