@@ -112,11 +112,12 @@ class FiniteStateMachineEnv(PhantomEnv):
 
     def __init__(
         self,
-        # fsm env specific:
-        initial_stage: StageID,
         # from phantom env:
         num_steps: int,
         network: Network,
+        # fsm env specific:
+        initial_stage: StageID,
+        # from phantom env:
         env_supertype: Optional[Supertype] = None,
         agent_supertypes: Optional[Mapping[AgentID, Supertype]] = None,
         # fsm env specific:
@@ -208,7 +209,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         # Reset network and call reset method on all agents in the network.
         # Message samplers should be called here from the respective agent's reset method.
         self.network.reset()
-        self.network.resolve()
+        self.resolve_network()
 
         # Reset the agents' done status
         self._dones = set()
@@ -254,9 +255,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         if env_handler is None:
             # If no handler has been set, manually resolve the network messages.
-            self.pre_message_resolution()
-            self.network.resolve(self.view)
-            self.post_message_resolution()
+            self.resolve_network()
 
             next_stages = self._stages[self.current_stage].next_stages
 
