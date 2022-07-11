@@ -1,13 +1,14 @@
-from typing import Any, Dict, Hashable, List, Optional, Mapping, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .types import AgentID
-from .view import AgentView, EnvView, View
+from .view import AgentView, EnvView
 
 if TYPE_CHECKING:
     from .agents import Agent
-    from .network import Network
 
 
+@dataclass(frozen=True)
 class Context:
     """
     Representation of the local neighbourhood around a focal agent node.
@@ -16,35 +17,27 @@ class Context:
     principle this could be extended to something different to a star graph, but for now
     this is how we define context.
 
-    Arguments:
+    Attributes:
         agent: Focal node of the ego network.
         agent_views: A collection of view objects, each one associated with an adjacent
             agent.
-        env_views: An optional view object associated with the environment.
-
-    Attributes:
-        agent: Focal node of the ego network.
-        views: A collection of view objects, each one associated with an adjacent agent
-            or the environment.
+        env_view: An optional view object associated with the environment.
     """
 
-    def __init__(
-        self,
-        agent: "Agent",
-        agent_views: Mapping[AgentID, Optional[AgentView]],
-        env_view: Optional[EnvView],
-    ) -> None:
-        self.agent = agent
-        self.views: Dict[Hashable, Optional[View]] = dict(agent_views)
-        self.views["ENV"] = env_view
+    agent: "Agent"
+    agent_views: Dict[AgentID, Optional[AgentView]]
+    env_view: Optional[EnvView]
 
     @property
     def neighbour_ids(self) -> List[AgentID]:
         """List of IDs of the neighbouring agents."""
-        return list(self.views.keys())
+        return list(self.agent_views.keys())
 
     def __getitem__(self, view_id: str) -> Any:
-        return self.views[view_id]
+        if view_id == "ENV":
+            return self.env_view
+
+        return self.agent_views[view_id]
 
     def __contains__(self, view_id: str) -> bool:
-        return view_id in self.views
+        return view_id == "ENV" or view_id in self.agent_views
