@@ -74,7 +74,7 @@ class CustomerAgent(ph.MessageHandlerAgent):
 
     @ph.agents.msg_handler(OrderResponse)
     def handle_order_response(self, ctx: ph.Context, message: ph.Message):
-        return []
+        return
 
     def decode_action(self, ctx: ph.Context, action: Tuple[int, int]):
         # At the start of each step we generate an order with a random size to send to a
@@ -174,9 +174,6 @@ class ShopAgent(ph.MessageHandlerAgent):
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
         self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
-
-        # We do not need to respond to these messages.
-        return []
 
     @ph.agents.msg_handler(OrderRequest)
     def handle_order_request(self, ctx: ph.Context, message: ph.Message):

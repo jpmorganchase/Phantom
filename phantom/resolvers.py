@@ -89,7 +89,8 @@ class BatchResolver(Resolver):
             for receiver_id, messages in processing_messages.items():
                 ctx = network.context_for(receiver_id)
 
-                for sub_receiver_id, sub_payload in ctx.agent.handle_batch(
-                    ctx, messages
-                ):
-                    self.push(Message(receiver_id, sub_receiver_id, sub_payload))
+                batch = ctx.agent.handle_batch(ctx, messages)
+
+                if batch is not None:
+                    for sub_receiver_id, sub_payload in batch:
+                        self.push(Message(receiver_id, sub_receiver_id, sub_payload))

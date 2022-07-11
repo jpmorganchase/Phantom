@@ -96,7 +96,7 @@ class Agent(ABC):
 
     def handle_batch(
         self, ctx: Context, batch: Sequence[Message]
-    ) -> Sequence[Tuple[AgentID, MsgPayload]]:
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         """
         Handle a batch of messages from multiple potential senders.
 
@@ -109,12 +109,17 @@ class Agent(ABC):
             response to further resolve.
         """
         return list(
-            chain.from_iterable(self.handle_message(ctx, message) for message in batch)
+            chain.from_iterable(
+                filter(
+                    lambda x: x != None,
+                    (self.handle_message(ctx, message) for message in batch),
+                )
+            )
         )
 
     def handle_message(
         self, ctx: Context, message: Message
-    ) -> List[Tuple[AgentID, MsgPayload]]:
+    ) -> Optional[List[Tuple[AgentID, MsgPayload]]]:
         """
         Handle a messages sent from other agents.
 
@@ -154,7 +159,7 @@ class Agent(ABC):
 
     def decode_action(
         self, ctx: Context, action: Action
-    ) -> List[Tuple[AgentID, MsgPayload]]:
+    ) -> Optional[List[Tuple[AgentID, MsgPayload]]]:
         """
         Decodes an action taken by the agent policy into a set of messages to be
         sent to other agents in the network.
@@ -314,7 +319,13 @@ class MessageHandlerAgent(Agent):
 
         return list(
             chain.from_iterable(
-                bound_handler(ctx, message) for bound_handler in self.__handlers[ptype]
+                filter(
+                    lambda x: x != None,
+                    (
+                        bound_handler(ctx, message)
+                        for bound_handler in self.__handlers[ptype]
+                    ),
+                )
             )
         )
 
