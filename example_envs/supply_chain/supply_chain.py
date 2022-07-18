@@ -1,3 +1,7 @@
+"""
+A simple logistics themed environment used for demonstrating the features of Phantom.
+"""
+
 import pickle
 import sys
 from dataclasses import dataclass
@@ -64,10 +68,14 @@ class CustomerAgent(ph.MessageHandlerAgent):
 
         self.action_space = gym.spaces.Tuple(
             (
+                # The number of items to order
                 gym.spaces.Discrete(CUSTOMER_MAX_ORDER_SIZE),
+                # The shop to order from
                 gym.spaces.Discrete(len(self.shop_ids)),
             )
         )
+
+        # The price set by each shop
         self.observation_space = gym.spaces.Box(
             low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(len(self.shop_ids),)
         )
@@ -157,7 +165,9 @@ class ShopAgent(ph.MessageHandlerAgent):
                 # The agent's current stock:
                 gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
                 # The number of sales made by the agent in the previous step:
-                gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                gym.spaces.Discrete(
+                    min(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS, SHOP_MAX_STOCK) + 1
+                ),
             )
         )
 
@@ -233,21 +243,19 @@ class ShopAgent(ph.MessageHandlerAgent):
         self.price = 0.0
 
 
+# Define agent IDs:
+FACTORY_ID = "FACTORY"
 SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
+CUSTOMER_IDS = [f"CUST{i+1}" for i in range(NUM_CUSTOMERS)]
 
 
-class SupplyChainEnv2(ph.PhantomEnv):
-    def __init__(self, n_customers: int = 5, **kwargs):
-        # Define actor and agent IDs
-        factory_id = "FACTORY"
+class SupplyChainEnv(ph.PhantomEnv):
+    def __init__(self, **kwargs):
+        shop_agents = [ShopAgent(id, FACTORY_ID) for id in SHOP_IDS]
 
-        customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
+        factory_agent = FactoryAgent(FACTORY_ID)
 
-        shop_agents = [ShopAgent(id, factory_id) for id in SHOP_IDS]
-
-        factory_agent = FactoryAgent(factory_id)
-
-        customer_agents = [CustomerAgent(id, shop_ids=SHOP_IDS) for id in customer_ids]
+        customer_agents = [CustomerAgent(id, shop_ids=SHOP_IDS) for id in CUSTOMER_IDS]
 
         agents = [factory_agent] + shop_agents + customer_agents
 
@@ -255,10 +263,10 @@ class SupplyChainEnv2(ph.PhantomEnv):
         network = ph.Network(agents)
 
         # Connect the shops to the factory
-        network.add_connections_between(SHOP_IDS, [factory_id])
+        network.add_connections_between(SHOP_IDS, [FACTORY_ID])
 
         # Connect the shop to the customers
-        network.add_connections_between(SHOP_IDS, customer_ids)
+        network.add_connections_between(SHOP_IDS, CUSTOMER_IDS)
 
         super().__init__(num_steps=NUM_EPISODE_STEPS, network=network, **kwargs)
 
@@ -277,7 +285,7 @@ for id in SHOP_IDS:
 if sys.argv[1] == "train":
     ph.utils.rllib.train(
         algorithm="PPO",
-        env_class=SupplyChainEnv2,
+        env_class=SupplyChainEnv,
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
@@ -312,7 +320,7 @@ elif sys.argv[1] == "test":
     results = ph.utils.rllib.rollout(
         directory="PPO/LATEST",
         algorithm="PPO",
-        env_class=SupplyChainEnv2,
+        env_class=SupplyChainEnv,
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
