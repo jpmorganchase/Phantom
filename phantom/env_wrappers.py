@@ -30,8 +30,8 @@ class SingleAgentEnvAdapter(gym.Env):
     single-agent only frameworks when only one agent is an active learning agent.
 
     Arguments:
-        env: The :class:`PhantomEnv` class or sub-class to wrap (note: not an already
-            initialised class instance)
+        env_class: The :class:`PhantomEnv` class or sub-class to wrap (note: must not be
+            an already initialised class instance)
         agent_id: The ID of the agent that the wrapper will explicitly control.
         other_policies: A mapping of all other agent IDs to their policies and policy
             configs. The policies must be fixed/pre-trained policies.
@@ -40,17 +40,17 @@ class SingleAgentEnvAdapter(gym.Env):
 
     def __init__(
         self,
-        env: Type[PhantomEnv],
+        env_class: Type[PhantomEnv],
         agent_id: AgentID,
         other_policies: Mapping[AgentID, Tuple[Type[Policy], Mapping[str, Any]]],
         env_config: Optional[Mapping[str, Any]] = None,
     ) -> None:
-        self._env = env(**(env_config or {}))
+        self._env = env_class(**(env_config or {}))
 
         # Check selected agent exists
         if agent_id not in self._env.agent_ids:
             raise ValueError(
-                f"Selected agent '{agent_id}' of SingleAgentEnvAdapter not found in underlying env '{env.__name__}'"
+                f"Selected agent '{agent_id}' of SingleAgentEnvAdapter not found in underlying env '{env_class.__name__}'"
             )
 
         # Check selected agent isn't given policy

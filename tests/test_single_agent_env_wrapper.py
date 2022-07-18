@@ -41,7 +41,7 @@ class MockPolicy(Policy):
 @pytest.fixture
 def gym_env():
     return SingleAgentEnvAdapter(
-        env=PhantomEnv,
+        env_class=PhantomEnv,
         agent_id="A",
         other_policies={"B": (MockPolicy, {})},
         env_config={
@@ -100,7 +100,7 @@ def test_bad_env():
     # Bad selected agent ID
     with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
-            env=PhantomEnv,
+            env_class=PhantomEnv,
             agent_id="X",
             other_policies={"B": (MockPolicy, {})},
             env_config={
@@ -112,7 +112,7 @@ def test_bad_env():
     # Selected agent has other policy
     with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
-            env=PhantomEnv,
+            env_class=PhantomEnv,
             agent_id="A",
             other_policies={"A": (MockPolicy, {}), "B": (MockPolicy, {})},
             env_config={
@@ -124,7 +124,7 @@ def test_bad_env():
     # Bad other policy agent ID
     with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
-            env=PhantomEnv,
+            env_class=PhantomEnv,
             agent_id="A",
             other_policies={"X": (MockPolicy, {})},
             env_config={
@@ -136,7 +136,7 @@ def test_bad_env():
     # Agent B missing from other policies
     with pytest.raises(ValueError):
         SingleAgentEnvAdapter(
-            env=PhantomEnv,
+            env_class=PhantomEnv,
             agent_id="A",
             other_policies={},
             env_config={
