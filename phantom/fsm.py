@@ -285,6 +285,10 @@ class FiniteStateMachineEnv(PhantomEnv):
         dones: Dict[AgentID, bool] = {"__all__": False}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
+        rewarded_agents = self._stages[self.current_stage].rewarded_agents
+        current_acting_agents = self._stages[self.current_stage].acting_agents
+        next_acting_agents = self._stages[next_stage].acting_agents
+
         for agent_id, agent in self.agents.items():
             ctx = self.network.context_for(agent_id)
 
@@ -293,15 +297,15 @@ class FiniteStateMachineEnv(PhantomEnv):
             if dones[agent_id]:
                 self._dones.add(agent_id)
 
-            acting_agents = self._stages[next_stage].acting_agents
-            if acting_agents is None or agent_id in acting_agents:
+            if next_acting_agents is None or agent_id in next_acting_agents:
                 observations[agent_id] = agent.encode_observation(ctx)
                 infos[agent_id] = agent.collect_infos(ctx)
 
-            rewarded_agents = self._stages[self.current_stage].rewarded_agents
             if (
-                rewarded_agents is not None and agent_id in rewarded_agents
-            ) or agent_id in acting_agents:
+                (rewarded_agents is not None and agent_id in rewarded_agents)
+                or current_acting_agents is None
+                or agent_id in current_acting_agents
+            ):
                 reward = agent.compute_reward(ctx)
                 if reward is not None:
                     rewards[agent_id] = reward

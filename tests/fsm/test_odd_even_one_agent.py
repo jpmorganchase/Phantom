@@ -35,7 +35,7 @@ class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
         )
 
 
-def test_odd_even_one_std_agent():
+def test_odd_even_one_agent():
     env = MockFSMEnv()
 
     assert env.reset() == {"agent": np.array([0])}
