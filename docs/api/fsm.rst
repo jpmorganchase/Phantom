@@ -1,7 +1,5 @@
 .. _api_fsm:
 
-TODO: check
-
 Finite State Machine Environment
 ================================
 

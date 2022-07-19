@@ -19,8 +19,8 @@ To implement this agent type the :meth:`handle_message` method must be implement
 deriving from the :class:`Agent` class or at least one message handler method must be
 implemented if deriving from the :class:`MessageHandlerAgent` class.
 
-If the :meth:`generate_messages` method is implemented then the agent can now also create
-messages.
+If the :meth:`generate_messages` method is also implemented the agent can now also
+pro-actively create messages at the start of each step.
 
 Finally there is a full agent that has a Policy, reward function, observation encoder
 and action decoder. The :meth:`generate_messages` should not be implemented here as the
