@@ -14,7 +14,7 @@ from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
 from .types import AgentID, PolicyID, StageID
-from .view import EnvView
+from .views import EnvView
 
 
 class FSMValidationError(Exception):

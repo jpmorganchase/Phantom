@@ -23,7 +23,7 @@ from .message import Message, MsgPayload
 from .reward_functions import RewardFunction
 from .supertype import Supertype
 from .types import AgentID
-from .view import AgentView
+from .views import AgentView
 
 
 Action = TypeVar("Action")

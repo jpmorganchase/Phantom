@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .types import AgentID
-from .view import AgentView, EnvView
+from .views import AgentView, EnvView
 
 if TYPE_CHECKING:
     from .agents import Agent

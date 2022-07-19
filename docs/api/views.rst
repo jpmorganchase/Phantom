@@ -13,19 +13,19 @@ providing tailored views to different agents:
 View
 ----
 
-.. autoclass:: phantom.view.View
+.. autoclass:: phantom.views.View
    :inherited-members:
 
 
 AgentView
 ---------
 
-.. autoclass:: phantom.view.AgentView
+.. autoclass:: phantom.views.AgentView
    :inherited-members:
 
 
 EnvView
 -------
 
-.. autoclass:: phantom.view.EnvView
+.. autoclass:: phantom.views.EnvView
    :inherited-members:

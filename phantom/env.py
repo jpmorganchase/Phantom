@@ -13,7 +13,7 @@ from .network import Network
 from .supertype import Supertype
 from .types import AgentID
 from .utils.samplers import Sampler
-from .view import EnvView
+from .views import EnvView
 
 
 class PhantomEnv:
