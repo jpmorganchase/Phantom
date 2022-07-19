@@ -131,16 +131,19 @@ class ShopAgent(ph.MessageHandlerAgent):
         # We store the ID of the factory so we can send stock requests to it.
         self.factory_id: str = factory_id
 
-        # We keep track of how much stock the shop has...
+        # We keep track of how much stock the shop has:
         self.stock: int = 0
 
-        # ...and how many sales have been made...
+        # How many sales have been made:
         self.sales: int = 0
 
-        # ...and how many orders the shop has missed due to not having enough stock.
+        # How many orders the shop has missed due to not having enough stock:
         self.missed_sales: int = 0
 
-        # we initialise the price variable here, it's value will be set when the shop
+        # How many items have been delivered by the factory in this turn:
+        self.delivered_stock: int = 0
+
+        # We initialise the price variable here, it's value will be set when the shop
         # agent takes it's first action.
         self.price: float = 0.0
 
@@ -183,6 +186,8 @@ class ShopAgent(ph.MessageHandlerAgent):
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
+        self.delivered_stock = message.payload.size
+
         self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
 
     @ph.agents.msg_handler(OrderRequest)
@@ -232,7 +237,11 @@ class ShopAgent(ph.MessageHandlerAgent):
 
     def compute_reward(self, ctx: ph.Context) -> float:
         return (
-            self.sales * (self.price - self.type.cost_per_unit)
+            # The shop makes profit from selling items at the set price:
+            self.sales * self.price
+            # It incurs a cost for ordering new stock:
+            - self.delivered_stock * self.type.cost_per_unit
+            # And for holding onto excess stock overnight:
             - self.stock * self.type.cost_of_carry
         )
 
@@ -240,7 +249,6 @@ class ShopAgent(ph.MessageHandlerAgent):
         super().reset()  # sampled supertype is set as self.type here
 
         self.stock = 0
-        self.price = 0.0
 
 
 # Define agent IDs:
