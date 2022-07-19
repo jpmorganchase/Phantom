@@ -66,3 +66,24 @@ def test_ordering():
 
     assert n["C"].res_time <= n["A"].res_time
     assert n["A"].res_time <= n["B"].res_time
+
+
+def test_batch_resolver_chain_limit(caplog):
+    n = Network(
+        [
+            _TestAgent("A"),
+            _TestAgent("B"),
+        ],
+        BatchResolver(chain_limit=0),
+    )
+    n.add_connection("A", "B")
+
+    n.send("A", "B", Request(0))
+
+    assert len(caplog.records) == 0
+    n.resolve(lambda: EnvView(0))
+    assert len(caplog.records) == 1
+
+    assert (
+        "1 message(s) still in queue after resolver chain limit reached." in caplog.text
+    )

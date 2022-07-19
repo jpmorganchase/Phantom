@@ -1,4 +1,5 @@
 import abc
+import logging
 from collections import defaultdict
 from typing import Callable, DefaultDict, List, TYPE_CHECKING
 
@@ -81,7 +82,6 @@ class BatchResolver(Resolver):
         self.messages[message.receiver_id].append(message)
 
     def resolve(self, network: "Network", env_view_fn: Callable[[], EnvView]) -> None:
-        # TODO: add warning if chain limit is reached and messages still unresolved
         for _ in range(self.chain_limit):
             if len(self.messages) == 0:
                 break
@@ -99,3 +99,8 @@ class BatchResolver(Resolver):
                 if batch is not None:
                     for sub_receiver_id, sub_payload in batch:
                         self.push(Message(receiver_id, sub_receiver_id, sub_payload))
+
+        if len(self.messages) > 0:
+            logging.getLogger("BatchResolver").warning(
+                f"{len(self.messages)} message(s) still in queue after resolver chain limit reached."
+            )
