@@ -187,8 +187,8 @@ class FiniteStateMachineEnv(PhantomEnv):
                 )
 
     def view(self, agent_id: Optional[AgentID] = None) -> FSMEnvView:
-        """Return an immutable view to the environment's public state. TODO"""
-        return FSMEnvView(self.current_stage)
+        """Return an immutable view to the FSM environment's public state."""
+        return FSMEnvView(self.current_step, self.current_stage)
 
     def reset(self) -> Dict[AgentID, Any]:
         """

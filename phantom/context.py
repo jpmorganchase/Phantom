@@ -21,12 +21,12 @@ class Context:
         agent: Focal node of the ego network.
         agent_views: A collection of view objects, each one associated with an adjacent
             agent.
-        env_view: An optional view object associated with the environment.
+        env_view: A view object associated with the environment.
     """
 
     agent: "Agent"
     agent_views: Dict[AgentID, Optional[AgentView]]
-    env_view: Optional[EnvView]
+    env_view: EnvView
 
     @property
     def neighbour_ids(self) -> List[AgentID]:

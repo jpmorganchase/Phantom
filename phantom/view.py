@@ -33,3 +33,5 @@ class EnvView(View):
     """
     Immutable references to public :class:`phantom.PhantomEnv` state.
     """
+
+    current_step: int
