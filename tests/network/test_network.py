@@ -8,6 +8,7 @@ from phantom import AgentID, Context, Message, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
 from phantom.network import BatchResolver, Network
+from phantom.views import EnvView
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ def test_getters(net):
 
 def test_call_response(net):
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve()
+    net.resolve(lambda: EnvView(0))
 
     assert net.agents["mm"].total_cash == 25.0
     assert net.agents["inv"].total_cash == 50.0
@@ -65,21 +66,21 @@ def test_call_response(net):
 def test_send_many(net):
     net.send("mm", "inv", MyMessage(100.0))
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve()
+    net.resolve(lambda: EnvView(0))
 
     assert net.agents["mm"].total_cash == 50.0
     assert net.agents["inv"].total_cash == 100.0
 
 
 def test_context_existence(net):
-    assert "inv" in net.context_for("mm")
-    assert "mm" in net.context_for("inv")
+    assert "inv" in net.context_for("mm", EnvView(0))
+    assert "mm" in net.context_for("inv", EnvView(0))
 
 
 def test_reset(net):
     net.send("mm", "inv", MyMessage(100.0))
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve()
+    net.resolve(lambda: EnvView(0))
     net.reset()
 
     assert net.agents["mm"].total_cash == 0.0

@@ -5,6 +5,7 @@ from phantom import AgentID, Context, Network, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
 from phantom.resolvers import BatchResolver
+from phantom.views import EnvView
 
 
 class MockEnv:
@@ -41,7 +42,7 @@ def test_tracking():
 
     n.send("A", "B", _TestMessage(4))
     n.send("A", "C", _TestMessage(4))
-    n.resolve()
+    n.resolve(lambda: EnvView(0))
 
     assert resolver.tracked_messages == [
         Message("A", "B", _TestMessage(4)),

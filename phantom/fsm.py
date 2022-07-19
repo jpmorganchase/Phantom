@@ -220,10 +220,12 @@ class FiniteStateMachineEnv(PhantomEnv):
         # TODO: enforce at least one acting agent?
         acting_agents = self._stages[self.current_stage].acting_agents
 
+        env_view = self.view()
+
         for agent_id, agent in self.network.agents.items():
             if agent.action_space is not None:
                 if acting_agents is None or agent_id in acting_agents:
-                    ctx = self.network.context_for(agent_id)
+                    ctx = self.network.context_for(agent_id, env_view)
                     observations[agent_id] = agent.encode_observation(ctx)
 
                 self._rewards[agent_id] = None
@@ -241,10 +243,12 @@ class FiniteStateMachineEnv(PhantomEnv):
         self.current_step += 1
 
         # Handle the updates due to active/strategic behaviours:
+        env_view = self.view()
+
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
 
-            ctx = self.network.context_for(agent_id)
+            ctx = self.network.context_for(agent_id, env_view)
 
             messages = agent.decode_action(ctx, action)
 
@@ -289,8 +293,10 @@ class FiniteStateMachineEnv(PhantomEnv):
         current_acting_agents = self._stages[self.current_stage].acting_agents
         next_acting_agents = self._stages[next_stage].acting_agents
 
+        env_view = self.view()
+
         for agent_id, agent in self.agents.items():
-            ctx = self.network.context_for(agent_id)
+            ctx = self.network.context_for(agent_id, env_view)
 
             dones[agent_id] = agent.is_done(ctx)
 

@@ -23,6 +23,7 @@ from .context import Context
 from .message import Message
 from .resolvers import BatchResolver, Resolver
 from .types import AgentID
+from .views import EnvView
 
 if TYPE_CHECKING:
     from .env import EnvView
@@ -60,10 +61,6 @@ class Network:
 
         if agents is not None:
             self.add_agents(agents)
-
-        self.env_view_fn: Optional[
-            Callable[[Optional[AgentID]], Optional["EnvView"]]
-        ] = None
 
     @property
     def agent_ids(self) -> KeysView[AgentID]:
@@ -187,7 +184,7 @@ class Network:
 
         return network
 
-    def context_for(self, agent_id: AgentID) -> Context:
+    def context_for(self, agent_id: AgentID, env_view: EnvView) -> Context:
         """Returns the local context for agent :code:`agent_id`.
 
         Here we define a neighbourhood as being the first-order ego-graph with
@@ -200,8 +197,6 @@ class Network:
             neighbour_id: self.agents[neighbour_id].view(agent_id)
             for neighbour_id in self.graph.neighbors(agent_id)
         }
-
-        env_view = self.env_view_fn(agent_id) if self.env_view_fn is not None else None
 
         return Context(self.agents[agent_id], agent_views, env_view)
 
@@ -218,30 +213,15 @@ class Network:
 
         self.resolver.push(Message(sender_id, receiver_id, message))
 
-    def resolve(
-        self,
-        env_view_fn: Optional[
-            Callable[[Optional[AgentID]], Optional["EnvView"]]
-        ] = None,
-    ) -> None:
-        """Resolve all messages in the network and clear volatile memory.
-
-        This process does three things in a strictly sequential manner:
-            1. Execute the chosen resolver to handle messages in the network.
-            2. Clear all edges of any remaining messages instances.
+    def resolve(self, env_view_fn: Callable[[], EnvView]) -> None:
         """
-        self.env_view_fn = env_view_fn
+        Resolve all messages in the network and clear volatile memory.
 
-        ctxs = [self.context_for(agent_id) for agent_id in self.agents]
-
-        for ctx in ctxs:
-            ctx.agent.pre_message_resolution(ctx)
-
-        self.resolver.resolve(self)
-
-        for ctx in ctxs:
-            ctx.agent.post_message_resolution(ctx)
-
+        Arguments:
+            env_view_fn: Reference to the :meth:`env.view` method returning the public
+                environment view applicable to all agents.
+        """
+        self.resolver.resolve(self, env_view_fn)
         self.resolver.reset()
 
     def get_agents_where(self, pred: Callable[[Agent], bool]) -> Dict[AgentID, Agent]:

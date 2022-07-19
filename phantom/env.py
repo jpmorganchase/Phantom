@@ -107,27 +107,31 @@ class PhantomEnv:
         """Return the number of agents in the environment."""
         return len(self.agent_ids)
 
-    def view(self, agent_id: Optional[AgentID] = None) -> EnvView:
+    def view(self) -> EnvView:
         """Return an immutable view to the environment's public state."""
         return EnvView(self.current_step)
 
     def pre_message_resolution(self) -> None:
         """Perform internal, pre-message resolution updates to the environment."""
-        ctxs = {
-            agent_id: self.network.context_for(agent_id) for agent_id in self.agent_ids
-        }
+        env_view = self.view()
 
-        for agent_id, ctx in ctxs.items():
-            self.agents[agent_id].pre_message_resolution(ctx)
+        ctxs = [
+            self.network.context_for(agent_id, env_view) for agent_id in self.agent_ids
+        ]
+
+        for ctx in ctxs:
+            self.agents[ctx.agent.id].pre_message_resolution(ctx)
 
     def post_message_resolution(self) -> None:
         """Perform internal, post-message resolution updates to the environment."""
-        ctxs = {
-            agent_id: self.network.context_for(agent_id) for agent_id in self.agent_ids
-        }
+        env_view = self.view()
 
-        for agent_id, ctx in ctxs.items():
-            self.agents[agent_id].post_message_resolution(ctx)
+        ctxs = [
+            self.network.context_for(agent_id, env_view) for agent_id in self.agent_ids
+        ]
+
+        for ctx in ctxs:
+            self.agents[ctx.agent.id].post_message_resolution(ctx)
 
     def resolve_network(self) -> None:
         self.pre_message_resolution()
@@ -160,9 +164,11 @@ class PhantomEnv:
         # Generate initial observations.
         observations: Dict[AgentID, Any] = {}
 
+        env_view = self.view()
+
         for agent_id, agent in self.network.agents.items():
             if agent.action_space is not None:
-                ctx = self.network.context_for(agent_id)
+                ctx = self.network.context_for(agent_id, env_view)
                 observations[agent_id] = agent.encode_observation(ctx)
 
         return observations
@@ -178,8 +184,10 @@ class PhantomEnv:
         self.current_step += 1
 
         # Handle the updates due to active/strategic behaviours:
+        env_view = self.view()
+
         for agent in self.agents.values():
-            ctx = self.network.context_for(agent.id)
+            ctx = self.network.context_for(agent.id, env_view)
 
             if agent.id in actions:
                 messages = self.agents[agent.id].decode_action(ctx, actions[agent.id])
@@ -198,9 +206,11 @@ class PhantomEnv:
         dones: Dict[AgentID, bool] = {}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
+        env_view = self.view()
+
         for agent_id, agent in self.network.agents.items():
             if agent.action_space is not None:
-                ctx = self.network.context_for(agent_id)
+                ctx = self.network.context_for(agent_id, env_view)
 
                 if agent.is_done(ctx):
                     # if agent is just done we send the last obs, rew, info

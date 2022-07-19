@@ -6,6 +6,7 @@ from phantom import AgentID, Context, Network, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
 from phantom.resolvers import BatchResolver
+from phantom.views import EnvView
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,7 @@ def test_ordering():
     n.send("A", "B", Request(100.0))
     n.send("A", "C", Request(100.0))
     n.send("B", "C", Request(100.0))
-    n.resolve()
+    n.resolve(lambda: EnvView(0))
 
     assert n["A"].req_time <= n["B"].req_time
     assert n["B"].req_time <= n["C"].req_time
