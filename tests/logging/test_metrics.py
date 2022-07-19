@@ -10,9 +10,16 @@ class MockAgent:
         self.test_property += self.inc
 
 
+class MockProperty:
+    def __init__(self):
+        self.sub_property = 1.0
+
+
 class MockEnv:
     def __init__(self):
         self.test_property = 0.0
+
+        self.nested_property = MockProperty()
 
         self.agents = {
             "agent1": MockAgent(1.0),
@@ -204,3 +211,15 @@ def test_aggregated_agent_metric_4():
         values.append(metric.extract(env))
 
     assert metric.reduce(values) == 15.0
+
+
+def test_nested_metric():
+    env = MockEnv()
+
+    metric = ph.logging.SimpleEnvMetric(
+        env_property="nested_property.sub_property",
+        reduce_action="last",
+    )
+
+    env.step()
+    assert metric.extract(env) == 1.0
