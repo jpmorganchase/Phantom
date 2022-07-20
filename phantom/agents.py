@@ -71,12 +71,12 @@ class Agent(ABC):
 
         if action_decoder is not None:
             self.action_space = action_decoder.action_space
-        elif not hasattr(self, "action_space"):
+        elif "action_space" not in dir(self):
             self.action_space = None
 
         if observation_encoder is not None:
             self.observation_space = observation_encoder.observation_space
-        elif not hasattr(self, "observation_space"):
+        elif "observation_space" not in dir(self):
             self.observation_space = None
 
     @property
