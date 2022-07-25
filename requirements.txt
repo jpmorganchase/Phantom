@@ -2,7 +2,7 @@ cloudpickle==2.1.0
 coloredlogs==15.0.1
 gputil==1.4.0
 gym==0.21.0
-numpy==1.22.4
+numpy==1.21.6
 ray[rllib]==1.13.0
 stable-baselines3==1.5.0
 tabulate==0.8.10
