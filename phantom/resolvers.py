@@ -23,6 +23,10 @@ class Resolver(abc.ABC):
 
     Implementations of this class must provide implementations of the abstract methods
     below.
+
+    Arguments:
+        enable_tracking: If True, the resolver should save all messages in an
+            time-ordered list that can be accessed with :attr:`tracked_messages`.
     """
 
     def __init__(self, enable_tracking: bool = False) -> None:
@@ -30,16 +34,24 @@ class Resolver(abc.ABC):
         self._tracked_messages: List[Message] = []
 
     def push(self, message: Message) -> None:
+        """Called by the Network to add messages to the resolver."""
         if self.enable_tracking:
             self._tracked_messages.append(message)
 
         self.handle_push(message)
 
     def clear_tracked_messages(self) -> None:
+        """Clears any stored messages.
+
+        Useful for when incrementally processing/storing batches of tracked messages.
+        """
         self._tracked_messages.clear()
 
     @property
     def tracked_messages(self) -> List[Message]:
+        """
+        Returns all messages that have passed through the resolver if tracking is enabled.
+        """
         return self._tracked_messages
 
     @abc.abstractmethod
@@ -63,10 +75,26 @@ class Resolver(abc.ABC):
 
     @abc.abstractmethod
     def reset(self) -> None:
+        """Resets the resolver and clears any potential message queues.
+
+        Note:
+            Does not clear any tracked messages.
+        """
         raise NotImplementedError
 
 
 class BatchResolver(Resolver):
+    """
+    Resolver that allows each agent to send/respond to messages before delivering the
+    messages to the recipient agents.
+
+    Arguments:
+        enable_tracking: If True, the resolver should save all messages in an
+            time-ordered list that can be accessed with :attr:`tracked_messages`.
+        chain_limit: The maximum number of rounds of messages to resolve. If the limit
+            is reached a warning will be logged.
+    """
+
     def __init__(self, enable_tracking: bool = False, chain_limit: int = 2) -> None:
         super().__init__(enable_tracking)
 
@@ -98,5 +126,6 @@ class BatchResolver(Resolver):
 
         if len(self.messages) > 0:
             logging.getLogger("BatchResolver").warning(
-                f"{len(self.messages)} message(s) still in queue after resolver chain limit reached."
+                "%s message(s) still in queue after resolver chain limit reached.",
+                len(self.messages),
             )

@@ -13,7 +13,6 @@ from typing import (
     Tuple,
     Type,
     Union,
-    TYPE_CHECKING,
 )
 
 import numpy as np
@@ -21,13 +20,10 @@ import networkx as nx
 
 from .agents import Agent
 from .context import Context
-from .message import Message
+from .message import Message, MsgPayload
 from .resolvers import BatchResolver, Resolver
 from .types import AgentID
 from .views import EnvView
-
-if TYPE_CHECKING:
-    from .env import EnvView
 
 
 class NetworkError(Exception):
@@ -201,7 +197,9 @@ class Network:
 
         return Context(self.agents[agent_id], agent_views, env_view)
 
-    def send(self, sender_id: AgentID, receiver_id: AgentID, message: Message) -> None:
+    def send(
+        self, sender_id: AgentID, receiver_id: AgentID, payload: MsgPayload
+    ) -> None:
         """Send message batches across the network.
 
         Arguments:
@@ -212,7 +210,7 @@ class Network:
                 f"No connection between {self.agents[sender_id]} and {self.agents[receiver_id]}."
             )
 
-        self.resolver.push(Message(sender_id, receiver_id, message))
+        self.resolver.push(Message(sender_id, receiver_id, payload))
 
     def resolve(self, contexts: Mapping[AgentID, Context]) -> None:
         """Resolve all messages in the network and clear volatile memory.

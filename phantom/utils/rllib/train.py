@@ -234,7 +234,13 @@ class RLlibTrainingStartCallback(LoggerCallback):
         super().__init__()
         self.config = config
 
-    def on_trial_start(self, trial: ray.tune.trial.Trial, **kwargs) -> None:
+    def on_trial_start(
+        self,
+        iteration: int,
+        trials: List[ray.tune.tune.Trial],
+        trial: ray.tune.tune.Trial,
+        **info: Any,
+    ) -> None:
         cloudpickle.dump(
             self.config, open(Path(trial.logdir, "phantom-training-params.pkl"), "wb")
         )

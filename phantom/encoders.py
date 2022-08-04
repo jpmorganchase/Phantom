@@ -112,6 +112,13 @@ class DictEncoder(Encoder[Dict[str, Any]]):
 
 
 class Constant(Encoder[np.ndarray]):
+    """Encoder that always returns a constant valued Box Space.
+
+    Arguments:
+        shape: Shape of the returned box.
+        value: Value that the box is filled with.
+    """
+
     def __init__(self, shape: Tuple[int], value: float = 0.0) -> None:
         self._shape = shape
         self._value = value

@@ -11,8 +11,7 @@ MetricValue = TypeVar("MetricValue")
 
 
 class Metric(Generic[MetricValue], ABC):
-    """
-    Class for extracting metrics from a :class:`phantom.PhantomEnv` instance.
+    """Class for extracting metrics from a :class:`phantom.PhantomEnv` instance.
 
     Arguments:
         description: Optional description string for use in data exploration tools.
@@ -23,8 +22,7 @@ class Metric(Generic[MetricValue], ABC):
 
     @abstractmethod
     def extract(self, env: PhantomEnv) -> MetricValue:
-        """
-        Extract and return the current metric value from `env`.
+        """Extract and return the current metric value from `env`.
 
         Arguments:
             env: The environment instance.
@@ -32,8 +30,7 @@ class Metric(Generic[MetricValue], ABC):
         raise NotImplementedError
 
     def reduce(self, values: Sequence[MetricValue]) -> MetricValue:
-        """
-        Reduce a set of observations into a single representative value.
+        """Reduce a set of observations into a single representative value.
 
         The default implementation is to return the latest observation.
 
@@ -47,6 +44,8 @@ SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
 
 
 class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
+    """Base class of a set of helper metric classes."""
+
     def __init__(
         self,
         # reduce_action: Literal["last", "mean", "sum"] = "last", PYTHON3.8
@@ -107,7 +106,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         super().__init__(reduce_action, description)
 
     def extract(self, env: PhantomEnv) -> SimpleMetricValue:
-        return rgetattr(env.agents[self.agent_id], self.agent_property)
+        return _rgetattr(env.agents[self.agent_id], self.agent_property)
 
 
 class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
@@ -140,7 +139,7 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
         super().__init__(reduce_action, description)
 
     def extract(self, env: PhantomEnv) -> SimpleMetricValue:
-        return rgetattr(env, self.env_property)
+        return _rgetattr(env, self.env_property)
 
 
 class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
@@ -195,7 +194,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
     def extract(self, env: PhantomEnv) -> SimpleMetricValue:
         values = [
-            rgetattr(env.agents[agent_id], self.agent_property)
+            _rgetattr(env.agents[agent_id], self.agent_property)
             for agent_id in self.agent_ids
         ]
 
@@ -211,6 +210,6 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         raise ValueError
 
 
-def rgetattr(obj, attr, *args):
+def _rgetattr(obj, attr, *args):
     _getattr = lambda obj, attr: getattr(obj, attr, *args)
     return reduce(_getattr, [obj] + attr.split("."))

@@ -267,6 +267,8 @@ class Trainer(ABC):
 
         @dataclass(frozen=True)
         class PolicySpec:
+            """Defines a policy that has been reduced to a single obs and action space."""
+
             observation_space: gym.Space
             action_space: gym.Space
             policy_class: Optional[Type[Policy]] = None

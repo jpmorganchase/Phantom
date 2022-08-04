@@ -111,7 +111,7 @@ class Agent(ABC):
         return list(
             chain.from_iterable(
                 filter(
-                    lambda x: x != None,
+                    lambda x: x is not None,
                     (self.handle_message(ctx, message) for message in batch),
                 )
             )
@@ -323,7 +323,7 @@ class MessageHandlerAgent(Agent, ABC):
         return list(
             chain.from_iterable(
                 filter(
-                    lambda x: x != None,
+                    lambda x: x is not None,
                     (
                         bound_handler(ctx, message)
                         for bound_handler in self.__handlers[ptype]

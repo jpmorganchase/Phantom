@@ -10,7 +10,6 @@ from typing import (
     Tuple,
 )
 
-from .agents import Agent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -337,7 +336,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         self._rewards.update(rewards)
         self._infos.update(infos)
 
-        self.previous_stage_id, self.current_stage = self.current_stage, next_stage
+        self.previous_stage, self.current_stage = self.current_stage, next_stage
 
         if self.current_stage is None or self.is_done():
             # This is the terminal stage, return most recent observations, rewards and
