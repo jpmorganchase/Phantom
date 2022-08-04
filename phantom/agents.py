@@ -301,14 +301,9 @@ class MessageHandlerAgent(Agent, ABC):
             list
         )
 
-        for attr_name in dir(self):
-            # This check is so that getattr will not call any action_space/observation_space
-            # @property methods that may depend on the agent's type which may not be set
-            if attr_name not in ["action_space", "observation_space"]:
-                attr = getattr(self, attr_name)
-
-                if callable(attr) and hasattr(attr, "message_type"):
-                    self.__handlers[attr.message_type].append(attr)
+        for name, attr in self.__class__.__dict__.items():
+            if callable(attr) and hasattr(attr, "_message_type"):
+                self.__handlers[attr._message_type].append(getattr(self, name))
 
     def handle_message(
         self, ctx: Context, message: Message
@@ -340,7 +335,7 @@ class MessageHandlerAgent(Agent, ABC):
 
 def msg_handler(message_type: Type[MsgPayload]) -> Callable[[Handler], Handler]:
     def decorator(fn: Handler) -> Handler:
-        setattr(fn, "message_type", message_type)
+        setattr(fn, "_message_type", message_type)
         return fn
 
     return decorator
