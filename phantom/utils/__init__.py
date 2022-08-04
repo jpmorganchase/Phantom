@@ -98,6 +98,9 @@ def collect_instances_of_type_with_paths(
                 break
         if not added:
             collection.append((obj, [current_path]))
+    # Special handling of strings
+    elif isinstance(obj, str):
+        pass
     # Test sub-objects in mappings, eg. dicts
     elif isinstance(obj, collections.abc.Mapping):
         for key, val in obj.items():
