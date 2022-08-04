@@ -185,7 +185,7 @@ class Agent(ABC):
     def generate_messages(self, ctx: Context) -> List[Tuple[AgentID, MsgPayload]]:
         return []
 
-    def compute_reward(self, ctx: Context) -> Optional[float]:
+    def compute_reward(self, ctx: Context) -> float:
         """
         Computes a reward value based on an agents current state.
 
@@ -198,9 +198,12 @@ class Agent(ABC):
         Returns:
             A float representing the present reward value.
         """
-        return (
-            None if self.reward_function is None else self.reward_function.reward(ctx)
-        )
+        if self.reward_function is None:
+            raise NotImplementedError(
+                f"Agent '{self.id}' does not have an RewardFunction instance set as 'reward_function' or a custom 'compute_reward' method defined"
+            )
+
+        return self.reward_function.reward(ctx)
 
     def is_done(self, ctx: Context) -> bool:
         """

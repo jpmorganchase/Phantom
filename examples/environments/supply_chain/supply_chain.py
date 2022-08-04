@@ -98,6 +98,9 @@ class CustomerAgent(ph.MessageHandlerAgent):
             [ctx[shop_id].price for shop_id in self.shop_ids], dtype=np.float32
         )
 
+    def compute_reward(self, ctx: ph.Context) -> float:
+        return 0.0
+
 
 class FactoryAgent(ph.MessageHandlerAgent):
     def __init__(self, agent_id: str):
