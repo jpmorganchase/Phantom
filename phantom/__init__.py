@@ -13,7 +13,7 @@ from .network import Network, StochasticNetwork
 from .policy import Policy
 from .reward_functions import RewardFunction
 from .supertype import Supertype
-from .trainers import Trainer
+from .trainer import Trainer
 from .types import AgentID
 from .utils import rllib
 from .views import AgentView, EnvView, View

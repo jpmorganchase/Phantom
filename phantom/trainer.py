@@ -22,12 +22,12 @@ import numpy as np
 import tensorboardX as tbx
 from tqdm import trange
 
-from ..types import AgentID, PolicyID
-from ..agents import Agent
-from ..env import PhantomEnv
-from ..logging import Metric
-from ..policy import Policy
-from ..utils import check_env_config
+from .types import AgentID, PolicyID
+from .agents import Agent
+from .env import PhantomEnv
+from .logging import Metric
+from .policy import Policy
+from .utils import check_env_config
 
 
 PolicyMapping = Mapping[
