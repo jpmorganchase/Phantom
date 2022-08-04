@@ -1,11 +1,10 @@
 import logging
 import os
-from dataclasses import dataclass
 from inspect import isclass
+from pathlib import Path
 from typing import (
     Any,
     Dict,
-    Iterable,
     List,
     Mapping,
     Optional,
@@ -14,6 +13,7 @@ from typing import (
     Union,
 )
 
+import cloudpickle
 import gym
 import numpy as np
 import ray
@@ -22,12 +22,12 @@ from ray.rllib.agents.callbacks import DefaultCallbacks
 from ray.rllib.evaluation import Episode, MultiAgentEpisode
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.typing import TensorStructType, TensorType
+from ray.tune.logger import LoggerCallback
 
 from ...agents import Agent
 from ...env import PhantomEnv
 from ...logging import Metric
 from ...policy import Policy
-from ...supertype import Supertype
 from ...types import AgentID
 from .. import (
     check_env_config,
@@ -168,6 +168,25 @@ def train(
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
+    if "callbacks" not in tune_config:
+        tune_config["callbacks"] = []
+
+    tune_config["callbacks"].append(
+        RLlibTrainingStartCallback(
+            {
+                "algorithm": algorithm,
+                "env_class": env_class,
+                "policy_specs": policy_specs,
+                "policy_mapping": policy_mapping,
+                "policies_to_train": policies_to_train,
+                "env_config": env_config,
+                "rllib_config": rllib_config,
+                "tune_config": tune_config,
+                "metrics": metrics,
+            }
+        )
+    )
+
     if metrics is not None:
         config["callbacks"] = RLlibMetricLogger(metrics)
 
@@ -184,9 +203,7 @@ def train(
 
 
 class RLlibMetricLogger(DefaultCallbacks):
-    """
-    RLlib callback that logs Phantom metrics.
-    """
+    """RLlib callback that logs Phantom metrics."""
 
     def __init__(self, metrics: Mapping[str, "Metric"]) -> None:
         super().__init__()
@@ -209,6 +226,22 @@ class RLlibMetricLogger(DefaultCallbacks):
             )
 
     def __call__(self) -> "RLlibMetricLogger":
+        return self
+
+
+class RLlibTrainingStartCallback(LoggerCallback):
+    """Saves training parameters to the results directory at the start of training."""
+
+    def __init__(self, config: Dict[str, Any]) -> None:
+        super().__init__()
+        self.config = config
+
+    def on_trial_start(self, trial: ray.tune.trial.Trial, **kwargs) -> None:
+        cloudpickle.dump(
+            self.config, open(Path(trial.logdir, "phantom-training-params.pkl"), "wb")
+        )
+
+    def __call__(self) -> "RLlibTrainingStartCallback":
         return self
 
 
@@ -336,22 +369,3 @@ def make_rllib_wrapped_policy_class(policy_class: Type[Policy]) -> Type[rllib.Po
             return (actions, [], {})
 
     return RLlibPolicyWrapper
-
-
-@dataclass
-class PhantomExperimentConfig:
-    experiment_name: str
-    env_class: Type[PhantomEnv]
-    num_episodes: int
-    seed: int = 0
-    algorithm: Optional[str] = None
-    trainer: Optional[rllib.agents.Trainer] = None
-    num_workers: Optional[int] = None
-    checkpoint_freq: Optional[int] = None
-    alg_config: Optional[Mapping[str, Any]] = None
-    env_config: Optional[Mapping[str, Any]] = None
-    env_supertype: Optional[Supertype] = None
-    agent_supertypes: Optional[Mapping[AgentID, Supertype]] = None
-    policy_grouping: Optional[Mapping[str, List[str]]] = None
-    metrics: Optional[Mapping[str, Metric]] = None
-    callbacks: Optional[Iterable[DefaultCallbacks]] = None
