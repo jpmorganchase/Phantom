@@ -150,7 +150,9 @@ class ShopAgent(ph.MessageHandlerAgent):
         # agent takes it's first action.
         self.price: float = 0.0
 
-        self.action_space = gym.spaces.Tuple(
+    @property
+    def action_space(self):
+        return gym.spaces.Tuple(
             (
                 # The price to set for the current step:
                 gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
@@ -159,15 +161,12 @@ class ShopAgent(ph.MessageHandlerAgent):
             )
         )
 
-        self.observation_space = gym.spaces.Tuple(
+    @property
+    def observation_space(self):
+        return gym.spaces.Tuple(
             (
                 # The agent's type:
-                gym.spaces.Dict(
-                    {
-                        "cost_of_carry": gym.spaces.Box(low=0.0, high=1.0, shape=(1,)),
-                        "cost_per_unit": gym.spaces.Box(low=0.0, high=1.0, shape=(1,)),
-                    }
-                ),
+                self.type.to_obs_space(),
                 # The agent's current stock:
                 gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
                 # The number of sales made by the agent in the previous step:

@@ -302,10 +302,13 @@ class MessageHandlerAgent(Agent, ABC):
         )
 
         for attr_name in dir(self):
-            attr = getattr(self, attr_name)
+            # This check is so that getattr will not call any action_space/observation_space
+            # @property methods that may depend on the agent's type which may not be set
+            if attr_name not in ["action_space", "observation_space"]:
+                attr = getattr(self, attr_name)
 
-            if callable(attr) and hasattr(attr, "message_type"):
-                self.__handlers[attr.message_type].append(attr)
+                if callable(attr) and hasattr(attr, "message_type"):
+                    self.__handlers[attr.message_type].append(attr)
 
     def handle_message(
         self, ctx: Context, message: Message
