@@ -240,6 +240,10 @@ class Agent(ABC):
         Can be extended by subclasses to provide additional functionality.
         """
 
+    @property
+    def takes_actions(self) -> bool:
+        return self.action_space is not None or self.action_decoder is not None
+
     def __repr__(self) -> str:
         return f"[{self.__class__.__name__} {self.id}]"
 

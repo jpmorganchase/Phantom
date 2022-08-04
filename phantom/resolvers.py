@@ -1,11 +1,11 @@
 import abc
 import logging
 from collections import defaultdict
-from typing import Callable, DefaultDict, List, TYPE_CHECKING
+from typing import DefaultDict, List, Mapping, TYPE_CHECKING
 
+from .context import Context
 from .types import AgentID
 from .message import Message
-from .views import EnvView
 
 if TYPE_CHECKING:
     from .network import Network
@@ -52,13 +52,12 @@ class Resolver(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def resolve(self, network: "Network", env_view_fn: Callable[[], EnvView]) -> None:
+    def resolve(self, network: "Network", contexts: Mapping[AgentID, Context]) -> None:
         """Process queues messages for a (sub) set of network contexts.
 
         Arguments:
             network: An instance of the Network class to resolve.
-            env_view_fn: Reference to the :meth:`env.view` method returning the public
-                environment view applicable to all agents.
+            contexts: The contexts for all agents for the current step.
         """
         raise NotImplementedError
 
@@ -81,7 +80,7 @@ class BatchResolver(Resolver):
     def handle_push(self, message: Message) -> None:
         self.messages[message.receiver_id].append(message)
 
-    def resolve(self, network: "Network", env_view_fn: Callable[[], EnvView]) -> None:
+    def resolve(self, network: "Network", contexts: Mapping[AgentID, Context]) -> None:
         for _ in range(self.chain_limit):
             if len(self.messages) == 0:
                 break
@@ -89,11 +88,8 @@ class BatchResolver(Resolver):
             processing_messages = self.messages
             self.messages = defaultdict(list)
 
-            env_view = env_view_fn()
-
             for receiver_id, messages in processing_messages.items():
-                ctx = network.context_for(receiver_id, env_view)
-
+                ctx = contexts[receiver_id]
                 batch = ctx.agent.handle_batch(ctx, messages)
 
                 if batch is not None:

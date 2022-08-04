@@ -1,10 +1,12 @@
+from typing import Optional
+
 import gym
 import numpy as np
 import phantom as ph
 
 
 class MockAgent(ph.Agent):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.action_space = gym.spaces.Discrete(1)
@@ -13,6 +15,8 @@ class MockAgent(ph.Agent):
         self.encode_obs_count = 0
         self.decode_action_count = 0
         self.compute_reward_count = 0
+
+        self.num_steps = num_steps
 
     def encode_observation(self, ctx: ph.Context):
         self.encode_obs_count += 1
@@ -27,7 +31,7 @@ class MockAgent(ph.Agent):
         return 0.0
 
     def is_done(self, ctx: ph.Context) -> bool:
-        return self.id == "A"
+        return ctx.env_view.current_step == self.num_steps
 
 
 class MockPolicy(ph.Policy):

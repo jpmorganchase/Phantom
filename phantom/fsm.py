@@ -3,13 +3,14 @@ from typing import (
     Any,
     Callable,
     Dict,
+    List,
     Mapping,
     Optional,
     Sequence,
-    Set,
     Tuple,
 )
 
+from .agents import Agent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -40,7 +41,7 @@ class FSMStage:
     confusion with Environment states we refer to them as stages.
 
     Attributes:
-        stage_id: The name of this stage.
+        id: The name of this stage.
         next_stages: The stages that this stage can transition to.
         acting_agents: If provided, only the given agents will make observations at the
             end of the previous step and take actions in that steps. If not provided,
@@ -59,7 +60,7 @@ class FSMStage:
         rewarded_agents: Optional[Sequence[AgentID]] = None,
         handler: Optional[Callable[[], StageID]] = None,
     ) -> None:
-        self.stage_id = stage_id
+        self.id = stage_id
         self.next_stages = next_stages or []
         self.acting_agents = acting_agents
         self.rewarded_agents = rewarded_agents
@@ -94,12 +95,12 @@ class FiniteStateMachineEnv(PhantomEnv):
     confusion with Environment states we refer to them as stages.
     Stage IDs can be anything type that is hashable, eg. strings, ints, enums.
 
-    Attributes:
-        initial_stage: The initial starting stage of the FSM. When the reset() method is
-            called the environment is initialised into this stage.
+    Arguments:
         num_steps: The maximum number of steps the environment allows per episode.
         network: A Network class or derived class describing the connections between
             agents and agents in the environment.
+        initial_stage: The initial starting stage of the FSM. When the reset() method is
+            called the environment is initialised into this stage.
         env_supertype: Optional Supertype class instance for the environment. If this is
             set, it will be sampled from and the :attr:`env_type` property set on the
             class with every call to :meth:`reset()`.
@@ -125,26 +126,22 @@ class FiniteStateMachineEnv(PhantomEnv):
     ) -> None:
         super().__init__(num_steps, network, env_supertype, agent_supertypes)
 
-        self.initial_stage: StageID = initial_stage
+        self.initial_stage = initial_stage
 
         self._rewards: Dict[PolicyID, Optional[float]] = {}
         self._observations: Dict[PolicyID, Any] = {}
-        self._dones: Set[AgentID] = set()
         self._infos: Dict[PolicyID, Dict[str, Any]] = {}
 
         self._stages: Dict[StageID, FSMStage] = {}
-        self.current_stage: Optional[StageID] = None
-        self.previous_stage: Optional[StageID] = None
 
         self.policy_agent_handler_map: Dict[
             PolicyID, Tuple[AgentID, Optional[StageID]]
         ] = {}
 
         # Register stages via optional class initialiser list
-        if stages is not None:
-            for stage in stages:
-                if stage.stage_id not in self._stages:
-                    self._stages[stage.stage_id] = stage
+        for stage in stages or []:
+            if stage.id not in self._stages:
+                self._stages[stage.id] = stage
 
         # Register stages via FSMStage decorator
         for attr_name in dir(self):
@@ -152,12 +149,12 @@ class FiniteStateMachineEnv(PhantomEnv):
             if callable(attr):
                 handler_fn = attr
                 if hasattr(handler_fn, "_decorator"):
-                    if handler_fn._decorator.stage_id in self._stages:
+                    if handler_fn._decorator.id in self._stages:
                         raise FSMValidationError(
-                            f"Found multiple stages with ID '{handler_fn._decorator.stage_id}'"
+                            f"Found multiple stages with ID '{handler_fn._decorator.id}'"
                         )
 
-                    self._stages[handler_fn._decorator.stage_id] = handler_fn._decorator
+                    self._stages[handler_fn._decorator.id] = handler_fn._decorator
 
         # Check there is at least one stage
         if len(self._stages) == 0:
@@ -176,61 +173,70 @@ class FiniteStateMachineEnv(PhantomEnv):
             for next_stage in stage.next_stages:
                 if next_stage not in self._stages:
                     raise FSMValidationError(
-                        f"Next stage '{next_stage}' given in stage '{stage.stage_id}' is not a valid stage"
+                        f"Next stage '{next_stage}' given in stage '{stage.id}' is not a valid stage"
                     )
 
         # Check stages without handler have exactly one next stage
         for stage in self._stages.values():
             if len(stage.next_stages) != 1:
                 raise FSMValidationError(
-                    f"Stage '{stage.stage_id}' without handler must have exactly one next stage (got {len(stage.next_stages)})"
+                    f"Stage '{stage.id}' without handler must have exactly one next stage (got {len(stage.next_stages)})"
                 )
 
-    def view(self, agent_id: Optional[AgentID] = None) -> FSMEnvView:
+        self.current_stage = self.initial_stage
+        self.previous_stage: Optional[StageID] = None
+
+    def view(self) -> FSMEnvView:
         """Return an immutable view to the FSM environment's public state."""
         return FSMEnvView(self.current_step, self.current_stage)
 
-    def reset(self) -> Dict[AgentID, Any]:
+    def reset(self, sample_supertypes: bool = True) -> Dict[AgentID, Any]:
         """
         Reset the environment and return an initial observation.
 
-        This method resets the step count and the :attr:`network`. This
-        includes all the agents in the network.
+        This method resets the step count and the :attr:`network`. This includes all the
+        agents in the network.
+
+        Arguments:
+            sample_supertypes: If set to False will not automatically sample supertypes
+                and apply agent and environment types.
+
 
         Returns:
             A dictionary mapping AgentIDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
+        # Reset clock and stage
         self.current_step = 0
         self.current_stage = self.initial_stage
 
-        self._apply_samplers()
+        # Sample from supertypes and apply to agent and env type objects
+        if sample_supertypes:
+            self.sample_supertypes()
 
         # Reset network and call reset method on all agents in the network.
         # Message samplers should be called here from the respective agent's reset method.
         self.network.reset()
         self.resolve_network()
 
-        # Reset the agents' done status
+        # Reset the agents' done statuses stored by the environment
         self._dones = set()
 
-        # Generate initial observations.
-        observations: Dict[AgentID, Any] = {}
+        # Set initial null reward values
+        self._rewards = {aid: None for aid in self._acting_agent_ids}
 
-        # TODO: enforce at least one acting agent?
-        acting_agents = self._stages[self.current_stage].acting_agents
+        # Initial acting agents are either those specified in stage acting agents or
+        # else all acting agents
+        acting_agents = (
+            self._stages[self.current_stage].acting_agents or self._acting_agent_ids
+        )
 
+        # Pre-generate all contexts for agents taking actions
         env_view = self.view()
+        ctxs = [self.network.context_for(aid, env_view) for aid in acting_agents]
 
-        for agent_id, agent in self.network.agents.items():
-            if agent.action_space is not None:
-                if acting_agents is None or agent_id in acting_agents:
-                    ctx = self.network.context_for(agent_id, env_view)
-                    observations[agent_id] = agent.encode_observation(ctx)
-
-                self._rewards[agent_id] = None
-
-        return observations
+        # Generate initial observations for agents taking actions
+        return {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
@@ -240,20 +246,31 @@ class FiniteStateMachineEnv(PhantomEnv):
             actions: Actions output by the agent policies to be translated into
                 messages and passed throughout the network.
         """
+        # Increment clock
         self.current_step += 1
 
-        # Handle the updates due to active/strategic behaviours:
+        # Pre-generate all contexts for all agents taking actions / generating messages
         env_view = self.view()
+        self._ctxs = {
+            aid: self.network.context_for(aid, env_view)
+            for aid in self.agents
+            if aid not in self._dones
+        }
 
-        for agent_id, action in actions.items():
-            agent = self.agents[agent_id]
-
-            ctx = self.network.context_for(agent_id, env_view)
-
-            messages = agent.decode_action(ctx, action)
+        # Decode action/generate messages for agents and send to the network
+        for aid in actions.keys():
+            ctx = self._ctxs[aid]
+            messages = ctx.agent.decode_action(ctx, actions[aid]) or []
 
             for receiver_id, message in messages:
-                self.network.send(agent_id, receiver_id, message)
+                self.network.send(aid, receiver_id, message)
+
+        for aid in self._non_acting_agent_ids:
+            ctx = self._ctxs[aid]
+            messages = ctx.agent.generate_messages(ctx) or []
+
+            for receiver_id, message in messages:
+                self.network.send(aid, receiver_id, message)
 
         env_handler = self._stages[self.current_stage].handler
 
@@ -269,10 +286,12 @@ class FiniteStateMachineEnv(PhantomEnv):
                 )
 
             next_stage = next_stages[0]
+
         elif hasattr(env_handler, "__self__"):
             # If the FSMStage is defined with the stage definitions the handler will be
             # a bound method of the env class.
             next_stage = env_handler()
+
         else:
             # If the FSMStage is defined as a decorator the handler will be an unbound
             # function.
@@ -289,46 +308,41 @@ class FiniteStateMachineEnv(PhantomEnv):
         dones: Dict[AgentID, bool] = {"__all__": False}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
-        rewarded_agents = self._stages[self.current_stage].rewarded_agents
-        current_acting_agents = self._stages[self.current_stage].acting_agents
-        next_acting_agents = self._stages[next_stage].acting_agents
+        rewarded_agents = (
+            self._stages[self.current_stage].rewarded_agents or self._acting_agent_ids
+        )
+        next_acting_agents = (
+            self._stages[next_stage].acting_agents or self._acting_agent_ids
+        )
 
-        env_view = self.view()
+        for aid in self._acting_agent_ids:
+            if aid in self._dones:
+                continue
 
-        for agent_id, agent in self.agents.items():
-            ctx = self.network.context_for(agent_id, env_view)
+            ctx = self._ctxs[aid]
 
-            dones[agent_id] = agent.is_done(ctx)
+            if aid in next_acting_agents:
+                observations[aid] = ctx.agent.encode_observation(ctx)
+                infos[aid] = ctx.agent.collect_infos(ctx)
 
-            if dones[agent_id]:
-                self._dones.add(agent_id)
+            if aid in rewarded_agents:
+                rewards[aid] = ctx.agent.compute_reward(ctx)
 
-            if next_acting_agents is None or agent_id in next_acting_agents:
-                observations[agent_id] = agent.encode_observation(ctx)
-                infos[agent_id] = agent.collect_infos(ctx)
+            dones[aid] = ctx.agent.is_done(ctx)
 
-            if (
-                (rewarded_agents is not None and agent_id in rewarded_agents)
-                or current_acting_agents is None
-                or agent_id in current_acting_agents
-            ):
-                reward = agent.compute_reward(ctx)
-                if reward is not None:
-                    rewards[agent_id] = reward
+            if dones[aid]:
+                self._dones.add(aid)
 
         self._observations.update(observations)
         self._rewards.update(rewards)
         self._infos.update(infos)
 
-        self.previous_stage, self.current_stage = self.current_stage, next_stage
+        self.previous_stage_id, self.current_stage = self.current_stage, next_stage
 
         if self.current_stage is None or self.is_done():
             # This is the terminal stage, return most recent observations, rewards and
             # infos from all agents.
-            dones = {"__all__": True}
-
-            for agent_id in self.agents:
-                dones[agent_id] = agent_id in self._dones
+            dones["__all__"] = True
 
             return self.Step(
                 observations=self._observations,
@@ -338,6 +352,16 @@ class FiniteStateMachineEnv(PhantomEnv):
             )
 
         # Otherwise not in terminal stage:
-        rewards = {agent_id: self._rewards[agent_id] for agent_id in observations}
+        rewards = {aid: self._rewards[aid] for aid in observations}
 
         return self.Step(observations, rewards, dones, infos)
+
+    @property
+    def _acting_agent_ids(self) -> List[AgentID]:
+        """Internal Interface."""
+        return [a.id for a in self.agents.values() if a.takes_actions]
+
+    @property
+    def _non_acting_agent_ids(self) -> List[AgentID]:
+        """Internal Interface."""
+        return [a.id for a in self.agents.values() if not a.takes_actions]

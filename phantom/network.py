@@ -8,6 +8,7 @@ from typing import (
     KeysView,
     List,
     Optional,
+    Mapping,
     Sequence,
     Tuple,
     Type,
@@ -213,15 +214,13 @@ class Network:
 
         self.resolver.push(Message(sender_id, receiver_id, message))
 
-    def resolve(self, env_view_fn: Callable[[], EnvView]) -> None:
-        """
-        Resolve all messages in the network and clear volatile memory.
+    def resolve(self, contexts: Mapping[AgentID, Context]) -> None:
+        """Resolve all messages in the network and clear volatile memory.
 
         Arguments:
-            env_view_fn: Reference to the :meth:`env.view` method returning the public
-                environment view applicable to all agents.
+            contexts: The current contexts for all agents for the current step.
         """
-        self.resolver.resolve(self, env_view_fn)
+        self.resolver.resolve(self, contexts)
         self.resolver.reset()
 
     def get_agents_where(self, pred: Callable[[Agent], bool]) -> Dict[AgentID, Agent]:

@@ -239,6 +239,8 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
     def __init__(self, env: PhantomEnv) -> None:
         self.env = env
 
+        self.env.reset()
+
         self._agent_ids = set(
             agent.id
             for agent in self.env.network.agents.values()

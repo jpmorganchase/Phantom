@@ -59,7 +59,7 @@ def test_ordering():
     n.send("A", "B", Request(100.0))
     n.send("A", "C", Request(100.0))
     n.send("B", "C", Request(100.0))
-    n.resolve(lambda: EnvView(0))
+    n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
 
     assert n["A"].req_time <= n["B"].req_time
     assert n["B"].req_time <= n["C"].req_time
@@ -81,7 +81,7 @@ def test_batch_resolver_chain_limit(caplog):
     n.send("A", "B", Request(0))
 
     assert len(caplog.records) == 0
-    n.resolve(lambda: EnvView(0))
+    n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
     assert len(caplog.records) == 1
 
     assert (

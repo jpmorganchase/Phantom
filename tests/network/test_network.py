@@ -4,7 +4,7 @@ from typing import List, Tuple
 import numpy as np
 import pytest
 
-from phantom import AgentID, Context, Message, Message
+from phantom import AgentID, Context
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
 from phantom.network import BatchResolver, Network
@@ -36,10 +36,10 @@ class MyAgent(MessageHandlerAgent):
 
 @pytest.fixture
 def net() -> Network:
-    n = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(chain_limit=2))
-    n.add_connection("mm", "inv")
+    net = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(chain_limit=2))
+    net.add_connection("mm", "inv")
 
-    return n
+    return net
 
 
 def test_getters(net):
@@ -57,7 +57,7 @@ def test_getters(net):
 
 def test_call_response(net):
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve(lambda: EnvView(0))
+    net.resolve({aid: net.context_for(aid, EnvView(0)) for aid in net.agents})
 
     assert net.agents["mm"].total_cash == 25.0
     assert net.agents["inv"].total_cash == 50.0
@@ -66,7 +66,7 @@ def test_call_response(net):
 def test_send_many(net):
     net.send("mm", "inv", MyMessage(100.0))
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve(lambda: EnvView(0))
+    net.resolve({aid: net.context_for(aid, EnvView(0)) for aid in net.agents})
 
     assert net.agents["mm"].total_cash == 50.0
     assert net.agents["inv"].total_cash == 100.0
@@ -80,7 +80,7 @@ def test_context_existence(net):
 def test_reset(net):
     net.send("mm", "inv", MyMessage(100.0))
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve(lambda: EnvView(0))
+    net.resolve({aid: net.context_for(aid, EnvView(0)) for aid in net.agents})
     net.reset()
 
     assert net.agents["mm"].total_cash == 0.0

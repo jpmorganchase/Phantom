@@ -42,7 +42,7 @@ def test_tracking():
 
     n.send("A", "B", _TestMessage(4))
     n.send("A", "C", _TestMessage(4))
-    n.resolve(lambda: EnvView(0))
+    n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
 
     assert resolver.tracked_messages == [
         Message("A", "B", _TestMessage(4)),
