@@ -38,6 +38,7 @@ from .. import (
     Range,
     Sampler,
 )
+from .wrapper import RLlibEnvWrapper
 
 
 logger = logging.getLogger(__name__)
