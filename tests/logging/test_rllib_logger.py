@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from phantom.logging import Metric
-from phantom.utils.rllib import RLlibMetricLogger
+from phantom.utils.rllib.train import RLlibMetricLogger
 
 
 @dataclass

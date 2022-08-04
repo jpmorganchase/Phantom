@@ -19,9 +19,7 @@ from ..types import AgentID, StageID
 
 @dataclass
 class AgentStep:
-    """
-    Describes a step taken by a single agent in an episode.
-    """
+    """Describes a step taken by a single agent in an episode."""
 
     i: int
     observation: Optional[Any]
@@ -34,9 +32,7 @@ class AgentStep:
 
 @dataclass
 class Step:
-    """
-    Describes a step taken in an episode.
-    """
+    """Describes a step taken in an episode."""
 
     i: int
     observations: Dict[AgentID, Any]
@@ -60,8 +56,7 @@ class Rollout:
     def observations_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[Any]]:
-        """
-        Helper method to filter all observations for a single agent.
+        """Helper method to filter all observations for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter observations for.
@@ -82,8 +77,7 @@ class Rollout:
     def rewards_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[float]]:
-        """
-        Helper method to filter all rewards for a single agent.
+        """Helper method to filter all rewards for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter rewards for.
@@ -104,8 +98,7 @@ class Rollout:
     def dones_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[bool]]:
-        """
-        Helper method to filter all 'dones' for a single agent.
+        """Helper method to filter all 'dones' for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter 'dones' for.
@@ -127,8 +120,7 @@ class Rollout:
     def infos_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[Dict[str, Any]]]:
-        """
-        Helper method to filter all 'infos' for a single agent.
+        """Helper method to filter all 'infos' for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter 'infos' for.
@@ -149,8 +141,7 @@ class Rollout:
     def actions_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[Optional[Any]]:
-        """
-        Helper method to filter all actions for a single agent.
+        """Helper method to filter all actions for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter actions for.
@@ -171,8 +162,7 @@ class Rollout:
     def steps_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> Iterator[AgentStep]:
-        """
-        Helper method to filter all steps for a single agent.
+        """Helper method to filter all steps for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter steps for.
@@ -202,8 +192,7 @@ class Rollout:
     def count_actions(
         self, stages: Optional[Iterable[StageID]] = None
     ) -> List[Tuple[Any, int]]:
-        """
-        Helper method to count the occurances of all actions for all agents.
+        """Helper method to count the occurances of all actions for all agents.
 
         Arguments:
             stages: Optionally filter by multiple stages.
@@ -228,8 +217,7 @@ class Rollout:
     def count_agent_actions(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
     ) -> List[Tuple[Any, int]]:
-        """
-        Helper method to count the occurances of all actions for a single agents.
+        """Helper method to count the occurances of all actions for a single agents.
 
         Arguments:
             agent_id: The ID of the agent to count actions for.
@@ -250,9 +238,7 @@ class Rollout:
         return Counter(filtered_actions).most_common()
 
     def __getitem__(self, index: int):
-        """
-        Returns a step for a given index in the episode.
-        """
+        """Returns a step for a given index in the episode."""
         if self.steps is None:
             raise KeyError("Trajectory not stored in rollout")
 

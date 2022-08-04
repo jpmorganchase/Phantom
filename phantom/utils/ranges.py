@@ -8,8 +8,7 @@ T = TypeVar("T")
 
 
 class Range(ABC, Generic[T]):
-    """
-    Ranges are used in Agent/Environment Supertypes to define how they are sampled.
+    """Ranges are used in Agent/Environment Supertypes to define how they are sampled.
 
     Ranges are designed to be used when generating rollouts post-training and a
     non-stochastic distribution of values is required for the Supertype sampling.
@@ -36,8 +35,7 @@ class Range(ABC, Generic[T]):
 
 
 class UniformRange(Range[float]):
-    """
-    Returns an array of values spaced by a step between a start and end value.
+    """Returns an array of values spaced by a step between a start and end value.
 
     Uses :func:`np.arange` internally.
     """
@@ -60,8 +58,7 @@ class UniformRange(Range[float]):
 
 
 class LinspaceRange(Range[float]):
-    """
-    Returns an array of n values evenly distributed between a start and end value.
+    """Returns an array of n values evenly distributed between a start and end value.
 
     Uses :func:`np.linspace` internally.
     """

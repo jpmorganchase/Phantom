@@ -16,9 +16,7 @@ T = TypeVar("T")
 
 
 class ComparableType(Generic[T], ABC):
-    """
-    Interface for Types that can be compared.
-    """
+    """Interface for Types that can be compared."""
 
     @abstractmethod
     def __lt__(self, other: T) -> bool:
@@ -49,8 +47,7 @@ ComparableT = TypeVar("ComparableT", bound=ComparableType)
 
 
 class Sampler(ABC, Generic[T]):
-    """
-    Samplers are used in Agent/Environment Supertypes to define how they are sampled.
+    """Samplers are used in Agent/Environment Supertypes to define how they are sampled.
 
     Samplers are designed to be used when training policies and a stochastic
     distribution of values is required for the Supertype sampling.
@@ -113,8 +110,7 @@ class ComparableSampler(Sampler[ComparableT], Generic[ComparableT]):
 
 
 class UniformSampler(ComparableSampler[float]):
-    """
-    Samples a single float value from a uniform distribution.
+    """Samples a single float value from a uniform distribution.
 
     Uses :func:`np.random.uniform` internally.
     """
@@ -143,8 +139,7 @@ class UniformSampler(ComparableSampler[float]):
 
 
 class UniformArraySampler(ComparableSampler[np.ndarray]):
-    """
-    Samples an array of float values from a uniform distribution.
+    """Samples an array of float values from a uniform distribution.
 
     Uses :func:`np.random.uniform()` internally.
     """
@@ -175,8 +170,7 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
 
 
 class NormalSampler(ComparableSampler[float]):
-    """
-    Samples a single float value from a normal distribution.
+    """Samples a single float value from a normal distribution.
 
     Uses :func:`np.random.normal()` internally.
     """
@@ -205,8 +199,7 @@ class NormalSampler(ComparableSampler[float]):
 
 
 class NormalArraySampler(ComparableSampler[np.ndarray]):
-    """
-    Samples an array of float values from a normal distribution.
+    """Samples an array of float values from a normal distribution.
 
     Uses :func:`np.random.normal()` internally.
     """
