@@ -242,6 +242,7 @@ env = ph.SingleAgentEnvAdapter(
 
 model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./tensorboard/")
 model.learn(total_timesteps=1e7)
+model.save(PATH)
 
 obs = env.reset()
 for i in range(100):
