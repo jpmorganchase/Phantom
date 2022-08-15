@@ -5,7 +5,6 @@ import os
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
@@ -39,6 +38,7 @@ from .. import (
     Sampler,
 )
 from .wrapper import RLlibEnvWrapper
+from . import get_checkpoints, find_most_recent_results_dir
 
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ def rollout(
 
         logger.info("Trying to find latest experiment results in '%s'", parent_dir)
 
-        directory = _find_most_recent_results_dir(parent_dir)
+        directory = find_most_recent_results_dir(parent_dir)
 
         logger.info("Found experiment results: '%s'", directory.stem)
     else:
@@ -146,7 +146,7 @@ def rollout(
 
     # If an explicit checkpoint is not given, find all checkpoints and use the newest.
     if checkpoint is None:
-        checkpoint = _get_checkpoints(directory)[-1]
+        checkpoint = get_checkpoints(directory)[-1]
 
         logger.info("Using most recent checkpoint: %s", checkpoint)
     else:
@@ -264,60 +264,6 @@ def rollout(
             worker.join()
 
     return results
-
-
-def _find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
-    """
-    Scans a directory containing ray experiment results and returns the path of
-    the most recent experiment.
-    Arguments:
-        base_path: The directory to search in.
-    """
-
-    base_path = Path(os.path.expanduser(base_path))
-
-    directories = [d for d in base_path.iterdir() if d.is_dir()]
-
-    experiment_directories = []
-
-    for directory in directories:
-        # Not all directories will be experiment results directories. Filter by
-        # attempting to parse a datetime from the directory name.
-        try:
-            datetime.strptime(str(directory)[-19:], "%Y-%m-%d_%H-%M-%S")
-            experiment_directories.append(directory)
-        except ValueError:
-            pass
-
-    if len(experiment_directories) == 0:
-        raise ValueError(f"No experiment directories found in '{base_path}'")
-
-    experiment_directories.sort(
-        key=lambda d: datetime.strptime(str(d)[-19:], "%Y-%m-%d_%H-%M-%S")
-    )
-
-    return experiment_directories[-1]
-
-
-def _get_checkpoints(results_dir: Union[Path, str]) -> List[int]:
-    """
-    Scans a directory containing an experiment's results and returns a list of all the
-    checkpoints in that directory.
-    Arguments:
-        results_dir: The directory to search in.
-    """
-
-    checkpoint_dirs = list(Path(results_dir).glob("checkpoint_*"))
-
-    if len(checkpoint_dirs) == 0:
-        raise FileNotFoundError(f"No checkpoints found in directory '{results_dir}'")
-
-    return list(
-        sorted(
-            int(str(checkpoint_dir).split("_")[-1])
-            for checkpoint_dir in checkpoint_dirs
-        )
-    )
 
 
 def _rollout_task_fn(
