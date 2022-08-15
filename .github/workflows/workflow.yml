@@ -52,7 +52,6 @@ jobs:
 
     - name: Install Phantom dependencies
       run: |
-        cd phantom
         make install-deps
         make install-dev-deps
 
@@ -80,7 +79,6 @@ jobs:
 
     - name: Install Phantom dependencies
       run: |
-        cd phantom
         make install-deps
         make install-dev-deps
 
