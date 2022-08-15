@@ -49,8 +49,8 @@ def rollout(
     algorithm: str,
     env_class: Type[PhantomEnv],
     env_config: Optional[Dict[str, Any]] = None,
-    num_workers: int = 0,
     num_repeats: int = 1,
+    num_workers: Optional[int] = None,
     checkpoint: Optional[int] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
@@ -73,7 +73,8 @@ def rollout(
             the path, the parent directory will be scanned for the most recent run and
             this will be used.
         algorithm: RLlib algorithm to use.
-        num_workers: Number of Ray rollout workers to initialise.
+        num_workers: Number of rollout worker processes to initialise
+            (defaults to 'NUM CPU - 1').
         num_repeats: Number of rollout repeats to perform, distributed over all workers.
         checkpoint: Checkpoint to use (defaults to most recent).
         env_class: Optionally pass the Environment class to use. If not give will
@@ -197,17 +198,16 @@ def rollout(
         for j in range(num_repeats)
     ]
 
-    # Distribute the rollouts evenly amongst the number of workers.
-    rollouts_per_worker = int(math.ceil(len(rollout_configs) / max(num_workers, 1)))
+    num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
     logger.info(
         "Starting %s rollout(s) using %s worker process(es)",
         len(rollout_configs),
-        num_workers,
+        num_workers_,
     )
 
     # Start the rollouts
-    if num_workers == 0:
+    if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
         results: List[Rollout] = _rollout_task_fn(
             directory,
@@ -226,6 +226,11 @@ def rollout(
         # multiprocessing.Pool is not used to allow the use a progressbar that shows the
         # overall state across all threads.
         result_queue = multiprocessing.Manager().Queue()
+
+        # Distribute the rollouts evenly amongst the number of workers.
+        rollouts_per_worker = int(
+            math.ceil(len(rollout_configs) / max(num_workers_, 1))
+        )
 
         worker_payloads = [
             (

@@ -56,7 +56,7 @@ def train(
     env_class: Type[PhantomEnv],
     policies: PolicyMapping,
     policies_to_train: List[str],
-    num_workers: Optional[int] = 0,
+    num_workers: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
     rllib_config: Optional[Mapping[str, Any]] = None,
     tune_config: Optional[Mapping[str, Any]] = None,
@@ -74,7 +74,7 @@ def train(
         env_class: A PhantomEnv subclass.
         policies: A mapping of policy IDs to policy configurations.
         policies_to_train: A list of policy IDs that will be trained using RLlib.
-        num_workers: Number of Ray workers to initialise (defaults to NUM CPU - 1).
+        num_workers: Number of Ray workers to initialise (defaults to 'NUM CPU - 1').
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
         tune_config: Optional algorithm parameters dictionary to pass to Ray Tune.
@@ -145,7 +145,7 @@ def train(
         env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
     )
 
-    num_workers_ = num_workers or (len(os.sched_getaffinity(0)) - 1)
+    num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
     config = {
         "env": env_class.__name__,
