@@ -21,7 +21,7 @@ from typing import (
 import cloudpickle
 import numpy as np
 import ray
-from ray.rllib.agents.registry import get_trainer_class
+from ray.rllib.algorithms.registry import get_trainer_class
 from ray.tune.registry import register_env
 from tqdm import tqdm
 
