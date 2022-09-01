@@ -307,12 +307,12 @@ class FiniteStateMachineEnv(PhantomEnv):
         dones: Dict[AgentID, bool] = {"__all__": False}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
-        rewarded_agents = (
-            self._stages[self.current_stage].rewarded_agents or self._acting_agent_ids
-        )
-        next_acting_agents = (
-            self._stages[next_stage].acting_agents or self._acting_agent_ids
-        )
+        if self._stages[self.current_stage].rewarded_agents is None:
+            rewarded_agents = self._acting_agent_ids
+            next_acting_agents = self._acting_agent_ids
+        else:
+            rewarded_agents = self._stages[self.current_stage].rewarded_agents
+            next_acting_agents = self._stages[next_stage].acting_agents
 
         for aid in self._acting_agent_ids:
             if aid in self._dones:
