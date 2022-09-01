@@ -14,14 +14,16 @@ import phantom as ph
 
 # Define fixed parameters:
 NUM_EPISODE_STEPS = 100
-NUM_SHOPS = 2
+NUM_SHOPS = 1
 NUM_CUSTOMERS = 5
 
 CUSTOMER_MAX_ORDER_SIZE = 5
 SHOP_MIN_PRICE = 0.0
 SHOP_MAX_PRICE = 1.0
 SHOP_MAX_STOCK = 100
-SHOP_MAX_STOCK_REQUEST = 20
+SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
+
+ALLOW_PRICE_ACTION = False
 
 
 @dataclass(frozen=True)
@@ -146,34 +148,42 @@ class ShopAgent(ph.MessageHandlerAgent):
         # How many items have been delivered by the factory in this turn:
         self.delivered_stock: int = 0
 
+        self.orders_received: int = 0
+        self.leftover_stock: int = 0
+
         # We initialise the price variable here, it's value will be set when the shop
         # agent takes it's first action.
-        self.price: float = 0.0
+        self.price: float = SHOP_MAX_PRICE
 
     @property
     def action_space(self):
-        return gym.spaces.Tuple(
-            (
-                # The price to set for the current step:
-                gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
-                # The number of additional units to order from the factory:
-                gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+        if ALLOW_PRICE_ACTION:
+            return gym.spaces.Dict(
+                {
+                    # The price to set for the current step:
+                    "price": gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
+                    # The number of additional units to order from the factory:
+                    "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                }
             )
-        )
+        else:
+            return gym.spaces.Dict(
+                {
+                    "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                }
+            )
 
     @property
     def observation_space(self):
-        return gym.spaces.Tuple(
-            (
+        return gym.spaces.Dict(
+            {
                 # The agent's type:
-                self.type.to_obs_space(),
+                "type": self.type.to_obs_space(),
                 # The agent's current stock:
-                gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                "stock": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
                 # The number of sales made by the agent in the previous step:
-                gym.spaces.Discrete(
-                    min(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS, SHOP_MAX_STOCK) + 1
-                ),
-            )
+                "previous_sales": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+            }
         )
 
     def view(self, neighbour_id: Optional[ph.AgentID] = None) -> "View":
@@ -181,20 +191,26 @@ class ShopAgent(ph.MessageHandlerAgent):
         return self.View(self.id, self.price)
 
     def pre_message_resolution(self, ctx: ph.Context):
-        # At the start of each step we reset the number of missed orders to 0.
-        self.sales = 0
-        self.missed_sales = 0
+        if ctx["ENV"].stage == "sales_step":
+            # At the start of each step we reset the number of missed orders to 0.
+            self.sales = 0
+            self.missed_sales = 0
+            self.orders_received = 0
 
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
+
+        self.leftover_stock = self.stock
+
         self.delivered_stock = message.payload.size
 
         self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
 
     @ph.agents.msg_handler(OrderRequest)
     def handle_order_request(self, ctx: ph.Context, message: ph.Message):
-        # All other messages are from customers and contain orders.
+        self.orders_received += 1
+
         amount_requested = message.payload.size
 
         # If the order size is more than the amount of stock, partially fill the order.
@@ -213,29 +229,30 @@ class ShopAgent(ph.MessageHandlerAgent):
         return [(message.sender_id, OrderResponse(stock_to_sell))]
 
     def encode_observation(self, ctx: ph.Context):
-        return (
+        return {
             # The shop's type is included in its observation space to allow it to learn
             # a generalised policy.
-            self.type.to_obs_space_compatible_type(),
+            "type": self.type.to_obs_space_compatible_type(),
             # The current stock is included so the shop can learn to efficiently manage
             # its inventory.
-            self.stock,
+            "stock": self.stock,
             # The number of sales made in the previous step is included so the shop can
             # learn to maximise sales.
-            self.sales,
-        )
+            "previous_sales": self.sales,
+        }
 
     def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
         # The action the shop takes is the updated price for it's products and the
         # amount of new stock to request from the factory.
 
-        # We update the shop's price:
-        self.price = action[0][0]
+        if ALLOW_PRICE_ACTION:
+            # We update the shop's price:
+            self.price = action["price"][0]
+        else:
+            self.price = self.type.sale_price
 
         # And we send a stock request message to the factory:
-        stock_to_request = action[1]
-
-        return [(self.factory_id, StockRequest(stock_to_request))]
+        return [(self.factory_id, StockRequest(action["restock"]))]
 
     def compute_reward(self, ctx: ph.Context) -> float:
         return (
@@ -259,7 +276,7 @@ SHOP_IDS = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
 CUSTOMER_IDS = [f"CUST{i+1}" for i in range(NUM_CUSTOMERS)]
 
 
-class SupplyChainEnv(ph.PhantomEnv):
+class SupplyChainEnv(ph.FiniteStateMachineEnv):
     def __init__(self, **kwargs):
         shop_agents = [ShopAgent(id, FACTORY_ID) for id in SHOP_IDS]
 
@@ -278,7 +295,26 @@ class SupplyChainEnv(ph.PhantomEnv):
         # Connect the shop to the customers
         network.add_connections_between(SHOP_IDS, CUSTOMER_IDS)
 
-        super().__init__(num_steps=NUM_EPISODE_STEPS, network=network, **kwargs)
+        super().__init__(
+            num_steps=NUM_EPISODE_STEPS,
+            network=network,
+            initial_stage="sales_step",
+            stages=[
+                ph.FSMStage(
+                    stage_id="sales_step",
+                    next_stages=["restock_step"],
+                    acting_agents=CUSTOMER_IDS,
+                    rewarded_agents=[],
+                ),
+                ph.FSMStage(
+                    stage_id="restock_step",
+                    next_stages=["sales_step"],
+                    acting_agents=SHOP_IDS,
+                    rewarded_agents=SHOP_IDS,
+                )
+            ],
+            **kwargs
+        )
 
 
 metrics = {}
@@ -290,6 +326,12 @@ for id in SHOP_IDS:
     metrics[f"missed_sales/{id}"] = ph.logging.SimpleAgentMetric(
         id, "missed_sales", "mean"
     )
+    metrics[f"orders_received/{id}"] = ph.logging.SimpleAgentMetric(
+        id, "orders_received", "mean"
+    )
+    metrics[f"delivered_stock/{id}"] = ph.logging.SimpleAgentMetric(
+        id, "delivered_stock", "mean"
+    )
 
 
 if sys.argv[1] == "train":
@@ -299,8 +341,11 @@ if sys.argv[1] == "train":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
+                    sale_price=ph.utils.samplers.UniformSampler(low=0.0, high=2.0),
                     cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=0.1),
-                    cost_per_unit=ph.utils.samplers.UniformSampler(low=0.2, high=0.8),
+                    cost_per_unit=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
+                    # cost_of_carry=0.05,
+                    # cost_per_unit=0.5,
                 )
                 for shop_id in SHOP_IDS
             }
@@ -316,11 +361,12 @@ if sys.argv[1] == "train":
             "model": {
                 "fcnet_hiddens": [64, 64],
             },
+            "disable_env_checking": True,
         },
         tune_config={
-            "checkpoint_freq": 100,
+            "checkpoint_freq": 500,
             "stop": {
-                "training_iteration": 1000,
+                "training_iteration": 10000,
             },
         },
     )
@@ -334,23 +380,45 @@ elif sys.argv[1] == "test":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    cost_of_carry=ph.utils.ranges.UniformRange(
-                        start=0.0,
-                        end=0.1 + 0.001,
-                        step=0.01,
-                    ),
-                    cost_per_unit=ph.utils.ranges.UniformRange(
-                        start=0.2,
-                        end=0.8 + 0.001,
-                        step=0.05,
-                    ),
+                    # cost_of_carry=ph.utils.ranges.UniformRange(
+                    #     start=0.0,
+                    #     end=0.1 + 0.001,
+                    #     step=0.01,
+                    # ),
+                    # cost_per_unit=ph.utils.ranges.UniformRange(
+                    #     start=0.2,
+                    #     end=0.8 + 0.001,
+                    #     step=0.05,
+                    # ),
+                    cost_of_carry=0.05,
+                    cost_per_unit=0.5,
                 )
                 for shop_id in SHOP_IDS
             }
         },
-        num_repeats=1,
+        num_repeats=100,
         metrics=metrics,
         record_messages=False,
     )
 
-    pickle.dump(results, open("results.pkl", "wb"))
+    # pickle.dump(results, open("results.pkl", "wb"))
+
+    print([x for x in results[0].actions_for_agent("SHOP1") if x])
+    print(results[0].metrics["sales/SHOP1"])
+    print(results[0].metrics["stock/SHOP1"])
+
+    import matplotlib.pyplot as plt
+
+    x = np.arange(100)
+
+    y = np.zeros(100)
+
+    for rollout in results:
+        y += results[0].metrics["stock/SHOP1"]
+
+    y /= len(results)
+
+    plt.plot(x, y)
+    plt.savefig("stock.png")
+
+
