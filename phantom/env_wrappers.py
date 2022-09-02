@@ -68,6 +68,8 @@ class SingleAgentEnvAdapter(gym.Env):
                     f"Agent '{agent_id}' has not been defined a policy via the 'other_policies' parameter of SingleAgentEnvAdapter"
                 )
 
+        self._env.reset()
+
         self._agent_id = agent_id
 
         self._other_policies = {
