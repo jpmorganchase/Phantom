@@ -363,7 +363,7 @@ if sys.argv[1] == "train":
             # "name": "fcnet_32_32",
             "checkpoint_freq": 100,
             "stop": {
-                "training_iteration": 3000,
+                "training_iteration": 1000,
             },
         },
     )
@@ -372,12 +372,12 @@ if sys.argv[1] == "train":
 elif sys.argv[1] == "test":
 
     def fn(rollout):
-        # return {
-        #     "cost_of_carry": rollout.env_config["agent_supertypes"][
-        #         "SHOP1"
-        #     ].cost_of_carry,
-        #     "mean_stock_held": np.mean(rollout.metrics["stock/SHOP1"]),
-        # }
+        return {
+            "cost_of_carry": rollout.env_config["agent_supertypes"][
+                "SHOP1"
+            ].cost_of_carry,
+            "mean_stock_held": np.mean(rollout.metrics["stock/SHOP1"]),
+        }
 
         # return {
         #     "cost_per_unit": rollout.env_config["agent_supertypes"][
@@ -386,9 +386,9 @@ elif sys.argv[1] == "test":
         #     "mean_sales": np.mean(rollout.metrics["sales/SHOP1"]),
         # }
 
-        return {
-            name: np.mean(values) for name, values in rollout.metrics.items()
-        }
+        # return {
+        #     name: np.mean(values) for name, values in rollout.metrics.items()
+        # }
 
     results = ph.utils.rllib.rollout(
         directory="PPO/LATEST",
@@ -398,12 +398,12 @@ elif sys.argv[1] == "test":
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
                     sale_price=1.0,
-                    # cost_of_carry=ph.utils.ranges.UniformRange(
-                    #     start=0.0,
-                    #     end=0.2 + 0.005,
-                    #     step=0.01,
-                    # ),
-                    cost_of_carry=0.2,
+                    cost_of_carry=ph.utils.ranges.UniformRange(
+                        start=0.0,
+                        end=0.2 + 0.005,
+                        step=0.01,
+                    ),
+                    # cost_of_carry=0.2,
                     # cost_per_unit=ph.utils.ranges.UniformRange(
                     #     start=0.2,
                     #     end=0.8 + 0.001,
@@ -414,11 +414,11 @@ elif sys.argv[1] == "test":
                 for shop_id in SHOP_IDS
             }
         },
-        num_repeats=1000,
+        num_repeats=5000,
         num_workers=50,
         metrics=metrics,
         record_messages=False,
         result_mapping_fn=fn,
     )
 
-    cloudpickle.dump(results, open("results3.pkl", "wb"))
+    cloudpickle.dump(results, open("results1.pkl", "wb"))
