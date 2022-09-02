@@ -19,7 +19,7 @@ NUM_CUSTOMERS = 5
 
 CUSTOMER_MAX_ORDER_SIZE = 5
 SHOP_MIN_PRICE = 0.0
-SHOP_MAX_PRICE = 1.0
+SHOP_MAX_PRICE = 2.0
 SHOP_MAX_STOCK = 100
 SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
 
@@ -119,6 +119,7 @@ class FactoryAgent(ph.MessageHandlerAgent):
 class ShopAgent(ph.MessageHandlerAgent):
     @dataclass
     class Supertype(ph.Supertype):
+        sale_price: float
         # The cost of holding onto one unit of inventory overnight:
         cost_of_carry: float
         # The cost of producing one unit of inventory:
@@ -260,8 +261,8 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.sales * self.price
             # It incurs a cost for ordering new stock:
             - self.delivered_stock * self.type.cost_per_unit
-            # And for holding onto excess stock overnight:
-            - self.stock * self.type.cost_of_carry
+            # And for holding onto leftover stock overnight:
+            - self.leftover_stock * self.type.cost_of_carry
         )
 
     def reset(self):
@@ -342,7 +343,7 @@ if sys.argv[1] == "train":
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
                     sale_price=ph.utils.samplers.UniformSampler(low=0.0, high=2.0),
-                    cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=0.1),
+                    cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=0.2),
                     cost_per_unit=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
                     # cost_of_carry=0.05,
                     # cost_per_unit=0.5,
@@ -358,13 +359,14 @@ if sys.argv[1] == "train":
         metrics=metrics,
         rllib_config={
             "seed": 0,
-            "model": {
-                "fcnet_hiddens": [64, 64],
-            },
+            # "model": {
+            #     "fcnet_hiddens": [32, 32],
+            # },
             "disable_env_checking": True,
         },
         tune_config={
-            "checkpoint_freq": 500,
+            # "name": "fcnet_32_32",
+            "checkpoint_freq": 100,
             "stop": {
                 "training_iteration": 10000,
             },
@@ -390,6 +392,7 @@ elif sys.argv[1] == "test":
                     #     end=0.8 + 0.001,
                     #     step=0.05,
                     # ),
+                    sale_price=1.0,
                     cost_of_carry=0.05,
                     cost_per_unit=0.5,
                 )
