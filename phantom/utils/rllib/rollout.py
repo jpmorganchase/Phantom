@@ -1,6 +1,5 @@
 import logging
 import math
-import multiprocessing
 import os
 from collections import defaultdict
 from copy import deepcopy
@@ -11,6 +10,7 @@ from typing import (
     Callable,
     DefaultDict,
     Dict,
+    Generator,
     List,
     Mapping,
     Optional,
@@ -39,6 +39,14 @@ from .. import (
 )
 from .wrapper import RLlibEnvWrapper
 from . import get_checkpoints, find_most_recent_results_dir
+
+
+from asyncio import Event
+from typing import Tuple
+
+import ray
+from ray.actor import ActorHandle
+from tqdm import tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -206,216 +214,260 @@ def rollout(
         num_workers_,
     )
 
-    # Start the rollouts
-    if num_workers_ == 0:
-        # If num_workers is 0, run all the rollouts in this thread.
-        results: List[Rollout] = _rollout_task_fn(
-            directory,
-            checkpoint,
-            algorithm,
-            rollout_configs,
-            env_class,
-            metrics,
-            result_mapping_fn,
-            None,
-            record_messages,
-        )
-
-    else:
-        # Otherwise, manually create threads and give a list of rollouts to each thread.
-        # multiprocessing.Pool is not used to allow the use a progressbar that shows the
-        # overall state across all threads.
-        result_queue = multiprocessing.Manager().Queue()
-
-        # Distribute the rollouts evenly amongst the number of workers.
-        rollouts_per_worker = int(
-            math.ceil(len(rollout_configs) / max(num_workers_, 1))
-        )
-
-        worker_payloads = [
-            (
-                directory,
-                checkpoint,
-                algorithm,
-                rollout_configs[i : i + rollouts_per_worker],
-                env_class,
-                metrics,
-                result_mapping_fn,
-                result_queue,
-                record_messages,
-            )
-            for i in range(0, len(rollout_configs), rollouts_per_worker)
-        ]
-
-        workers = [
-            multiprocessing.Process(target=_rollout_task_fn, args=worker_payloads[i])
-            for i in range(len(worker_payloads))
-        ]
-
-        for worker in workers:
-            worker.start()
-
-        results = []
-
-        # As results asynchronously arrive in the results queue, update the progress bar
-        with tqdm(total=len(rollout_configs)) as pbar:
-            for item in iter(result_queue.get, None):
-                results.append(item)
-                pbar.update()
-                if len(results) == len(rollout_configs):
-                    break
-
-        for worker in workers:
-            worker.join()
-
-    return results
-
-
-def _rollout_task_fn(
-    directory: Path,
-    checkpoint: int,
-    algorithm: str,
-    configs: List["_RolloutConfig"],
-    env_class: Type[PhantomEnv],
-    tracked_metrics: Optional[Mapping[str, Metric]] = None,
-    result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
-    result_queue: Optional[multiprocessing.Queue] = None,
-    record_messages: bool = False,
-) -> List[Rollout]:
-    """
-    Internal function.
-    """
-
     checkpoint_path = Path(
         directory,
         f"checkpoint_{str(checkpoint).zfill(6)}",
         f"checkpoint-{checkpoint}",
     )
 
-    # Wrap ray code in a try block to ensure ray is shutdown correctly if an error occurs
-    try:
-        ray.init(local_mode=True, include_dashboard=False)
+    # Register custom environment with Ray
+    register_env(
+        env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
+    )
 
-        # Load config from results directory.
-        with open(Path(directory, "params.pkl"), "rb") as params_file:
-            config = cloudpickle.load(params_file)
+    # Load config from results directory.
+    with open(Path(directory, "params.pkl"), "rb") as params_file:
+        config = cloudpickle.load(params_file)
 
-        # Set to zero as rollout workers != training workers - if > 0 will spin up
-        # unnecessary additional workers.
-        config["num_workers"] = 0
-        config["env_config"] = configs[0].env_config
+    # Set to zero as rollout workers != training workers - if > 0 will spin up
+    # unnecessary additional workers.
+    config["num_workers"] = 0
 
-        # Register custom environment with Ray
-        register_env(
-            env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
+    # Start the rollouts
+    if num_workers_ == 0:
+        # If num_workers is 0, run all the rollouts in this thread.
+        results: List[Rollout] = list(tqdm(
+            _rollout_task_fn(
+                deepcopy(config),
+                checkpoint_path,
+                algorithm,
+                rollout_configs,
+                env_class,
+                metrics,
+                result_mapping_fn,
+                record_messages,
+            ),
+            total=len(rollout_configs)
+        ))
+
+    else:
+        # Distribute the rollouts evenly amongst the number of workers.
+        rollouts_per_worker = int(
+            math.ceil(len(rollout_configs) / max(num_workers_, 1))
         )
 
-        trainer = get_trainer_class(algorithm)(env=env_class.__name__, config=config)
-        trainer.restore(str(checkpoint_path))
+        progress_bar = _ProgressBar(len(rollout_configs))
+
+        @ray.remote
+        def remote_rollout_task_fn(*args):
+            for x in _rollout_task_fn(*args):
+                yield x
+                progress_bar.actor.update.remote(1)
+
+        worker_payloads = [
+            (
+                deepcopy(config),
+                checkpoint_path,
+                algorithm,
+                rollout_configs[i : i + rollouts_per_worker],
+                env_class,
+                metrics,
+                result_mapping_fn,
+                record_messages,
+            )
+            for i in range(0, len(rollout_configs), rollouts_per_worker)
+        ]
+
+        tasks = [
+            remote_rollout_task_fn.options(num_returns=len(payload[3])).remote(*payload)
+            for payload in worker_payloads
+        ]
+
+        progress_bar.print_until_done()
 
         results = []
 
-        iter_obj = tqdm(configs) if result_queue is None else configs
+        for task in tasks:
+            results += ray.get(task)
 
-        for rollout_config in iter_obj:
-            # Create environment instance from config from results directory
-            env = env_class(**rollout_config.env_config)
+    return results
 
-            if record_messages:
-                env.network.resolver.enable_tracking = True
 
-            # Setting seed needs to come after trainer setup
-            np.random.seed(rollout_config.rollout_id)
+def _rollout_task_fn(
+    config: Dict,
+    checkpoint_path: Path,
+    algorithm: str,
+    configs: List["_RolloutConfig"],
+    env_class: Type[PhantomEnv],
+    tracked_metrics: Optional[Mapping[str, Metric]] = None,
+    result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
+    record_messages: bool = False,
+) -> Generator[Union[Rollout, Any], None, None]:
+    """Internal function"""
+    config["env_config"] = configs[0].env_config
 
-            metrics: DefaultDict[str, List[float]] = defaultdict(list)
+    trainer = get_trainer_class(algorithm)(env=env_class.__name__, config=config)
+    trainer.restore(str(checkpoint_path))
 
-            steps: List[Step] = []
+    for rollout_config in configs:
+        # Create environment instance from config from results directory
+        env = env_class(**rollout_config.env_config)
 
-            observation = env.reset()
+        if record_messages:
+            env.network.resolver.enable_tracking = True
 
-            # Run rollout steps.
-            for i in range(env.num_steps):
-                step_actions = {}
+        # Setting seed needs to come after trainer setup
+        np.random.seed(rollout_config.rollout_id)
 
-                for agent_id, agent_obs in observation.items():
-                    policy_id = config["multiagent"]["policy_mapping_fn"](
-                        agent_id, rollout_config.rollout_id, 0
-                    )
+        metrics: DefaultDict[str, List[float]] = defaultdict(list)
 
-                    agent_action = trainer.compute_single_action(
-                        agent_obs, policy_id=policy_id, explore=False
-                    )
+        steps: List[Step] = []
 
-                    step_actions[agent_id] = agent_action
+        observation = env.reset()
 
-                new_observation, reward, done, info = env.step(step_actions)
+        # Run rollout steps.
+        for i in range(env.num_steps):
+            step_actions = {}
 
-                if tracked_metrics is not None:
-                    for name, metric in tracked_metrics.items():
-                        metrics[name].append(metric.extract(env))
-
-                if record_messages:
-                    messages = deepcopy(env.network.resolver.tracked_messages)
-                    env.network.resolver.clear_tracked_messages()
-                else:
-                    messages = None
-
-                steps.append(
-                    Step(
-                        i,
-                        observation,
-                        reward,
-                        done,
-                        info,
-                        step_actions,
-                        messages,
-                        env.previous_stage
-                        if isinstance(env, FiniteStateMachineEnv)
-                        else None,
-                    )
+            for agent_id, agent_obs in observation.items():
+                policy_id = config["multiagent"]["policy_mapping_fn"](
+                    agent_id, rollout_config.rollout_id, 0
                 )
 
-                observation = new_observation
+                agent_action = trainer.compute_single_action(
+                    agent_obs, policy_id=policy_id, explore=False
+                )
 
-            condensed_metrics = {k: np.array(v) for k, v in metrics.items()}
+                step_actions[agent_id] = agent_action
 
-            result = Rollout(
-                rollout_config.rollout_id,
-                rollout_config.repeat_id,
-                rollout_config.env_config,
-                rollout_config.rollout_params,
-                steps,
-                condensed_metrics,
+            new_observation, reward, done, info = env.step(step_actions)
+
+            if tracked_metrics is not None:
+                for name, metric in tracked_metrics.items():
+                    metrics[name].append(metric.extract(env))
+
+            if record_messages:
+                messages = deepcopy(env.network.resolver.tracked_messages)
+                env.network.resolver.clear_tracked_messages()
+            else:
+                messages = None
+
+            steps.append(
+                Step(
+                    i,
+                    observation,
+                    reward,
+                    done,
+                    info,
+                    step_actions,
+                    messages,
+                    env.previous_stage
+                    if isinstance(env, FiniteStateMachineEnv)
+                    else None,
+                )
             )
 
-            if result_mapping_fn is not None:
-                result = result_mapping_fn(result)
+            observation = new_observation
 
-            # If in multiprocess mode, add the results to the queue, otherwise store
-            # locally until all rollouts for this function call are complete.
-            if result_queue is None:
-                results.append(result)
-            else:
-                result_queue.put(result)
+        condensed_metrics = {k: np.array(v) for k, v in metrics.items()}
 
-    except Exception as exception:
-        ray.shutdown()
-        raise exception
+        result = Rollout(
+            rollout_config.rollout_id,
+            rollout_config.repeat_id,
+            rollout_config.env_config,
+            rollout_config.rollout_params,
+            steps,
+            condensed_metrics,
+        )
 
-    else:
-        ray.shutdown()
+        if result_mapping_fn is not None:
+            result = result_mapping_fn(result)
 
-        # If using multi-processing this will be an empty list
-        return results
+        yield result
 
 
 @dataclass(frozen=True)
 class _RolloutConfig:
-    """
-    Internal class
-    """
+    """Internal class"""
 
     rollout_id: int
     repeat_id: int
     env_config: Mapping[str, Any]
     rollout_params: Mapping[str, Any]
+
+
+@ray.remote
+class _ProgressBarActor:
+    counter: int
+    delta: int
+    event: Event
+
+    def __init__(self) -> None:
+        self.counter = 0
+        self.delta = 0
+        self.event = Event()
+
+    def update(self, num_items_completed: int) -> None:
+        """Updates the ProgressBar with the incremental
+        number of items that were just completed.
+        """
+        self.counter += num_items_completed
+        self.delta += num_items_completed
+        self.event.set()
+
+    async def wait_for_update(self) -> Tuple[int, int]:
+        """Blocking call.
+
+        Waits until somebody calls `update`, then returns a tuple of
+        the number of updates since the last call to
+        `wait_for_update`, and the total number of completed items.
+        """
+        await self.event.wait()
+        self.event.clear()
+        saved_delta = self.delta
+        self.delta = 0
+        return saved_delta, self.counter
+
+    def get_counter(self) -> int:
+        """
+        Returns the total number of complete items.
+        """
+        return self.counter
+
+
+class _ProgressBar:
+    progress_actor: ActorHandle
+    total: int
+    description: str
+    pbar: tqdm
+
+    def __init__(self, total: int, description: str = ""):
+        # Ray actors don't seem to play nice with mypy, generating
+        # a spurious warning for the following line,
+        # which we need to suppress. The code is fine.
+        self.progress_actor = _ProgressBarActor.remote()  # type: ignore
+        self.total = total
+        self.description = description
+
+    @property
+    def actor(self) -> ActorHandle:
+        """Returns a reference to the remote `ProgressBarActor`.
+
+        When you complete tasks, call `update` on the actor.
+        """
+        return self.progress_actor
+
+    def print_until_done(self) -> None:
+        """Blocking call.
+
+        Do this after starting a series of remote Ray tasks, to which you've
+        passed the actor handle. Each of them calls `update` on the actor.
+        When the progress meter reaches 100%, this method returns.
+        """
+        pbar = tqdm(desc=self.description, total=self.total)
+        while True:
+            delta, counter = ray.get(self.actor.wait_for_update.remote())
+            pbar.update(delta)
+            if counter >= self.total:
+                pbar.close()
+                return
