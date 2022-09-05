@@ -131,7 +131,20 @@ class ShopAgent(ph.MessageHandlerAgent):
         #  - The number of sales made by the agent in the previous step
         #  - The agent's type:
         #    - Cost of carry
-        self.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=(3,))
+
+    @property
+    def observation_space(self):
+        return gym.spaces.Dict(
+            {
+                # The agent's type:
+                # "type": self.type.to_obs_space(),
+                # The agent's current stock:
+                "stock": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                # The number of sales made by the agent in the previous step:
+                "previous_sales": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+            }
+        )
+
 
     def pre_message_resolution(self, ctx: ph.Context):
         # At the start of each step we reset the number of missed orders to 0.
@@ -166,21 +179,17 @@ class ShopAgent(ph.MessageHandlerAgent):
         return [(message.sender_id, OrderResponse(stock_to_sell))]
 
     def encode_observation(self, ctx: ph.Context):
-        return np.array(
-            [
-                # The current stock is included so the shop can learn to efficiently manage
-                # its inventory.
-                self.stock / SHOP_MAX_STOCK,
-                # The number of sales made in the previous step is included so the shop can
-                # learn to maximise sales.
-                self.sales
-                / min(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS, SHOP_MAX_STOCK),
-                # The shop's type is included in its observation space to allow it to learn
-                # a generalised policy.
-                self.type.cost_of_carry,
-            ]
-        )
-
+        return {
+            # The shop's type is included in its observation space to allow it to learn
+            # a generalised policy.
+            # "type": self.type.to_obs_space_compatible_type(),
+            # The current stock is included so the shop can learn to efficiently manage
+            # its inventory.
+            "stock": self.stock,
+            # The number of sales made in the previous step is included so the shop can
+            # learn to maximise sales.
+            "previous_sales": self.sales,
+        }
     def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
         # The action the shop takes is the amount of new stock to request from the
         # factory.
@@ -248,7 +257,7 @@ env = ph.SingleAgentEnvAdapter(
     other_policies={cid: (CustomerPolicy, {}) for cid in CUSTOMER_IDS},
 )
 
-model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./tensorboard/")
+model = PPO("MultiInputPolicy", env, verbose=1, tensorboard_log="./tensorboard/")
 model.learn(total_timesteps=1e7)
 model.save("sb_model.pkl")
 # model = PPO.load(PATH, env=env) loading pre-trained model

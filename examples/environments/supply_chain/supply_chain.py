@@ -6,6 +6,7 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+import cloudpickle
 import gym
 import numpy as np
 import phantom as ph
@@ -173,7 +174,9 @@ class ShopAgent(ph.MessageHandlerAgent):
             return gym.spaces.Dict(
                 {
                     # The price to set for the current step:
-                    "price": gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
+                    "price": gym.spaces.Box(
+                        low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)
+                    ),
                     # The number of additional units to order from the factory:
                     "restock_qty": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
                 }
@@ -325,9 +328,9 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
                     next_stages=["sales_step"],
                     acting_agents=SHOP_IDS,
                     rewarded_agents=SHOP_IDS,
-                )
+                ),
             ],
-            **kwargs
+            **kwargs,
         )
 
 
@@ -371,7 +374,7 @@ if sys.argv[1] == "train":
         policies_to_train=["shop_policy"],
         metrics=metrics,
         rllib_config={
-            "seed": 0,
+            "seed": 1,
             # "model": {
             #     "fcnet_hiddens": [32, 32],
             # },
@@ -381,13 +384,33 @@ if sys.argv[1] == "train":
             # "name": "fcnet_32_32",
             "checkpoint_freq": 100,
             "stop": {
-                "training_iteration": 10000,
+                "training_iteration": 1000,
             },
         },
     )
 
 
 elif sys.argv[1] == "test":
+
+    def fn(rollout):
+        return {
+            "cost_of_carry": rollout.env_config["agent_supertypes"][
+                "SHOP1"
+            ].cost_of_carry,
+            "mean_stock_held": np.mean(rollout.metrics["stock/SHOP1"]),
+        }
+
+        # return {
+        #     "cost_per_unit": rollout.env_config["agent_supertypes"][
+        #         "SHOP1"
+        #     ].cost_per_unit,
+        #     "mean_sales": np.mean(rollout.metrics["sales/SHOP1"]),
+        # }
+
+        # return {
+        #     name: np.mean(values) for name, values in rollout.metrics.items()
+        # }
+
     results = ph.utils.rllib.rollout(
         directory="PPO/LATEST",
         algorithm="PPO",
@@ -395,46 +418,28 @@ elif sys.argv[1] == "test":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    # cost_of_carry=ph.utils.ranges.UniformRange(
-                    #     start=0.0,
-                    #     end=0.1 + 0.001,
-                    #     step=0.01,
-                    # ),
+                    sale_price=1.0,
+                    cost_of_carry=ph.utils.ranges.UniformRange(
+                        start=0.0,
+                        end=0.2 + 0.005,
+                        step=0.01,
+                    ),
+                    # cost_of_carry=0.2,
                     # cost_per_unit=ph.utils.ranges.UniformRange(
                     #     start=0.2,
                     #     end=0.8 + 0.001,
                     #     step=0.05,
                     # ),
-                    sale_price=1.0,
-                    cost_of_carry=0.05,
                     cost_per_unit=0.5,
                 )
                 for shop_id in SHOP_IDS
             }
         },
-        num_repeats=100,
+        num_repeats=5000,
+        num_workers=50,
         metrics=metrics,
         record_messages=False,
+        result_mapping_fn=fn,
     )
 
-    # pickle.dump(results, open("results.pkl", "wb"))
-
-    print([x for x in results[0].actions_for_agent("SHOP1") if x])
-    print(results[0].metrics["sales/SHOP1"])
-    print(results[0].metrics["stock/SHOP1"])
-
-    import matplotlib.pyplot as plt
-
-    x = np.arange(100)
-
-    y = np.zeros(100)
-
-    for rollout in results:
-        y += results[0].metrics["stock/SHOP1"]
-
-    y /= len(results)
-
-    plt.plot(x, y)
-    plt.savefig("stock.png")
-
-
+    cloudpickle.dump(results, open("results1.pkl", "wb"))
