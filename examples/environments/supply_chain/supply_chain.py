@@ -2,7 +2,6 @@
 A simple logistics themed environment used for demonstrating the features of Phantom.
 """
 
-import pickle
 import sys
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -20,7 +19,7 @@ NUM_CUSTOMERS = 5
 CUSTOMER_MAX_ORDER_SIZE = 5
 SHOP_MIN_PRICE = 0.0
 SHOP_MAX_PRICE = 2.0
-SHOP_MAX_STOCK = 100
+SHOP_MAX_STOCK = 125
 SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
 
 ALLOW_PRICE_ACTION = False
@@ -119,6 +118,9 @@ class FactoryAgent(ph.MessageHandlerAgent):
 class ShopAgent(ph.MessageHandlerAgent):
     @dataclass
     class Supertype(ph.Supertype):
+        # The amount of inventory the shop starts the episode with:
+        initial_inventory: int
+        # The price that the shop sells one unit of product for (if not from policy):
         sale_price: float
         # The cost of holding onto one unit of inventory overnight:
         cost_of_carry: float
@@ -137,8 +139,13 @@ class ShopAgent(ph.MessageHandlerAgent):
         # We store the ID of the factory so we can send stock requests to it.
         self.factory_id: str = factory_id
 
+        # Initialise agent variables:
+
         # We keep track of how much stock the shop has:
         self.stock: int = 0
+
+        # How many total orders the shop received from customers:
+        self.orders: int = 0
 
         # How many sales have been made:
         self.sales: int = 0
@@ -146,14 +153,18 @@ class ShopAgent(ph.MessageHandlerAgent):
         # How many orders the shop has missed due to not having enough stock:
         self.missed_sales: int = 0
 
-        # How many items have been delivered by the factory in this turn:
-        self.delivered_stock: int = 0
+        # How many items have been delivered by the factory in this step:
+        self.restock_qty: int = 0
 
-        self.orders_received: int = 0
+        # How much stock is leftover at the end of the sales step:
         self.leftover_stock: int = 0
 
+        # Reward function sub-components:
+        self.revenue: float = 0.0
+        self.costs: float = 0.0
+
         # We initialise the price variable here, it's value will be set when the shop
-        # agent takes it's first action.
+        # agent takes it's first action or when the type is sampled.
         self.price: float = SHOP_MAX_PRICE
 
     @property
@@ -164,13 +175,13 @@ class ShopAgent(ph.MessageHandlerAgent):
                     # The price to set for the current step:
                     "price": gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
                     # The number of additional units to order from the factory:
-                    "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                    "restock_qty": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
                 }
             )
         else:
             return gym.spaces.Dict(
                 {
-                    "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                    "restock_qty": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
                 }
             )
 
@@ -195,24 +206,23 @@ class ShopAgent(ph.MessageHandlerAgent):
         if ctx["ENV"].stage == "sales_step":
             # At the start of each step we reset the number of missed orders to 0.
             self.sales = 0
+            self.orders = 0
             self.missed_sales = 0
-            self.orders_received = 0
 
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
-
         self.leftover_stock = self.stock
 
-        self.delivered_stock = message.payload.size
+        self.restock_qty = message.payload.size
 
         self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
 
     @ph.agents.msg_handler(OrderRequest)
     def handle_order_request(self, ctx: ph.Context, message: ph.Message):
-        self.orders_received += 1
-
         amount_requested = message.payload.size
+
+        self.orders += amount_requested
 
         # If the order size is more than the amount of stock, partially fill the order.
         if amount_requested > self.stock:
@@ -253,22 +263,25 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.price = self.type.sale_price
 
         # And we send a stock request message to the factory:
-        return [(self.factory_id, StockRequest(action["restock"]))]
+        return [(self.factory_id, StockRequest(action["restock_qty"]))]
 
     def compute_reward(self, ctx: ph.Context) -> float:
-        return (
-            # The shop makes profit from selling items at the set price:
-            self.sales * self.price
+        # The shop makes revenue from selling items at the set price:
+        self.revenue = self.sales * self.price
+
+        self.costs = (
             # It incurs a cost for ordering new stock:
-            - self.delivered_stock * self.type.cost_per_unit
+            self.restock_qty * self.type.cost_per_unit
             # And for holding onto leftover stock overnight:
-            - self.leftover_stock * self.type.cost_of_carry
+            + self.leftover_stock * self.type.cost_of_carry
         )
+
+        return self.revenue - self.costs
 
     def reset(self):
         super().reset()  # sampled supertype is set as self.type here
 
-        self.stock = 0
+        self.stock = self.type.initial_inventory
 
 
 # Define agent IDs:
@@ -321,18 +334,17 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
 metrics = {}
 
 for id in SHOP_IDS:
-    metrics[f"stock/{id}"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
-    metrics[f"sales/{id}"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
-    metrics[f"price/{id}"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
-    metrics[f"missed_sales/{id}"] = ph.logging.SimpleAgentMetric(
+    # metrics[f"{id}/initial_inventory"] = ph.logging.SimpleAgentMetric(id, "type.initial_inventory", "mean")
+    metrics[f"{id}/price"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
+    metrics[f"{id}/stock"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
+    metrics[f"{id}/sales"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
+    metrics[f"{id}/orders"] = ph.logging.SimpleAgentMetric(id, "orders", "mean")
+    metrics[f"{id}/missed_sales"] = ph.logging.SimpleAgentMetric(
         id, "missed_sales", "mean"
     )
-    metrics[f"orders_received/{id}"] = ph.logging.SimpleAgentMetric(
-        id, "orders_received", "mean"
-    )
-    metrics[f"delivered_stock/{id}"] = ph.logging.SimpleAgentMetric(
-        id, "delivered_stock", "mean"
-    )
+    metrics[f"{id}/restock_qty"] = ph.logging.SimpleAgentMetric(id, "restock_qty", "mean")
+    metrics[f"{id}/revenue"] = ph.logging.SimpleAgentMetric(id, "revenue", "mean")
+    metrics[f"{id}/costs"] = ph.logging.SimpleAgentMetric(id, "costs", "mean")
 
 
 if sys.argv[1] == "train":
@@ -342,9 +354,10 @@ if sys.argv[1] == "train":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    sale_price=ph.utils.samplers.UniformSampler(low=0.0, high=2.0),
-                    cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=0.2),
-                    cost_per_unit=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
+                    initial_inventory=ph.utils.samplers.UniformIntSampler(low=0, high=SHOP_MAX_STOCK),
+                    sale_price=ph.utils.samplers.UniformFloatSampler(low=0.0, high=2.0),
+                    cost_of_carry=ph.utils.samplers.UniformFloatSampler(low=0.0, high=0.2),
+                    cost_per_unit=ph.utils.samplers.UniformFloatSampler(low=0.0, high=1.0),
                     # cost_of_carry=0.05,
                     # cost_per_unit=0.5,
                 )

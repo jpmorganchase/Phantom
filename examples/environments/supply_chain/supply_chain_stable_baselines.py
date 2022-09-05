@@ -3,12 +3,13 @@ A simplified SupplyChain environment using Stable Baselines for policy training.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Tuple
 
 import gym
 import numpy as np
 import phantom as ph
 from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
 
 
 # Define fixed parameters:
@@ -17,8 +18,9 @@ NUM_CUSTOMERS = 5
 
 CUSTOMER_MAX_ORDER_SIZE = 5
 SHOP_PRICE = 1.0
-SHOP_MAX_STOCK = 100
-SHOP_MAX_STOCK_REQUEST = 20
+SHOP_COST = 0.5
+SHOP_MAX_STOCK = 125
+SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,10 @@ class CustomerAgent(ph.MessageHandlerAgent):
     def encode_observation(self, ctx: ph.Context):
         return None
 
+    def compute_reward(self, ctx: ph.Context) -> float:
+        return 0
+
+
 
 class FactoryAgent(ph.MessageHandlerAgent):
     def __init__(self, agent_id: str):
@@ -137,6 +143,8 @@ class ShopAgent(ph.MessageHandlerAgent):
         # Messages received from the factory contain stock.
         self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
 
+        self.delivered_stock = message.payload.size
+
     @ph.agents.msg_handler(OrderRequest)
     def handle_order_request(self, ctx: ph.Context, message: ph.Message):
         # All other messages are from customers and contain orders.
@@ -181,7 +189,7 @@ class ShopAgent(ph.MessageHandlerAgent):
         return [(self.factory_id, StockRequest(stock_to_request))]
 
     def compute_reward(self, ctx: ph.Context) -> float:
-        return self.sales * SHOP_PRICE - self.stock * self.type.cost_of_carry
+        return self.sales * SHOP_PRICE - self.stock * self.type.cost_of_carry - self.delivered_stock * SHOP_COST
 
     def reset(self):
         super().reset()  # sampled supertype is set as self.type here
