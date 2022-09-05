@@ -285,6 +285,7 @@ class ShopAgent(ph.MessageHandlerAgent):
         super().reset()  # sampled supertype is set as self.type here
 
         self.stock = self.type.initial_inventory
+        self.restock_qty = self.type.initial_inventory
 
 
 # Define agent IDs:
