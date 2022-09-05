@@ -387,7 +387,7 @@ function;
 
     agent_supertypes = {
         ShopAgentSupertype(
-            missed_sales_weight=UniformSampler(0.0, 8.0)
+            missed_sales_weight=UniformFloatSampler(0.0, 8.0)
         )
         for sid in shop_ids
     })

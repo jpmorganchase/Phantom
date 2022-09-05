@@ -236,19 +236,21 @@ def rollout(
     # Start the rollouts
     if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
-        results: List[Rollout] = list(tqdm(
-            _rollout_task_fn(
-                deepcopy(config),
-                checkpoint_path,
-                algorithm,
-                rollout_configs,
-                env_class,
-                metrics,
-                result_mapping_fn,
-                record_messages,
-            ),
-            total=len(rollout_configs)
-        ))
+        results: List[Rollout] = list(
+            tqdm(
+                _rollout_task_fn(
+                    deepcopy(config),
+                    checkpoint_path,
+                    algorithm,
+                    rollout_configs,
+                    env_class,
+                    metrics,
+                    result_mapping_fn,
+                    record_messages,
+                ),
+                total=len(rollout_configs),
+            )
+        )
 
     else:
         # Distribute the rollouts evenly amongst the number of workers.

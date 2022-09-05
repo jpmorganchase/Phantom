@@ -62,7 +62,7 @@ respective agent.
                 "SIMPLE_AGENT": SimpleAgentSupertype(
                     # When training is run, for each episode the 'skill_weight' parameter
                     # will be uniformly sampled from the range 0.0 to 1.0:
-                    skill_weight: UniformSampler(0.0, 1.0)
+                    skill_weight: UniformFloatSampler(0.0, 1.0)
                 )
             }
         }

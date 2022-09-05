@@ -1,40 +1,53 @@
 import pytest
 
-from phantom.utils.samplers import UniformSampler, LambdaSampler
+from phantom.utils.samplers import UniformFloatSampler, UniformIntSampler, LambdaSampler
 
 
 @pytest.fixture
-def sampler():
-    return UniformSampler()
+def float_sampler():
+    return UniformFloatSampler()
 
 
-def test_comparison_with_float(sampler):
-    sampler.value = sampler.sample()
-
-    assert sampler <= 1.0
-    assert sampler >= 0.0
-    assert sampler == sampler.value
-    assert sampler != (sampler.value + 0.1)
+@pytest.fixture
+def int_sampler():
+    return UniformIntSampler()
 
 
-def test_comparison_with_sampler(sampler):
-    sampler.value = 0.5
+def test_comparison_with_float(float_sampler):
+    float_sampler.value = float_sampler.sample()
 
-    sampler2 = UniformSampler()
-    sampler2.value = 0.5
+    assert float_sampler <= 1.0
+    assert float_sampler >= 0.0
+    assert float_sampler == float_sampler.value
+    assert float_sampler != (float_sampler.value + 0.1)
 
-    assert not (sampler == sampler2)
-    assert sampler != sampler2
+
+def test_comparison_with_int(int_sampler):
+    int_sampler.value = int_sampler.sample()
+
+    assert int_sampler == 0 or int_sampler == 1
+    assert int_sampler == int_sampler.value
+    assert int_sampler != (int_sampler.value + 1)
+
+
+def test_comparison_with_sampler(float_sampler):
+    float_sampler.value = 0.5
+
+    float_sampler2 = UniformFloatSampler()
+    float_sampler2.value = 0.5
+
+    assert not (float_sampler == float_sampler2)
+    assert float_sampler != float_sampler2
 
 
 def test_iterable():
-    sampler1 = UniformSampler()
+    sampler1 = UniformFloatSampler()
     sampler1.value = 0.5
 
-    sampler2 = UniformSampler()
+    sampler2 = UniformFloatSampler()
     sampler2.value = 0.5
 
-    sampler3 = UniformSampler()
+    sampler3 = UniformFloatSampler()
     sampler3.value = 0.5
 
     l = [sampler1, sampler2]

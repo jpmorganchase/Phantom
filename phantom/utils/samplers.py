@@ -74,7 +74,7 @@ class ComparableSampler(Sampler[ComparableT], Generic[ComparableT]):
     :class:`ComparableSampler` like its actual internal value.
 
     Example:
-    >>> s = UniformSampler()
+    >>> s = UniformFloatSampler()
     >>> s.value = s.sample()
     >>> s <= 1.0
     # True
@@ -109,7 +109,7 @@ class ComparableSampler(Sampler[ComparableT], Generic[ComparableT]):
         return self.__gt__(other) or self.__eq__(other)
 
 
-class UniformSampler(ComparableSampler[float]):
+class UniformFloatSampler(ComparableSampler[float]):
     """Samples a single float value from a uniform distribution.
 
     Uses :func:`np.random.uniform` internally.
@@ -131,6 +131,35 @@ class UniformSampler(ComparableSampler[float]):
 
     def sample(self) -> float:
         value = np.random.uniform(self.low, self.high)
+
+        if self.clip_low is None and self.clip_high is None:
+            return value
+
+        return np.clip(value, a_min=self.clip_low, a_max=self.clip_high)
+
+
+class UniformIntSampler(ComparableSampler[int]):
+    """Samples a single int value from a uniform distribution.
+
+    Uses :func:`np.random.randint` internally.
+    """
+
+    def __init__(
+        self,
+        low: int = 0,
+        high: int = 1,
+        clip_low: Optional[int] = None,
+        clip_high: Optional[int] = None,
+    ) -> None:
+        self.low = low
+        self.high = high
+        self.clip_low = clip_low
+        self.clip_high = clip_high
+
+        super().__init__()
+
+    def sample(self) -> float:
+        value = np.random.randint(self.low, self.high)
 
         if self.clip_low is None and self.clip_high is None:
             return value
