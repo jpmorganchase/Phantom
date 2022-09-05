@@ -242,7 +242,7 @@ env = ph.SingleAgentEnvAdapter(
 
 model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./tensorboard/")
 model.learn(total_timesteps=1e7)
-model.save(PATH)
+model.save("sb_model.pkl")
 # model = PPO.load(PATH, env=env) loading pre-trained model
 
 obs = env.reset()
