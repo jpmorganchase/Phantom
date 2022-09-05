@@ -1,6 +1,6 @@
 import phantom as ph
 from phantom.utils.rollout import Step
-from phantom.utils.samplers import UniformSampler
+from phantom.utils.samplers import UniformFloatSampler
 
 from base_policy import BuyerPolicy, SellerPolicy
 from market_agents import BuyerAgent, BuyerSupertype, SellerAgent
@@ -8,9 +8,9 @@ from simple_mkt_env import SimpleMarketEnv
 
 
 # Agents
-b1 = BuyerAgent("b1", 0.2, supertype=BuyerSupertype(UniformSampler(0.2, 0.2)))
-b2 = BuyerAgent("b2", 0.9, supertype=BuyerSupertype(UniformSampler(1, 1)))
-b3 = BuyerAgent("b3", 0.9, supertype=BuyerSupertype(UniformSampler(0.5, 0.5)))
+b1 = BuyerAgent("b1", 0.2, supertype=BuyerSupertype(UniformFloatSampler(0.2, 0.2)))
+b2 = BuyerAgent("b2", 0.9, supertype=BuyerSupertype(UniformFloatSampler(1, 1)))
+b3 = BuyerAgent("b3", 0.9, supertype=BuyerSupertype(UniformFloatSampler(0.5, 0.5)))
 s1 = SellerAgent("s1")
 s2 = SellerAgent("s2")
 buyer_agents = [b1, b2, b3]

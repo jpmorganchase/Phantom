@@ -1,5 +1,5 @@
 import phantom as ph
-from phantom.utils.samplers import UniformSampler
+from phantom.utils.samplers import UniformFloatSampler
 
 from base_policy import BuyerPolicy, SellerPolicy
 from info_leakage_agents import MaybeLeakyBuyer, MaybeSneakySeller
@@ -36,9 +36,13 @@ def rollout(env):
 
 if __name__ == "__main__":
     # Setup some benign Agents; fixed types
-    b1 = MaybeLeakyBuyer("b1", 0.2, supertype=BuyerSupertype(UniformSampler(0.2, 0.2)))
-    b2 = MaybeLeakyBuyer("b2", 0.9, supertype=BuyerSupertype(UniformSampler(1, 1)))
-    b3 = MaybeLeakyBuyer("b3", 0.9, supertype=BuyerSupertype(UniformSampler(0.5, 0.5)))
+    b1 = MaybeLeakyBuyer(
+        "b1", 0.2, supertype=BuyerSupertype(UniformFloatSampler(0.2, 0.2))
+    )
+    b2 = MaybeLeakyBuyer("b2", 0.9, supertype=BuyerSupertype(UniformFloatSampler(1, 1)))
+    b3 = MaybeLeakyBuyer(
+        "b3", 0.9, supertype=BuyerSupertype(UniformFloatSampler(0.5, 0.5))
+    )
     s1 = MaybeSneakySeller("s1")
     s2 = MaybeSneakySeller("s2")
     buyer_agents = [b1, b2, b3]

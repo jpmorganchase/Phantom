@@ -17,7 +17,10 @@ Interface
 Implementations
 ^^^^^^^^^^^^^^^
 
-.. autoclass:: phantom.utils.samplers.UniformSampler
+.. autoclass:: phantom.utils.samplers.UniformFloatSampler
+   :inherited-members:
+
+.. autoclass:: phantom.utils.samplers.UniformIntSampler
    :inherited-members:
 
 .. autoclass:: phantom.utils.samplers.UniformArraySampler
