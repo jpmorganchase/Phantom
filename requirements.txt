@@ -1,6 +1,5 @@
 cloudpickle==2.1.0
 coloredlogs==15.0.1
-gputil==1.4.0
 numpy==1.21.6
 ray[rllib]==2.0.0
 tabulate==0.8.10
