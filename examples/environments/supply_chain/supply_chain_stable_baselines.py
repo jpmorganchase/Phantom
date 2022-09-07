@@ -88,7 +88,6 @@ class CustomerAgent(ph.MessageHandlerAgent):
         return 0
 
 
-
 class FactoryAgent(ph.MessageHandlerAgent):
     def __init__(self, agent_id: str):
         super().__init__(agent_id)
@@ -145,7 +144,6 @@ class ShopAgent(ph.MessageHandlerAgent):
             }
         )
 
-
     def pre_message_resolution(self, ctx: ph.Context):
         # At the start of each step we reset the number of missed orders to 0.
         self.sales = 0
@@ -190,6 +188,7 @@ class ShopAgent(ph.MessageHandlerAgent):
             # learn to maximise sales.
             "previous_sales": self.sales,
         }
+
     def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
         # The action the shop takes is the amount of new stock to request from the
         # factory.
@@ -198,7 +197,11 @@ class ShopAgent(ph.MessageHandlerAgent):
         return [(self.factory_id, StockRequest(stock_to_request))]
 
     def compute_reward(self, ctx: ph.Context) -> float:
-        return self.sales * SHOP_PRICE - self.stock * self.type.cost_of_carry - self.delivered_stock * SHOP_COST
+        return (
+            self.sales * SHOP_PRICE
+            - self.stock * self.type.cost_of_carry
+            - self.delivered_stock * SHOP_COST
+        )
 
     def reset(self):
         super().reset()  # sampled supertype is set as self.type here

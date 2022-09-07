@@ -346,7 +346,9 @@ for id in SHOP_IDS:
     metrics[f"{id}/missed_sales"] = ph.logging.SimpleAgentMetric(
         id, "missed_sales", "mean"
     )
-    metrics[f"{id}/restock_qty"] = ph.logging.SimpleAgentMetric(id, "restock_qty", "mean")
+    metrics[f"{id}/restock_qty"] = ph.logging.SimpleAgentMetric(
+        id, "restock_qty", "mean"
+    )
     metrics[f"{id}/revenue"] = ph.logging.SimpleAgentMetric(id, "revenue", "mean")
     metrics[f"{id}/costs"] = ph.logging.SimpleAgentMetric(id, "costs", "mean")
 
@@ -358,10 +360,16 @@ if sys.argv[1] == "train":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    initial_inventory=ph.utils.samplers.UniformIntSampler(low=0, high=SHOP_MAX_STOCK),
+                    initial_inventory=ph.utils.samplers.UniformIntSampler(
+                        low=0, high=SHOP_MAX_STOCK
+                    ),
                     sale_price=ph.utils.samplers.UniformFloatSampler(low=0.0, high=2.0),
-                    cost_of_carry=ph.utils.samplers.UniformFloatSampler(low=0.0, high=0.2),
-                    cost_per_unit=ph.utils.samplers.UniformFloatSampler(low=0.0, high=1.0),
+                    cost_of_carry=ph.utils.samplers.UniformFloatSampler(
+                        low=0.0, high=0.2
+                    ),
+                    cost_per_unit=ph.utils.samplers.UniformFloatSampler(
+                        low=0.0, high=1.0
+                    ),
                     # cost_of_carry=0.05,
                     # cost_per_unit=0.5,
                 )
