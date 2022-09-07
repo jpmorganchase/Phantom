@@ -1,8 +1,6 @@
 cloudpickle==2.2.0
 coloredlogs==15.0.1
-numpy==1.21.6
 ray[rllib]==2.0.0
 tensorboardX==2.5.1
-tensorflow==2.10.0
 termcolor==1.1.0
 tqdm==4.64.1
