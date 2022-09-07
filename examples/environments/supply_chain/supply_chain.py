@@ -162,7 +162,9 @@ class ShopAgent(ph.MessageHandlerAgent):
             return gym.spaces.Dict(
                 {
                     # The price to set for the current step:
-                    "price": gym.spaces.Box(low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)),
+                    "price": gym.spaces.Box(
+                        low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)
+                    ),
                     # The number of additional units to order from the factory:
                     "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
                 }
@@ -312,9 +314,9 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
                     next_stages=["sales_step"],
                     acting_agents=SHOP_IDS,
                     rewarded_agents=SHOP_IDS,
-                )
+                ),
             ],
-            **kwargs
+            **kwargs,
         )
 
 
@@ -423,5 +425,3 @@ elif sys.argv[1] == "test":
 
     plt.plot(x, y)
     plt.savefig("stock.png")
-
-
