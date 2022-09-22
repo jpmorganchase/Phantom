@@ -280,8 +280,13 @@ def rollout(
             for i in range(0, len(rollout_configs), rollouts_per_worker)
         ]
 
+        # NOTE: Ray workers appear to get stuck if num_returns=1, to fix we return a
+        # 'None' at the end and then drop from overall returned values.
+
         tasks = [
-            remote_rollout_task_fn.options(num_returns=len(payload[3])).remote(*payload)
+            remote_rollout_task_fn.options(num_returns=len(payload[3]) + 1).remote(
+                *payload
+            )
             for payload in worker_payloads
         ]
 
@@ -290,7 +295,7 @@ def rollout(
         results = []
 
         for task in tasks:
-            results += ray.get(task)
+            results += ray.get(task)[:-1]
 
     return results
 
@@ -386,6 +391,9 @@ def _rollout_task_fn(
             result = result_mapping_fn(result)
 
         yield result
+
+    # Fix issue when Ray worker yields only one result:
+    yield None
 
 
 @dataclass(frozen=True)
