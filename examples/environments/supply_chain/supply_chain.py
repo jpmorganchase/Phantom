@@ -153,11 +153,13 @@ class ShopAgent(ph.MessageHandlerAgent):
         self.missed_sales: int = 0
 
         # How many items have been delivered by the factory in this turn:
-        self.restock_qty: int = 0
+        self.delivered_stock: int = 0
 
         self.leftover_stock: int = 0
 
-        self.orders = 0
+        self.orders_received = 0
+
+        self.pnl = 0
 
         # Reward function sub-components:
         self.revenue: float = 0.0
@@ -225,23 +227,36 @@ class ShopAgent(ph.MessageHandlerAgent):
             # At the start of each step we reset the number of missed orders to 0.
             self.sales = 0
             self.missed_sales = 0
-            self.orders = 0
+            self.orders_received = 0
+
+    def post_message_resolution(self, ctx: ph.Context):
+        if ctx["ENV"].stage == "sales_step":
+            self.leftover_stock = self.stock
+
+        self.revenue = self.sales * self.price
+
+        self.costs = (
+            # It incurs a cost for ordering new stock:
+            self.delivered_stock * self.type.cost_per_unit
+            # And for holding onto leftover stock overnight:
+            + self.leftover_stock * self.type.cost_of_carry
+        )
+
+        self.pnl = self.revenue - self.costs
 
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
 
-        self.leftover_stock = self.stock
+        self.delivered_stock = message.payload.size
 
-        self.restock_qty = message.payload.size
-
-        self.stock = min(self.stock + self.restock_qty, SHOP_MAX_STOCK)
+        self.stock = min(self.stock + self.delivered_stock, SHOP_MAX_STOCK)
 
     @ph.agents.msg_handler(OrderRequest)
     def handle_order_request(self, ctx: ph.Context, message: ph.Message):
         amount_requested = message.payload.size
 
-        self.orders += amount_requested
+        self.orders_received += amount_requested
 
         # If the order size is more than the amount of stock, partially fill the order.
         if amount_requested > self.stock:
@@ -295,16 +310,7 @@ class ShopAgent(ph.MessageHandlerAgent):
         #     - self.leftover_stock * self.type.cost_of_carry
         # )
 
-        self.revenue = self.sales * self.price
-
-        self.costs = (
-            # It incurs a cost for ordering new stock:
-            self.restock_qty * self.type.cost_per_unit
-            # And for holding onto leftover stock overnight:
-            + self.leftover_stock * self.type.cost_of_carry
-        )
-
-        return self.revenue - self.costs
+        return self.pnl
 
     def reset(self):
         super().reset()  # sampled supertype is set as self.type here
@@ -372,13 +378,15 @@ for id in SHOP_IDS:
     metrics[f"{id}/price"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
     metrics[f"{id}/stock"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
     metrics[f"{id}/sales"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
-    metrics[f"{id}/orders"] = ph.logging.SimpleAgentMetric(id, "orders", "mean")
+    metrics[f"{id}/orders"] = ph.logging.SimpleAgentMetric(id, "orders_received", "mean")
     metrics[f"{id}/missed_sales"] = ph.logging.SimpleAgentMetric(
         id, "missed_sales", "mean"
     )
-    metrics[f"{id}/restock_qty"] = ph.logging.SimpleAgentMetric(id, "restock_qty", "mean")
+    metrics[f"{id}/delivered_stock"] = ph.logging.SimpleAgentMetric(id, "delivered_stock", "mean")
+    metrics[f"{id}/leftover_stock"] = ph.logging.SimpleAgentMetric(id, "leftover_stock", "mean")
     metrics[f"{id}/revenue"] = ph.logging.SimpleAgentMetric(id, "revenue", "mean")
     metrics[f"{id}/costs"] = ph.logging.SimpleAgentMetric(id, "costs", "mean")
+    metrics[f"{id}/pnl"] = ph.logging.SimpleAgentMetric(id, "pnl", "mean")
 
 
 exp_name = "all_supertypes"
@@ -424,9 +432,9 @@ if sys.argv[1] == "train":
         },
         tune_config={
             "name": exp_name,
-            "checkpoint_freq": 100,
+            "checkpoint_freq": 500,
             "stop": {
-                "training_iteration": 10000,
+                "training_iteration": 1000,
             },
         },
         # num_workers=7,
@@ -532,7 +540,7 @@ elif sys.argv[1] == "policy":
     obs = {
         "type": {
             "sale_price": np.array([1.0]),
-            "cost_of_carry": np.array([1.0]),
+            "cost_of_carry": np.array([0.1]),
             "cost_per_unit": np.array([0.5]),
         },
         "stock": np.array([0]),
@@ -561,4 +569,4 @@ elif sys.argv[1] == "policy":
     plt.gca().invert_yaxis()
     cbar = plt.colorbar()
     cbar.set_label("restock qty", rotation=270)
-    plt.savefig(f"{exp_name}__policy_10.png")
+    plt.savefig(f"{exp_name}__policy_x.png")
