@@ -19,7 +19,7 @@ from ray.tune.registry import register_env
 
 
 # Define fixed parameters:
-NUM_EPISODE_STEPS = 100
+NUM_EPISODE_STEPS = 60
 NUM_SHOPS = 1
 NUM_CUSTOMERS = 5
 
