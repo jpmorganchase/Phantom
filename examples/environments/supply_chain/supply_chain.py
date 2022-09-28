@@ -157,6 +157,8 @@ class ShopAgent(ph.MessageHandlerAgent):
 
         self.leftover_stock: int = 0
 
+        self.carried_stock = 0
+
         self.orders_received = 0
 
         self.pnl = 0
@@ -229,6 +231,8 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.missed_sales = 0
             self.orders_received = 0
 
+            self.carried_stock = self.stock
+
     def post_message_resolution(self, ctx: ph.Context):
         if ctx["ENV"].stage == "sales_step":
             self.leftover_stock = self.stock
@@ -239,7 +243,7 @@ class ShopAgent(ph.MessageHandlerAgent):
             # It incurs a cost for ordering new stock:
             self.delivered_stock * self.type.cost_per_unit
             # And for holding onto leftover stock overnight:
-            + self.leftover_stock * self.type.cost_of_carry
+            + self.carried_stock * self.type.cost_of_carry
         )
 
         self.pnl = self.revenue - self.costs
@@ -315,6 +319,9 @@ class ShopAgent(ph.MessageHandlerAgent):
     def reset(self):
         super().reset()  # sampled supertype is set as self.type here
 
+        if not ALLOW_PRICE_ACTION:
+            self.price = self.type.sale_price
+
         if self.initial_inventory is None:
             self.stock = np.random.randint(25)
         else:
@@ -378,11 +385,12 @@ for id in SHOP_IDS:
     metrics[f"{id}/price"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
     metrics[f"{id}/stock"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
     metrics[f"{id}/sales"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
-    metrics[f"{id}/orders"] = ph.logging.SimpleAgentMetric(id, "orders_received", "mean")
+    metrics[f"{id}/orders_received"] = ph.logging.SimpleAgentMetric(id, "orders_received", "mean")
     metrics[f"{id}/missed_sales"] = ph.logging.SimpleAgentMetric(
         id, "missed_sales", "mean"
     )
     metrics[f"{id}/delivered_stock"] = ph.logging.SimpleAgentMetric(id, "delivered_stock", "mean")
+    metrics[f"{id}/carried_stock"] = ph.logging.SimpleAgentMetric(id, "carried_stock", "mean")
     metrics[f"{id}/leftover_stock"] = ph.logging.SimpleAgentMetric(id, "leftover_stock", "mean")
     metrics[f"{id}/revenue"] = ph.logging.SimpleAgentMetric(id, "revenue", "mean")
     metrics[f"{id}/costs"] = ph.logging.SimpleAgentMetric(id, "costs", "mean")
