@@ -2,7 +2,6 @@
 A simple logistics themed environment used for demonstrating the features of Phantom.
 """
 
-import pickle
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +9,9 @@ from typing import List, Optional, Tuple
 
 import cloudpickle
 import gym
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import phantom as ph
 from phantom.utils.rllib.wrapper import RLlibEnvWrapper
 from phantom.utils.rllib import get_checkpoints, find_most_recent_results_dir
@@ -215,7 +216,9 @@ class ShopAgent(ph.MessageHandlerAgent):
                 # "previous_sales": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
                 "previous_sales": gym.spaces.Box(
                     # low=0, high=SHOP_MAX_STOCK, shape=(1,)
-                    low=0, high=1, shape=(1,)
+                    low=0,
+                    high=1,
+                    shape=(1,),
                 ),
             }
         )
@@ -385,13 +388,21 @@ for id in SHOP_IDS:
     metrics[f"{id}/price"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
     metrics[f"{id}/stock"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
     metrics[f"{id}/sales"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
-    metrics[f"{id}/orders_received"] = ph.logging.SimpleAgentMetric(id, "orders_received", "mean")
+    metrics[f"{id}/orders_received"] = ph.logging.SimpleAgentMetric(
+        id, "orders_received", "mean"
+    )
     metrics[f"{id}/missed_sales"] = ph.logging.SimpleAgentMetric(
         id, "missed_sales", "mean"
     )
-    metrics[f"{id}/delivered_stock"] = ph.logging.SimpleAgentMetric(id, "delivered_stock", "mean")
-    metrics[f"{id}/carried_stock"] = ph.logging.SimpleAgentMetric(id, "carried_stock", "mean")
-    metrics[f"{id}/leftover_stock"] = ph.logging.SimpleAgentMetric(id, "leftover_stock", "mean")
+    metrics[f"{id}/delivered_stock"] = ph.logging.SimpleAgentMetric(
+        id, "delivered_stock", "mean"
+    )
+    metrics[f"{id}/carried_stock"] = ph.logging.SimpleAgentMetric(
+        id, "carried_stock", "mean"
+    )
+    metrics[f"{id}/leftover_stock"] = ph.logging.SimpleAgentMetric(
+        id, "leftover_stock", "mean"
+    )
     metrics[f"{id}/revenue"] = ph.logging.SimpleAgentMetric(id, "revenue", "mean")
     metrics[f"{id}/costs"] = ph.logging.SimpleAgentMetric(id, "costs", "mean")
     metrics[f"{id}/pnl"] = ph.logging.SimpleAgentMetric(id, "pnl", "mean")
@@ -409,17 +420,24 @@ if sys.argv[1] == "train":
                 shop_id: ShopAgent.Supertype(
                     # sale_price=1.0,
                     sale_price=ph.utils.samplers.UniformFloatSampler(
-                        low=-0.1, high=2.1, clip_low=0.0, clip_high=2.0,
+                        low=-0.1,
+                        high=2.1,
+                        clip_low=0.0,
+                        clip_high=2.0,
                     ),
-                    
                     # cost_per_unit=0.5,
                     cost_per_unit=ph.utils.samplers.UniformFloatSampler(
-                        low=-0.1, high=1.1, clip_low=0.0, clip_high=1.0,
+                        low=-0.1,
+                        high=1.1,
+                        clip_low=0.0,
+                        clip_high=1.0,
                     ),
-                    
                     # cost_of_carry=0.1,
                     cost_of_carry=ph.utils.samplers.UniformFloatSampler(
-                        low=-0.1, high=1.1, clip_low=0.0, clip_high=1.0,
+                        low=-0.1,
+                        high=1.1,
+                        clip_low=0.0,
+                        clip_high=1.0,
                     ),
                 )
                 for shop_id in SHOP_IDS
@@ -445,20 +463,10 @@ if sys.argv[1] == "train":
                 "training_iteration": 1000,
             },
         },
-        # num_workers=7,
     )
 
 
 elif sys.argv[1] == "test":
-
-    def fn(rollout):
-        return (
-            rollout.env_config["agent_supertypes"]["SHOP1"].cost_of_carry,
-            np.mean([x["restock_qty"] for x in rollout.actions_for_agent("SHOP1") if x]),
-            np.mean(rollout.metrics["SHOP1/sales"]),
-            np.mean([r for r in rollout.rewards_for_agent("SHOP1") if r is not None])
-        )
-
     results = ph.utils.rllib.rollout(
         directory=f"{exp_name}/LATEST",
         algorithm="PPO",
@@ -470,21 +478,22 @@ elif sys.argv[1] == "test":
                     sale_price=ph.utils.ranges.UniformRange(
                         start=0.0,
                         end=2.0 + 0.001,
-                        step=0.1,
+                        step=0.2,
+                        name="sale_price",
                     ),
-
                     # cost_per_unit=0.5,
                     cost_per_unit=ph.utils.ranges.UniformRange(
                         start=0.0,
                         end=1.0 + 0.001,
-                        step=0.05,
+                        step=0.1,
+                        name="cost_per_unit",
                     ),
-
                     # cost_of_carry=0.1,
                     cost_of_carry=ph.utils.ranges.UniformRange(
                         start=0.0,
                         end=1.0 + 0.001,
-                        step=0.05,
+                        step=0.1,
+                        name="cost_of_carry",
                     ),
                 )
                 for shop_id in SHOP_IDS
@@ -494,29 +503,38 @@ elif sys.argv[1] == "test":
         metrics=metrics,
         record_messages=False,
         # num_workers=0,
-        result_mapping_fn=fn,
     )
 
-    from collections import defaultdict
-    restocks = defaultdict(list)
-    sales = defaultdict(list)
-    rewards = defaultdict(list)
+    # This is the supertype parameter we are scanning over
+    varied_param = "cost_of_carry"
 
-    for value, restock, sale, reward in results:
-        restocks[value].append(restock)
-        sales[value].append(sale)
-        rewards[value].append(reward)
+    # We iterate over all rollout results, taking just the values we need (the varied
+    # supertype parameter and 3 metrics), and placing them into a Pandas DataFrame
+    df = pd.DataFrame(
+        {
+            varied_param: rollout.rollout_params[varied_param],
+            "avg_restock_qty": np.mean(
+                [
+                    x["restock_qty"]
+                    for x in rollout.actions_for_agent("SHOP1", drop_nones=True)
+                ]
+            ),
+            "avg_sales": np.mean(rollout.metrics["SHOP1/sales"]),
+            "avg_reward": np.mean(rollout.rewards_for_agent("SHOP1", drop_nones=True)),
+        }
+        for rollout in results
+    )
 
-    import matplotlib.pyplot as plt
+    # Aggregate all the results for each value of the scanned supertype parameter
+    df = df.groupby(varied_param).mean()
 
-    x = list(restocks.keys())
-    plt.scatter(x, list(map(np.mean, restocks.values())), label="restock qty")
-    plt.scatter(x, list(map(np.mean, sales.values())), label="sales")
-    plt.scatter(x, list(map(np.mean, rewards.values())), label="rewards")
+    # Plot variables, x_axis = scanned parameter, y_axis = selected metrics
+    for col_name in df.columns:
+        plt.scatter(df.index, df[col_name], label=col_name)
 
     plt.legend()
-    plt.xlabel("Cost of Carry")
-    plt.savefig(f"{exp_name}__cost_of_carry.png")
+    plt.xlabel(varied_param)
+    plt.savefig(f"{exp_name}__{varied_param}.png")
 
 
 elif sys.argv[1] == "policy":
@@ -565,9 +583,11 @@ elif sys.argv[1] == "policy":
             obs["stock"] = np.array([i]) / SHOP_MAX_STOCK
             obs["previous_sales"] = np.array([j]) / SHOP_MAX_STOCK
 
-            restock_actions[i, j] = int(trainer.compute_single_action(
+            restock_actions[i, j] = int(
+                trainer.compute_single_action(
                 obs, policy_id="shop_policy", explore=False
-            )["restock_qty"])
+                )["restock_qty"]
+            )
 
     import matplotlib.pyplot as plt
 
