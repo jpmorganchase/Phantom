@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
     DefaultDict,
     Dict,
     Generator,
@@ -23,7 +22,8 @@ import numpy as np
 import ray
 from ray.rllib.algorithms.registry import get_trainer_class
 from ray.tune.registry import register_env
-from tqdm import tqdm
+from ray.util.queue import Queue
+from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
@@ -41,14 +41,6 @@ from .wrapper import RLlibEnvWrapper
 from . import get_checkpoints, find_most_recent_results_dir
 
 
-from asyncio import Event
-from typing import Tuple
-
-import ray
-from ray.actor import ActorHandle
-from tqdm import tqdm
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -62,8 +54,8 @@ def rollout(
     checkpoint: Optional[int] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
-    result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
-) -> Union[List[Rollout], List[Any]]:
+    show_progress_bar: bool = True,
+) -> Generator[Rollout, None, None]:
     """Performs rollouts for a previously trained Phantom experiment.
 
     Any objects that inherit from the Range class in the env_config parameter will be
@@ -91,20 +83,19 @@ def rollout(
         metrics: Optional set of metrics to record and log.
         record_messages: If True the full list of episode messages for each of the
             rollouts will be recorded. Only applies if `save_trajectories` is also True.
-        result_mapping_fn: If given, results from each rollout will be passed to this
-            function, with the return values from the function aggregated and saved.
-            This can be useful when wanting to cut down on the size of rollout results
-            file when only a specific subset of fields are needed in further analysis.
+        show_progress_bar: If True shows a progress bar in the terminal output.
 
     Returns:
-        If result_mapping_fn is None, a list of Rollout objects. If result_mapping_fn is
-        not None, a list of the outputs from the result_mapping_fn function.
+        A Generator of Rollouts.
 
     NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
     command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
     the Python interpreter to run this code. Not setting this may lead to
     reproducibility issues.
     """
+    assert num_repeats > 0, "num_repeats must be at least 1"
+    assert num_workers >= 0, "num_workers must be at least 0"
+
     show_pythonhashseed_warning()
 
     metrics = metrics or {}
@@ -236,35 +227,34 @@ def rollout(
     # Start the rollouts
     if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
-        results: List[Rollout] = list(
-            tqdm(
-                _rollout_task_fn(
-                    deepcopy(config),
-                    checkpoint_path,
-                    algorithm,
-                    rollout_configs,
-                    env_class,
-                    metrics,
-                    result_mapping_fn,
-                    record_messages,
-                ),
-                total=len(rollout_configs),
-            )
+
+        rollouts = _rollout_task_fn(
+            deepcopy(config),
+            checkpoint_path,
+            algorithm,
+            rollout_configs,
+            env_class,
+            metrics,
+            record_messages,
         )
 
+        if show_progress_bar:
+            yield from tqdm(rollouts, total=len(rollout_configs))
+        else:
+            yield from rollouts
+
     else:
+        q = Queue()
+
         # Distribute the rollouts evenly amongst the number of workers.
         rollouts_per_worker = int(
             math.ceil(len(rollout_configs) / max(num_workers_, 1))
         )
 
-        progress_bar = _ProgressBar(len(rollout_configs))
-
         @ray.remote
         def remote_rollout_task_fn(*args):
             for x in _rollout_task_fn(*args):
-                yield x
-                progress_bar.actor.update.remote(1)
+                q.put(x)
 
         worker_payloads = [
             (
@@ -274,30 +264,18 @@ def rollout(
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
                 metrics,
-                result_mapping_fn,
                 record_messages,
             )
             for i in range(0, len(rollout_configs), rollouts_per_worker)
         ]
 
-        # NOTE: Ray workers appear to get stuck if num_returns=1, to fix we return a
-        # 'None' at the end and then drop from overall returned values.
+        for payload in worker_payloads:
+            remote_rollout_task_fn.remote(*payload)
 
-        tasks = [
-            remote_rollout_task_fn.options(num_returns=len(payload[3]) + 1).remote(
-                *payload
-            )
-            for payload in worker_payloads
-        ]
+        range_ = trange if show_progress_bar else range
 
-        progress_bar.print_until_done()
-
-        results = []
-
-        for task in tasks:
-            results += ray.get(task)[:-1]
-
-    return results
+        for _ in range_(len(rollout_configs)):
+            yield q.get()
 
 
 def _rollout_task_fn(
@@ -307,9 +285,8 @@ def _rollout_task_fn(
     configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
-    result_mapping_fn: Optional[Callable[[Rollout], Any]] = None,
     record_messages: bool = False,
-) -> Generator[Union[Rollout, Any], None, None]:
+) -> Generator[Rollout, None, None]:
     """Internal function"""
     config["env_config"] = configs[0].env_config
 
@@ -378,7 +355,7 @@ def _rollout_task_fn(
 
         condensed_metrics = {k: np.array(v) for k, v in metrics.items()}
 
-        result = Rollout(
+        yield Rollout(
             rollout_config.rollout_id,
             rollout_config.repeat_id,
             rollout_config.env_config,
@@ -386,14 +363,6 @@ def _rollout_task_fn(
             steps,
             condensed_metrics,
         )
-
-        if result_mapping_fn is not None:
-            result = result_mapping_fn(result)
-
-        yield result
-
-    # Fix issue when Ray worker yields only one result:
-    yield None
 
 
 @dataclass(frozen=True)
@@ -404,80 +373,3 @@ class _RolloutConfig:
     repeat_id: int
     env_config: Mapping[str, Any]
     rollout_params: Mapping[str, Any]
-
-
-@ray.remote
-class _ProgressBarActor:
-    counter: int
-    delta: int
-    event: Event
-
-    def __init__(self) -> None:
-        self.counter = 0
-        self.delta = 0
-        self.event = Event()
-
-    def update(self, num_items_completed: int) -> None:
-        """Updates the ProgressBar with the incremental
-        number of items that were just completed.
-        """
-        self.counter += num_items_completed
-        self.delta += num_items_completed
-        self.event.set()
-
-    async def wait_for_update(self) -> Tuple[int, int]:
-        """Blocking call.
-
-        Waits until somebody calls `update`, then returns a tuple of
-        the number of updates since the last call to
-        `wait_for_update`, and the total number of completed items.
-        """
-        await self.event.wait()
-        self.event.clear()
-        saved_delta = self.delta
-        self.delta = 0
-        return saved_delta, self.counter
-
-    def get_counter(self) -> int:
-        """
-        Returns the total number of complete items.
-        """
-        return self.counter
-
-
-class _ProgressBar:
-    progress_actor: ActorHandle
-    total: int
-    description: str
-    pbar: tqdm
-
-    def __init__(self, total: int, description: str = ""):
-        # Ray actors don't seem to play nice with mypy, generating
-        # a spurious warning for the following line,
-        # which we need to suppress. The code is fine.
-        self.progress_actor = _ProgressBarActor.remote()  # type: ignore
-        self.total = total
-        self.description = description
-
-    @property
-    def actor(self) -> ActorHandle:
-        """Returns a reference to the remote `ProgressBarActor`.
-
-        When you complete tasks, call `update` on the actor.
-        """
-        return self.progress_actor
-
-    def print_until_done(self) -> None:
-        """Blocking call.
-
-        Do this after starting a series of remote Ray tasks, to which you've
-        passed the actor handle. Each of them calls `update` on the actor.
-        When the progress meter reaches 100%, this method returns.
-        """
-        pbar = tqdm(desc=self.description, total=self.total)
-        while True:
-            delta, counter = ray.get(self.actor.wait_for_update.remote())
-            pbar.update(delta)
-            if counter >= self.total:
-                pbar.close()
-                return
