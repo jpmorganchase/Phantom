@@ -94,7 +94,9 @@ def rollout(
     reproducibility issues.
     """
     assert num_repeats > 0, "num_repeats must be at least 1"
-    assert num_workers >= 0, "num_workers must be at least 0"
+
+    if num_workers is not None:
+        assert num_workers >= 0, "num_workers must be at least 0"
 
     show_pythonhashseed_warning()
 
