@@ -21,6 +21,16 @@ def test_rollout_class():
             ph.utils.rollout.Step(
                 i=0,
                 observations={},
+                rewards={"agent": None},
+                dones={},
+                infos={},
+                actions={},
+                messages=None,
+                stage=None,
+            ),
+            ph.utils.rollout.Step(
+                i=0,
+                observations={},
                 rewards={},
                 dones={},
                 infos={},
@@ -33,26 +43,26 @@ def test_rollout_class():
     )
 
     obs = rollout.observations_for_agent("agent", drop_nones=False)
-    assert obs == [{"obs": 1}, None]
+    assert obs == [{"obs": 1}, None, None]
     obs = rollout.observations_for_agent("agent", drop_nones=True)
     assert obs == [{"obs": 1}]
 
     rewards = rollout.rewards_for_agent("agent", drop_nones=False)
-    assert rewards == [1.0, None]
+    assert rewards == [1.0, None, None]
     rewards = rollout.rewards_for_agent("agent", drop_nones=True)
     assert rewards == [1.0]
 
     dones = rollout.rewards_for_agent("agent", drop_nones=False)
-    assert dones == [1.0, None]
+    assert dones == [1.0, None, None]
     dones = rollout.rewards_for_agent("agent", drop_nones=True)
     assert dones == [1.0]
 
     infos = rollout.rewards_for_agent("agent", drop_nones=False)
-    assert infos == [1.0, None]
+    assert infos == [1.0, None, None]
     infos = rollout.rewards_for_agent("agent", drop_nones=True)
     assert infos == [1.0]
 
     actions = rollout.rewards_for_agent("agent", drop_nones=False)
-    assert actions == [1.0, None]
+    assert actions == [1.0, None, None]
     actions = rollout.rewards_for_agent("agent", drop_nones=True)
     assert actions == [1.0]

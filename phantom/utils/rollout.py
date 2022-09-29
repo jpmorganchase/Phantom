@@ -96,7 +96,10 @@ class Rollout:
         return [
             step.rewards.get(agent_id, None)
             for step in self.steps
-            if (drop_nones is False or agent_id in step.rewards)
+            if (
+                drop_nones is False
+                or (agent_id in step.rewards and step.rewards[agent_id] is not None)
+            )
             and (stages is None or step.stage in stages)
         ]
 
