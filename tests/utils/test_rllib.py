@@ -29,10 +29,6 @@ def test_rllib_train_rollout():
             num_workers=1,
         )
 
-        import os
-
-        print(list(os.listdir(tmp_dir)))
-
         # Without workers:
         results = ph.utils.rllib.rollout(
             directory=f"{tmp_dir}/PPO/LATEST",

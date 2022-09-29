@@ -11,7 +11,7 @@ Prerequisites
 -------------
 
 The main requirements for running Phantom are a modern Python installation
-(3.7 minimum) and access to the pip Python package manager.
+(3.8 minimum) and access to the pip Python package manager.
 
 A list of Python packages required by Phantom is given in the ``requirements.txt``
 file. The packages can be installed by running the following command from the Phantom

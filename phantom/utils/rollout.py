@@ -4,7 +4,6 @@ from typing import (
     Any,
     Dict,
     Iterable,
-    Iterator,
     List,
     Mapping,
     Optional,
@@ -44,139 +43,138 @@ class Step:
     stage: Optional[StageID] = None
 
 
-@dataclass
 class Rollout:
-    rollout_id: int
-    repeat_id: int
-    env_config: Mapping[str, Any]
-    rollout_params: Dict[str, Any]
-    steps: Optional[List[Step]]
-    metrics: Dict[str, np.ndarray]
+    def __init__(
+        self,
+        rollout_id: int,
+        repeat_id: int,
+        env_config: Mapping[str, Any],
+        rollout_params: Dict[str, Any],
+        steps: List[Step],
+        metrics: Dict[str, np.ndarray],
+    ) -> None:
+        self.rollout_id = rollout_id
+        self.repeat_id = repeat_id
+        self.env_config = env_config
+        self.rollout_params = rollout_params
+        self.steps = steps
+        self.metrics = metrics
 
     def observations_for_agent(
-        self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[Optional[Any]]:
+        self,
+        agent_id: AgentID,
+        drop_nones: bool = False,
+        stages: Optional[Iterable[StageID]] = None,
+    ) -> List[Optional[Any]]:
         """Helper method to filter all observations for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter observations for.
+            drop_nones: Drops any None values if True.
             stages: Optionally also filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
-        if stages is None:
-            return (step.observations.get(agent_id, None) for step in self.steps)
-
-        return (
+        return [
             step.observations.get(agent_id, None)
             for step in self.steps
-            if step.stage in stages
-        )
+            if (drop_nones is False or agent_id in step.observations)
+            and (stages is None or step.stage in stages)
+        ]
 
     def rewards_for_agent(
-        self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[Optional[float]]:
+        self,
+        agent_id: AgentID,
+        drop_nones: bool = False,
+        stages: Optional[Iterable[StageID]] = None,
+    ) -> List[Optional[float]]:
         """Helper method to filter all rewards for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter rewards for.
+            drop_nones: Drops any None values if True.
             stages: Optionally also filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
-        if stages is None:
-            return (step.rewards.get(agent_id, None) for step in self.steps)
-
-        return (
+        return [
             step.rewards.get(agent_id, None)
             for step in self.steps
-            if step.stage in stages
-        )
+            if (drop_nones is False or agent_id in step.rewards)
+            and (stages is None or step.stage in stages)
+        ]
 
     def dones_for_agent(
-        self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[Optional[bool]]:
+        self,
+        agent_id: AgentID,
+        drop_nones: bool = False,
+        stages: Optional[Iterable[StageID]] = None,
+    ) -> List[Optional[bool]]:
         """Helper method to filter all 'dones' for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter 'dones' for.
+            drop_nones: Drops any None values if True.
             stages: Optionally also filter by multiple stages.
         """
-
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
-        if stages is None:
-            return (step.dones.get(agent_id, None) for step in self.steps)
-
-        return (
+        return [
             step.dones.get(agent_id, None)
             for step in self.steps
-            if step.stage in stages
-        )
+            if (drop_nones is False or agent_id in step.dones)
+            and (stages is None or step.stage in stages)
+        ]
 
     def infos_for_agent(
-        self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[Optional[Dict[str, Any]]]:
+        self,
+        agent_id: AgentID,
+        drop_nones: bool = False,
+        stages: Optional[Iterable[StageID]] = None,
+    ) -> List[Optional[Dict[str, Any]]]:
         """Helper method to filter all 'infos' for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter 'infos' for.
+            drop_nones: Drops any None values if True.
             stages: Optionally also filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
-        if stages is None:
-            return (step.infos.get(agent_id, None) for step in self.steps)
-
-        return (
+        return [
             step.infos.get(agent_id, None)
             for step in self.steps
-            if step.stage in stages
-        )
+            if (drop_nones is False or agent_id in step.infos)
+            and (stages is None or step.stage in stages)
+        ]
 
     def actions_for_agent(
-        self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[Optional[Any]]:
+        self,
+        agent_id: AgentID,
+        drop_nones: bool = False,
+        stages: Optional[Iterable[StageID]] = None,
+    ) -> List[Optional[Any]]:
         """Helper method to filter all actions for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter actions for.
+            drop_nones: Drops any None values if True.
             stages: Optionally also filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
-        if stages is None:
-            return (step.actions.get(agent_id, None) for step in self.steps)
-
-        return (
+        return [
             step.actions.get(agent_id, None)
             for step in self.steps
-            if step.stage in stages
-        )
+            if (drop_nones is False or agent_id in step.actions)
+            and (stages is None or step.stage in stages)
+        ]
 
     def steps_for_agent(
         self, agent_id: AgentID, stages: Optional[Iterable[StageID]] = None
-    ) -> Iterator[AgentStep]:
+    ) -> List[AgentStep]:
         """Helper method to filter all steps for a single agent.
 
         Arguments:
             agent_id: The ID of the agent to filter steps for.
             stages: Optionally also filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
         if stages is None:
             steps = self.steps
         else:
             steps = [step for step in self.steps if step.stage in stages]
 
-        return (
+        return [
             AgentStep(
                 step.i,
                 step.observations.get(agent_id, None),
@@ -187,7 +185,7 @@ class Rollout:
                 step.stage,
             )
             for step in steps
-        )
+        ]
 
     def count_actions(
         self, stages: Optional[Iterable[StageID]] = None
@@ -197,9 +195,6 @@ class Rollout:
         Arguments:
             stages: Optionally filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
         if stages is None:
             filtered_actions = (
                 action for step in self.steps for action in step.actions.values()
@@ -223,9 +218,6 @@ class Rollout:
             agent_id: The ID of the agent to count actions for.
             stages: Optionally also filter by multiple stages.
         """
-        if self.steps is None:
-            raise ValueError("Trajectory not stored in rollout")
-
         if stages is None:
             filtered_actions = (step.actions.get(agent_id, None) for step in self.steps)
         else:
@@ -239,9 +231,6 @@ class Rollout:
 
     def __getitem__(self, index: int):
         """Returns a step for a given index in the episode."""
-        if self.steps is None:
-            raise KeyError("Trajectory not stored in rollout")
-
         try:
             return self.steps[index]
         except KeyError:
