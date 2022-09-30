@@ -15,14 +15,19 @@ import phantom as ph
 
 # TODO: find better way of doing this in Phantom
 
-class UnitArrayLinspaceRange(ph.utils.ranges.LinspaceRange, ph.utils.ranges.Range[np.ndarray]):
+
+class UnitArrayLinspaceRange(
+    ph.utils.ranges.LinspaceRange, ph.utils.ranges.Range[np.ndarray]
+):
     def values(self) -> np.ndarray:
         return [np.array([x]) for x in np.linspace(self.start, self.end, self.n)]
 
-class UnitArrayUniformRange(ph.utils.ranges.UniformRange, ph.utils.ranges.Range[np.ndarray]):
+
+class UnitArrayUniformRange(
+    ph.utils.ranges.UniformRange, ph.utils.ranges.Range[np.ndarray]
+):
     def values(self) -> np.ndarray:
         return [np.array([x]) for x in np.arange(self.start, self.end, self.step)]
-
 
 
 # Define fixed parameters:
@@ -214,11 +219,7 @@ class ShopAgent(ph.MessageHandlerAgent):
                 # The agent's current stock:
                 "stock": gym.spaces.Box(low=0, high=1, shape=(1,)),
                 # The number of sales made by the agent in the previous step:
-                "previous_sales": gym.spaces.Box(
-                    low=0,
-                    high=1,
-                    shape=(1,)
-                ),
+                "previous_sales": gym.spaces.Box(low=0, high=1, shape=(1,)),
             }
         )
 
