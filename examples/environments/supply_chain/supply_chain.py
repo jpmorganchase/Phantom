@@ -28,14 +28,14 @@ class UnitArrayUniformRange(ph.utils.ranges.UniformRange, ph.utils.ranges.Range[
 # Define fixed parameters:
 NUM_EPISODE_STEPS = 60
 NUM_SHOPS = 1
-NUM_CUSTOMERS = 5
+NUM_CUSTOMERS = 1
 
-CUSTOMER_MAX_ORDER_SIZE = 5
+CUSTOMER_MAX_ORDER_SIZE = 26
 SHOP_MIN_PRICE = 0.0
 SHOP_MAX_PRICE = 2.0
 SHOP_MAX_STOCK = 100
 SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
-
+MAX_INITIAL_INVENTORY = 26
 ALLOW_PRICE_ACTION = False
 
 
@@ -162,15 +162,17 @@ class ShopAgent(ph.MessageHandlerAgent):
         # How many items have been delivered by the factory in this turn:
         self.delivered_stock: int = 0
 
+        # How many items of stock is left after customer sales
         self.leftover_stock: int = 0
 
+        # How many items are carried to the next day (leftover + restock from prev. day)
         self.carried_stock = 0
 
+        # How many orders in units of product
         self.orders_received = 0
 
-        self.pnl = 0
-
         # Reward function sub-components:
+        self.pnl = 0
         self.revenue: float = 0.0
         self.costs: float = 0.0
 
@@ -209,22 +211,13 @@ class ShopAgent(ph.MessageHandlerAgent):
             {
                 # The agent's type:
                 "type": self.type.to_obs_space(),
-                # "type": {
-                #     "sale_price": self.type.sale_price,
-                #     "cost_of_carry": self.type.cost_of_carry,
-                #     "cost_per_unit": self.type.cost_per_unit,
-                # },
                 # The agent's current stock:
-                # "stock": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
-                # "stock": gym.spaces.Box(low=0, high=SHOP_MAX_STOCK, shape=(1,)),
                 "stock": gym.spaces.Box(low=0, high=1, shape=(1,)),
                 # The number of sales made by the agent in the previous step:
-                # "previous_sales": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
                 "previous_sales": gym.spaces.Box(
-                    # low=0, high=SHOP_MAX_STOCK, shape=(1,)
                     low=0,
                     high=1,
-                    shape=(1,),
+                    shape=(1,)
                 ),
             }
         )
@@ -296,7 +289,7 @@ class ShopAgent(ph.MessageHandlerAgent):
             "stock": np.array([self.stock]) / SHOP_MAX_STOCK,
             # The number of sales made in the previous step is included so the shop can
             # learn to maximise sales.
-            "previous_sales": np.array([self.sales]) / SHOP_MAX_STOCK,
+            "previous_sales": np.array([self.sales]) / (CUSTOMER_MAX_ORDER_SIZE - 1),
         }
 
     def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
@@ -332,7 +325,7 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.price = self.type.sale_price
 
         if self.initial_inventory is None:
-            self.stock = np.random.randint(25)
+            self.stock = np.random.randint(MAX_INITIAL_INVENTORY)
         else:
             self.stock = self.initial_inventory
 
@@ -344,7 +337,7 @@ CUSTOMER_IDS = [f"CUST{i+1}" for i in range(NUM_CUSTOMERS)]
 
 
 class SupplyChainEnv(ph.FiniteStateMachineEnv):
-    def __init__(self, initial_inventory: Optional[int] = 0, **kwargs):
+    def __init__(self, initial_inventory: Optional[int] = None, **kwargs):
         shop_agents = [ShopAgent(id, FACTORY_ID) for id in SHOP_IDS]
 
         if initial_inventory is not None:
@@ -374,13 +367,13 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
                     stage_id="sales_step",
                     next_stages=["restock_step"],
                     acting_agents=CUSTOMER_IDS,
-                    rewarded_agents=[],
+                    rewarded_agents=SHOP_IDS,
                 ),
                 ph.FSMStage(
                     stage_id="restock_step",
                     next_stages=["sales_step"],
                     acting_agents=SHOP_IDS,
-                    rewarded_agents=SHOP_IDS,
+                    rewarded_agents=[],
                 ),
             ],
             **kwargs,
@@ -510,6 +503,8 @@ elif sys.argv[1] == "test":
         record_messages=False,
         # num_workers=0,
     )
+
+    # cloudpickle.save(file, list(results))
 
     # This is the supertype parameter we are scanning over
     varied_param = "cost_of_carry"
