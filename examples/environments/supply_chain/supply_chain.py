@@ -2,27 +2,40 @@
 A simple logistics themed environment used for demonstrating the features of Phantom.
 """
 
-import pickle
 import sys
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import gym
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import phantom as ph
 
 
-# Define fixed parameters:
-NUM_EPISODE_STEPS = 100
-NUM_SHOPS = 1
-NUM_CUSTOMERS = 5
+# TODO: find better way of doing this in Phantom
 
-CUSTOMER_MAX_ORDER_SIZE = 5
+class UnitArrayLinspaceRange(ph.utils.ranges.LinspaceRange, ph.utils.ranges.Range[np.ndarray]):
+    def values(self) -> np.ndarray:
+        return [np.array([x]) for x in np.linspace(self.start, self.end, self.n)]
+
+class UnitArrayUniformRange(ph.utils.ranges.UniformRange, ph.utils.ranges.Range[np.ndarray]):
+    def values(self) -> np.ndarray:
+        return [np.array([x]) for x in np.arange(self.start, self.end, self.step)]
+
+
+
+# Define fixed parameters:
+NUM_EPISODE_STEPS = 60
+NUM_SHOPS = 1
+NUM_CUSTOMERS = 1
+
+CUSTOMER_MAX_ORDER_SIZE = 26
 SHOP_MIN_PRICE = 0.0
 SHOP_MAX_PRICE = 2.0
 SHOP_MAX_STOCK = 100
 SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
-
+MAX_INITIAL_INVENTORY = 26
 ALLOW_PRICE_ACTION = False
 
 
@@ -149,12 +162,25 @@ class ShopAgent(ph.MessageHandlerAgent):
         # How many items have been delivered by the factory in this turn:
         self.delivered_stock: int = 0
 
-        self.orders_received: int = 0
+        # How many items of stock is left after customer sales
         self.leftover_stock: int = 0
+
+        # How many items are carried to the next day (leftover + restock from prev. day)
+        self.carried_stock = 0
+
+        # How many orders in units of product
+        self.orders_received = 0
+
+        # Reward function sub-components:
+        self.pnl = 0
+        self.revenue: float = 0.0
+        self.costs: float = 0.0
 
         # We initialise the price variable here, it's value will be set when the shop
         # agent takes it's first action.
         self.price: float = SHOP_MAX_PRICE
+
+        self.initial_inventory: Optional[int] = None
 
     @property
     def action_space(self):
@@ -166,13 +192,16 @@ class ShopAgent(ph.MessageHandlerAgent):
                         low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(1,)
                     ),
                     # The number of additional units to order from the factory:
-                    "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                    "restock_qty": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
                 }
             )
         else:
             return gym.spaces.Dict(
                 {
-                    "restock": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                    # "restock_qty": gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST),
+                    "restock_qty": gym.spaces.Box(
+                        low=0, high=SHOP_MAX_STOCK_REQUEST, shape=(1,)
+                    ),
                 }
             )
 
@@ -183,9 +212,13 @@ class ShopAgent(ph.MessageHandlerAgent):
                 # The agent's type:
                 "type": self.type.to_obs_space(),
                 # The agent's current stock:
-                "stock": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                "stock": gym.spaces.Box(low=0, high=1, shape=(1,)),
                 # The number of sales made by the agent in the previous step:
-                "previous_sales": gym.spaces.Discrete(SHOP_MAX_STOCK + 1),
+                "previous_sales": gym.spaces.Box(
+                    low=0,
+                    high=1,
+                    shape=(1,)
+                ),
             }
         )
 
@@ -200,21 +233,36 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.missed_sales = 0
             self.orders_received = 0
 
+            self.carried_stock = self.stock
+
+    def post_message_resolution(self, ctx: ph.Context):
+        if ctx["ENV"].stage == "sales_step":
+            self.leftover_stock = self.stock
+
+        self.revenue = self.sales * self.price
+
+        self.costs = (
+            # It incurs a cost for ordering new stock:
+            self.delivered_stock * self.type.cost_per_unit
+            # And for holding onto leftover stock overnight:
+            + self.carried_stock * self.type.cost_of_carry
+        )
+
+        self.pnl = self.revenue - self.costs
+
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
         # Messages received from the factory contain stock.
 
-        self.leftover_stock = self.stock
-
         self.delivered_stock = message.payload.size
 
-        self.stock = min(self.stock + message.payload.size, SHOP_MAX_STOCK)
+        self.stock = min(self.stock + self.delivered_stock, SHOP_MAX_STOCK)
 
     @ph.agents.msg_handler(OrderRequest)
     def handle_order_request(self, ctx: ph.Context, message: ph.Message):
-        self.orders_received += 1
-
         amount_requested = message.payload.size
+
+        self.orders_received += amount_requested
 
         # If the order size is more than the amount of stock, partially fill the order.
         if amount_requested > self.stock:
@@ -238,10 +286,10 @@ class ShopAgent(ph.MessageHandlerAgent):
             "type": self.type.to_obs_space_compatible_type(),
             # The current stock is included so the shop can learn to efficiently manage
             # its inventory.
-            "stock": self.stock,
+            "stock": np.array([self.stock]) / SHOP_MAX_STOCK,
             # The number of sales made in the previous step is included so the shop can
             # learn to maximise sales.
-            "previous_sales": self.sales,
+            "previous_sales": np.array([self.sales]) / (CUSTOMER_MAX_ORDER_SIZE - 1),
         }
 
     def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
@@ -255,22 +303,31 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.price = self.type.sale_price
 
         # And we send a stock request message to the factory:
-        return [(self.factory_id, StockRequest(action["restock"]))]
+        # return [(self.factory_id, StockRequest(action["restock_qty"]))]
+        return [(self.factory_id, StockRequest(int(action["restock_qty"][0])))]
 
     def compute_reward(self, ctx: ph.Context) -> float:
-        return (
-            # The shop makes profit from selling items at the set price:
-            self.sales * self.price
-            # It incurs a cost for ordering new stock:
-            - self.delivered_stock * self.type.cost_per_unit
-            # And for holding onto leftover stock overnight:
-            - self.leftover_stock * self.type.cost_of_carry
-        )
+        # return (
+        #     # The shop makes profit from selling items at the set price:
+        #     self.sales * self.price
+        #     # It incurs a cost for ordering new stock:
+        #     - self.delivered_stock * self.type.cost_per_unit
+        #     # And for holding onto leftover stock overnight:
+        #     - self.leftover_stock * self.type.cost_of_carry
+        # )
+
+        return self.pnl
 
     def reset(self):
         super().reset()  # sampled supertype is set as self.type here
 
-        self.stock = 0
+        if not ALLOW_PRICE_ACTION:
+            self.price = self.type.sale_price
+
+        if self.initial_inventory is None:
+            self.stock = np.random.randint(MAX_INITIAL_INVENTORY)
+        else:
+            self.stock = self.initial_inventory
 
 
 # Define agent IDs:
@@ -280,8 +337,11 @@ CUSTOMER_IDS = [f"CUST{i+1}" for i in range(NUM_CUSTOMERS)]
 
 
 class SupplyChainEnv(ph.FiniteStateMachineEnv):
-    def __init__(self, **kwargs):
+    def __init__(self, initial_inventory: Optional[int] = None, **kwargs):
         shop_agents = [ShopAgent(id, FACTORY_ID) for id in SHOP_IDS]
+
+        if initial_inventory is not None:
+            shop_agents[0].initial_inventory = initial_inventory
 
         factory_agent = FactoryAgent(FACTORY_ID)
 
@@ -307,13 +367,13 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
                     stage_id="sales_step",
                     next_stages=["restock_step"],
                     acting_agents=CUSTOMER_IDS,
-                    rewarded_agents=[],
+                    rewarded_agents=SHOP_IDS,
                 ),
                 ph.FSMStage(
                     stage_id="restock_step",
                     next_stages=["sales_step"],
                     acting_agents=SHOP_IDS,
-                    rewarded_agents=SHOP_IDS,
+                    rewarded_agents=[],
                 ),
             ],
             **kwargs,
@@ -323,18 +383,31 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
 metrics = {}
 
 for id in SHOP_IDS:
-    metrics[f"stock/{id}"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
-    metrics[f"sales/{id}"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
-    metrics[f"price/{id}"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
-    metrics[f"missed_sales/{id}"] = ph.logging.SimpleAgentMetric(
-        id, "missed_sales", "mean"
-    )
-    metrics[f"orders_received/{id}"] = ph.logging.SimpleAgentMetric(
+    # metrics[f"{id}/initial_inventory"] = ph.logging.SimpleAgentMetric(id, "type.initial_inventory", "mean")
+    metrics[f"{id}/price"] = ph.logging.SimpleAgentMetric(id, "price", "mean")
+    metrics[f"{id}/stock"] = ph.logging.SimpleAgentMetric(id, "stock", "mean")
+    metrics[f"{id}/sales"] = ph.logging.SimpleAgentMetric(id, "sales", "mean")
+    metrics[f"{id}/orders_received"] = ph.logging.SimpleAgentMetric(
         id, "orders_received", "mean"
     )
-    metrics[f"delivered_stock/{id}"] = ph.logging.SimpleAgentMetric(
+    metrics[f"{id}/missed_sales"] = ph.logging.SimpleAgentMetric(
+        id, "missed_sales", "mean"
+    )
+    metrics[f"{id}/delivered_stock"] = ph.logging.SimpleAgentMetric(
         id, "delivered_stock", "mean"
     )
+    metrics[f"{id}/carried_stock"] = ph.logging.SimpleAgentMetric(
+        id, "carried_stock", "mean"
+    )
+    metrics[f"{id}/leftover_stock"] = ph.logging.SimpleAgentMetric(
+        id, "leftover_stock", "mean"
+    )
+    metrics[f"{id}/revenue"] = ph.logging.SimpleAgentMetric(id, "revenue", "mean")
+    metrics[f"{id}/costs"] = ph.logging.SimpleAgentMetric(id, "costs", "mean")
+    metrics[f"{id}/pnl"] = ph.logging.SimpleAgentMetric(id, "pnl", "mean")
+
+
+exp_name = "all_supertypes"
 
 
 if sys.argv[1] == "train":
@@ -344,11 +417,27 @@ if sys.argv[1] == "train":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    sale_price=ph.utils.samplers.UniformSampler(low=0.0, high=2.0),
-                    cost_of_carry=ph.utils.samplers.UniformSampler(low=0.0, high=0.2),
-                    cost_per_unit=ph.utils.samplers.UniformSampler(low=0.0, high=1.0),
-                    # cost_of_carry=0.05,
+                    # sale_price=1.0,
+                    sale_price=ph.utils.samplers.UniformFloatSampler(
+                        low=-0.1,
+                        high=2.1,
+                        clip_low=0.0,
+                        clip_high=2.0,
+                    ),
                     # cost_per_unit=0.5,
+                    cost_per_unit=ph.utils.samplers.UniformFloatSampler(
+                        low=-0.1,
+                        high=1.1,
+                        clip_low=0.0,
+                        clip_high=1.0,
+                    ),
+                    # cost_of_carry=0.1,
+                    cost_of_carry=ph.utils.samplers.UniformFloatSampler(
+                        low=-0.1,
+                        high=1.1,
+                        clip_low=0.0,
+                        clip_high=1.0,
+                    ),
                 )
                 for shop_id in SHOP_IDS
             }
@@ -360,17 +449,17 @@ if sys.argv[1] == "train":
         policies_to_train=["shop_policy"],
         metrics=metrics,
         rllib_config={
-            "seed": 0,
+            "seed": 1,
             # "model": {
             #     "fcnet_hiddens": [32, 32],
             # },
             "disable_env_checking": True,
         },
         tune_config={
-            # "name": "fcnet_32_32",
-            "checkpoint_freq": 100,
+            "name": exp_name,
+            "checkpoint_freq": 500,
             "stop": {
-                "training_iteration": 10000,
+                "training_iteration": 1000,
             },
         },
     )
@@ -378,50 +467,104 @@ if sys.argv[1] == "train":
 
 elif sys.argv[1] == "test":
     results = ph.utils.rllib.rollout(
-        directory="PPO/LATEST",
+        directory=f"{exp_name}/LATEST",
         algorithm="PPO",
         env_class=SupplyChainEnv,
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    # cost_of_carry=ph.utils.ranges.UniformRange(
-                    #     start=0.0,
-                    #     end=0.1 + 0.001,
-                    #     step=0.01,
-                    # ),
-                    # cost_per_unit=ph.utils.ranges.UniformRange(
-                    #     start=0.2,
-                    #     end=0.8 + 0.001,
-                    #     step=0.05,
-                    # ),
-                    sale_price=1.0,
-                    cost_of_carry=0.05,
-                    cost_per_unit=0.5,
+                    # sale_price=1.0,
+                    sale_price=ph.utils.ranges.UniformRange(
+                        start=0.0,
+                        end=2.0 + 0.001,
+                        step=0.2,
+                        name="sale_price",
+                    ),
+                    # cost_per_unit=0.5,
+                    cost_per_unit=ph.utils.ranges.UniformRange(
+                        start=0.0,
+                        end=1.0 + 0.001,
+                        step=0.1,
+                        name="cost_per_unit",
+                    ),
+                    # cost_of_carry=0.1,
+                    cost_of_carry=ph.utils.ranges.UniformRange(
+                        start=0.0,
+                        end=1.0 + 0.001,
+                        step=0.1,
+                        name="cost_of_carry",
+                    ),
                 )
                 for shop_id in SHOP_IDS
             }
         },
-        num_repeats=100,
+        num_repeats=5,
         metrics=metrics,
         record_messages=False,
+        # num_workers=0,
     )
 
-    # pickle.dump(results, open("results.pkl", "wb"))
+    # cloudpickle.save(file, list(results))
 
-    print([x for x in results[0].actions_for_agent("SHOP1") if x])
-    print(results[0].metrics["sales/SHOP1"])
-    print(results[0].metrics["stock/SHOP1"])
+    # This is the supertype parameter we are scanning over
+    varied_param = "cost_of_carry"
 
-    import matplotlib.pyplot as plt
+    # We iterate over all rollout results, taking just the values we need (the varied
+    # supertype parameter and 3 metrics), and placing them into a Pandas DataFrame
+    df = pd.DataFrame(
+        {
+            varied_param: rollout.rollout_params[varied_param],
+            "avg_restock_qty": np.mean(
+                [
+                    x["restock_qty"]
+                    for x in rollout.actions_for_agent("SHOP1", drop_nones=True)
+                ]
+            ),
+            "avg_sales": np.mean(rollout.metrics["SHOP1/sales"]),
+            "avg_reward": np.mean(rollout.rewards_for_agent("SHOP1", drop_nones=True)),
+        }
+        for rollout in results
+    )
 
-    x = np.arange(100)
+    # Aggregate all the results for each value of the scanned supertype parameter
+    df = df.groupby(varied_param).mean()
 
-    y = np.zeros(100)
+    # Plot variables, x_axis = scanned parameter, y_axis = selected metrics
+    for col_name in df.columns:
+        plt.scatter(df.index, df[col_name], label=col_name)
 
-    for rollout in results:
-        y += results[0].metrics["stock/SHOP1"]
+    plt.legend()
+    plt.xlabel(varied_param)
+    plt.savefig(f"{exp_name}__{varied_param}.png")
 
-    y /= len(results)
 
-    plt.plot(x, y)
-    plt.savefig("stock.png")
+elif sys.argv[1] == "policy":
+    obs = {
+        "type": {
+            "sale_price": np.array([1.0]),
+            "cost_of_carry": np.array([0.1]),
+            "cost_per_unit": np.array([0.5]),
+        },
+        "stock": ph.utils.ranges.UnitArrayLinspaceRange(
+            0.0, 1.0 - 0.01, 40, name="stock"
+        ),
+        "previous_sales": ph.utils.ranges.UnitArrayLinspaceRange(
+            0.0, 1.0 - 0.01, 20, name="previous_sales"
+        ),
+    }
+
+    results = ph.utils.rllib.evaluate_policy(
+        "phevaluatetest/LATEST", "PPO", SupplyChainEnv, "shop_policy", obs
+    )
+
+    restock_actions = np.array(
+        [action["restock_qty"] for _, action in results]
+    ).reshape(40, 20)
+
+    plt.imshow(restock_actions)
+    plt.xlabel("prev sales")
+    plt.ylabel("stock")
+    plt.gca().invert_yaxis()
+    cbar = plt.colorbar()
+    cbar.set_label("restock qty", rotation=270)
+    plt.savefig(f"{exp_name}__policy_x.png")
