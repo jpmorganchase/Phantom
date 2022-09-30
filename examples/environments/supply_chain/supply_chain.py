@@ -4,19 +4,25 @@ A simple logistics themed environment used for demonstrating the features of Pha
 
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Optional, Tuple
 
-import cloudpickle
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import phantom as ph
-from phantom.utils.rllib.wrapper import RLlibEnvWrapper
-from phantom.utils.rllib import get_checkpoints, find_most_recent_results_dir
-from ray.rllib.algorithms.registry import get_trainer_class
-from ray.tune.registry import register_env
+
+
+# TODO: find better way of doing this in Phantom
+
+class UnitArrayLinspaceRange(ph.utils.ranges.LinspaceRange, ph.utils.ranges.Range[np.ndarray]):
+    def values(self) -> np.ndarray:
+        return [np.array([x]) for x in np.linspace(self.start, self.end, self.n)]
+
+class UnitArrayUniformRange(ph.utils.ranges.UniformRange, ph.utils.ranges.Range[np.ndarray]):
+    def values(self) -> np.ndarray:
+        return [np.array([x]) for x in np.arange(self.start, self.end, self.step)]
+
 
 
 # Define fixed parameters:
@@ -204,7 +210,7 @@ class ShopAgent(ph.MessageHandlerAgent):
                 # The agent's type:
                 "type": self.type.to_obs_space(),
                 # "type": {
-                #     "sale_price": self.type.sale_price, 
+                #     "sale_price": self.type.sale_price,
                 #     "cost_of_carry": self.type.cost_of_carry,
                 #     "cost_per_unit": self.type.cost_per_unit,
                 # },
@@ -538,58 +544,27 @@ elif sys.argv[1] == "test":
 
 
 elif sys.argv[1] == "policy":
-    register_env(
-        "SupplyChainEnv", lambda config: RLlibEnvWrapper(SupplyChainEnv(**config))
-    )
-
-    directory = find_most_recent_results_dir(f"~/ray_results/{exp_name}")
-
-    checkpoint = get_checkpoints(directory)[-1]
-
-    checkpoint_path = Path(
-        directory,
-        f"checkpoint_{str(checkpoint).zfill(6)}",
-        f"checkpoint-{checkpoint}",
-    )
-
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
-
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
-    trainer = get_trainer_class("PPO")(env="SupplyChainEnv", config=config)
-    trainer.restore(str(checkpoint_path))
-
     obs = {
         "type": {
             "sale_price": np.array([1.0]),
             "cost_of_carry": np.array([0.1]),
             "cost_per_unit": np.array([0.5]),
         },
-        "stock": np.array([0]),
-        "previous_sales": np.array([0]),
+        "stock": ph.utils.ranges.UnitArrayLinspaceRange(
+            0.0, 1.0 - 0.01, 40, name="stock"
+        ),
+        "previous_sales": ph.utils.ranges.UnitArrayLinspaceRange(
+            0.0, 1.0 - 0.01, 20, name="previous_sales"
+        ),
     }
 
-    stock_values = np.arange(40)
-    prev_sales_values = np.arange(20)
+    results = ph.utils.rllib.evaluate_policy(
+        "phevaluatetest/LATEST", "PPO", SupplyChainEnv, "shop_policy", obs
+    )
 
-    restock_actions = np.ndarray((len(stock_values), len(prev_sales_values)))
-
-    for i in stock_values:
-        for j in prev_sales_values:
-            obs["stock"] = np.array([i]) / SHOP_MAX_STOCK
-            obs["previous_sales"] = np.array([j]) / SHOP_MAX_STOCK
-
-            restock_actions[i, j] = int(
-                trainer.compute_single_action(
-                obs, policy_id="shop_policy", explore=False
-                )["restock_qty"]
-            )
-
-    import matplotlib.pyplot as plt
+    restock_actions = np.array(
+        [action["restock_qty"] for _, action in results]
+    ).reshape(40, 20)
 
     plt.imshow(restock_actions)
     plt.xlabel("prev sales")
