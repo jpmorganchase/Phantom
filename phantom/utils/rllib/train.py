@@ -138,6 +138,12 @@ def train(
         for agent_id in agent_ids:
             policy_mapping[agent_id] = policy_name
 
+    for policy_id in policies_to_train:
+        if policy_id not in policy_specs:
+            raise ValueError(
+                f"Policy to train '{policy_id}' is not in the list of defined policies"
+            )
+
     def policy_mapping_fn(agent_id, *args, **kwargs):
         return policy_mapping[agent_id]
 

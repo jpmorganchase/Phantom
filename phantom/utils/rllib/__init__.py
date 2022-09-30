@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Tuple, Union
 
 
 def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
@@ -60,5 +60,57 @@ def get_checkpoints(results_dir: Union[Path, str]) -> List[int]:
     )
 
 
+def construct_results_paths(
+    directory: Union[str, Path], checkpoint: Optional[int] = None
+) -> Tuple[Path, Path]:
+    if checkpoint is not None:
+        assert isinstance(checkpoint, int)
+
+    ray_dir = os.path.expanduser("~/ray_results")
+
+    directory = Path(directory)
+
+    # If the user provides a path ending in '/LATEST', look for the most recent run
+    # results in that directory
+    if directory.stem == "LATEST":
+        parent_dir = Path(os.path.expanduser(directory.parent))
+
+        if not parent_dir.exists():
+            # The user can provide a path relative to the phantom directory, if they do
+            # so this will not be found when comparing to the system root so we try
+            # appending it to the phantom directory path and test again.
+            parent_dir = Path(ray_dir, parent_dir)
+
+            if not parent_dir.exists():
+                raise FileNotFoundError(
+                    f"Base results directory '{parent_dir}' does not exist"
+                )
+
+        directory = find_most_recent_results_dir(parent_dir)
+    else:
+        directory = Path(os.path.expanduser(directory))
+
+        if not directory.exists():
+            directory = Path(ray_dir, directory)
+
+            if not directory.exists():
+                raise FileNotFoundError(
+                    f"Results directory '{directory}' does not exist"
+                )
+
+    # If an explicit checkpoint is not given, find all checkpoints and use the newest.
+    if checkpoint is None:
+        checkpoint = get_checkpoints(directory)[-1]
+
+    checkpoint_path = Path(
+        directory,
+        f"checkpoint_{str(checkpoint).zfill(6)}",
+        f"checkpoint-{checkpoint}",
+    )
+
+    return (directory, checkpoint_path)
+
+
+from .policy_evaluation import evaluate_policy
 from .train import train
 from .rollout import rollout
