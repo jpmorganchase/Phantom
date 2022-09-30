@@ -38,7 +38,6 @@ def test_rllib_train_rollout():
             num_repeats=1,
             num_workers=0,
         )
-
         assert len(list(results)) == 1
 
         results = ph.utils.rllib.rollout(
@@ -49,7 +48,6 @@ def test_rllib_train_rollout():
             num_repeats=3,
             num_workers=0,
         )
-
         assert len(list(results)) == 3
 
         # With workers:
@@ -61,7 +59,6 @@ def test_rllib_train_rollout():
             num_repeats=1,
             num_workers=1,
         )
-
         assert len(list(results)) == 1
 
         results = ph.utils.rllib.rollout(
@@ -72,8 +69,37 @@ def test_rllib_train_rollout():
             num_repeats=3,
             num_workers=1,
         )
-
         assert len(list(results)) == 3
+
+        results = ph.utils.rllib.evaluate_policy(
+            directory=f"{tmp_dir}/PPO/LATEST",
+            algorithm="PPO",
+            env_class=MockEnv,
+            obs=0,
+            policy_id="mock_policy",
+        )
+        assert len(list(results)) == 1
+
+
+def test_rllib_train_bad():
+    # policy to train not defined
+    with TemporaryDirectory() as tmp_dir:
+        with pytest.raises(ValueError):
+            ph.utils.rllib.train(
+                algorithm="PPO",
+                env_class=MockEnv,
+                env_config={},
+                policies={
+                    "mock_policy": MockAgent,
+                },
+                policies_to_train=["undefined_policy"],
+                rllib_config={
+                    "disable_env_checking": True,
+                },
+                tune_config={
+                    "local_dir": tmp_dir,
+                },
+            )
 
 
 def test_rllib_rollout_bad():
