@@ -59,11 +59,7 @@ Before the merge is made the following should be done:
 - The `CHANGELOG.md` file should be checked and updated with the version of the release
   and the date.
 - The version should be updated in the following files:
-  - mercury/setup.py
-  - mercury/docs/conf.py
-  - phantom/setup.py
-  - phantom/docs/conf.py
-  - phantom/requirements.txt
+  - `phantom/__init__.py`
 
 After the merge is made the following should then be done:
 
@@ -86,17 +82,16 @@ ahead of time.
 
 ## Building Documentation Pages
 
-To build the documentation pages for either Mercury or Phantom, go to the respective
-package subdirectory and run the following:
+To build the documentation pages for Phantom run the following:
 
 ```sh
-make doc
+make build-docs
 ```
 
 To view the pages in a web browser on your local machine run:
 
 ```sh
-make host-doc
+make host-docs
 ```
 
 Then navigate to the URL displayed on the terminal in your web browser.
