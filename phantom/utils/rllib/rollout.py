@@ -38,7 +38,7 @@ from .. import (
     Sampler,
 )
 from .wrapper import RLlibEnvWrapper
-from . import get_checkpoints, find_most_recent_results_dir
+from . import construct_results_paths
 
 
 logger = logging.getLogger(__name__)
@@ -108,51 +108,7 @@ def rollout(
             "env_config should not contain instances of classes inheriting from BaseSampler"
         )
 
-    ray_dir = os.path.expanduser("~/ray_results")
-
-    directory = Path(directory)
-
-    # If the user provides a path ending in '/LATEST', look for the most recent run
-    # results in that directory
-    if directory.stem == "LATEST":
-        parent_dir = Path(os.path.expanduser(directory.parent))
-
-        if not parent_dir.exists():
-            # The user can provide a path relative to the phantom directory, if they do
-            # so this will not be found when comparing to the system root so we try
-            # appending it to the phantom directory path and test again.
-            parent_dir = Path(ray_dir, parent_dir)
-
-            if not parent_dir.exists():
-                raise FileNotFoundError(
-                    f"Base results directory '{parent_dir}' does not exist"
-                )
-
-        logger.info("Trying to find latest experiment results in '%s'", parent_dir)
-
-        directory = find_most_recent_results_dir(parent_dir)
-
-        logger.info("Found experiment results: '%s'", directory.stem)
-    else:
-        directory = Path(os.path.expanduser(directory))
-
-        if not directory.exists():
-            directory = Path(ray_dir, directory)
-
-            if not directory.exists():
-                raise FileNotFoundError(
-                    f"Results directory '{directory}' does not exist"
-                )
-
-        logger.info("Using results directory: '%s'", directory)
-
-    # If an explicit checkpoint is not given, find all checkpoints and use the newest.
-    if checkpoint is None:
-        checkpoint = get_checkpoints(directory)[-1]
-
-        logger.info("Using most recent checkpoint: %s", checkpoint)
-    else:
-        logger.info("Using checkpoint: %s", checkpoint)
+    directory, checkpoint_path = construct_results_paths(directory, checkpoint)
 
     # We find all instances of objects that inherit from BaseRange in the env supertype
     # and agent supertypes. We keep a track of where in this structure they came from
@@ -205,12 +161,6 @@ def rollout(
         "Starting %s rollout(s) using %s worker process(es)",
         len(rollout_configs),
         num_workers_,
-    )
-
-    checkpoint_path = Path(
-        directory,
-        f"checkpoint_{str(checkpoint).zfill(6)}",
-        f"checkpoint-{checkpoint}",
     )
 
     # Register custom environment with Ray
