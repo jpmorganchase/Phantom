@@ -61,6 +61,7 @@ def train(
     rllib_config: Optional[Mapping[str, Any]] = None,
     tune_config: Optional[Mapping[str, Any]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
+    local_mode: bool = False,
 ):
     """Performs training of a Phantom experiment using the RLlib library.
 
@@ -195,7 +196,7 @@ def train(
         config["callbacks"] = RLlibMetricLogger(metrics)
 
     try:
-        ray.init()
+        ray.init(local_mode=local_mode)
         results = ray.tune.run(algorithm, config=config, **tune_config)
     except Exception as exception:
         # Ensure that Ray is properly shutdown in the instance of an error occuring

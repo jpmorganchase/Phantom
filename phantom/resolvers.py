@@ -117,6 +117,8 @@ class BatchResolver(Resolver):
             self.messages = defaultdict(list)
 
             for receiver_id, messages in processing_messages.items():
+                if receiver_id not in contexts:
+                    continue
                 ctx = contexts[receiver_id]
                 batch = ctx.agent.handle_batch(ctx, messages)
 
