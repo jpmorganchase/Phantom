@@ -509,7 +509,7 @@ class DigitalAdsEnv(ph.PhantomEnv):
 
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
-        network = ph.Network(actors, ph.resolvers.BatchResolver(chain_limit=5))
+        network = ph.Network(actors, ph.resolvers.BatchResolver(round_limit=5))
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
         network.add_connections_between([self.publisher_id], self.advertiser_ids)

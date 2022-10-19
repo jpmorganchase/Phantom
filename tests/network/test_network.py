@@ -36,7 +36,7 @@ class MyAgent(MessageHandlerAgent):
 
 @pytest.fixture
 def net() -> Network:
-    net = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(chain_limit=2))
+    net = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(round_limit=2))
     net.add_connection("mm", "inv")
 
     return net

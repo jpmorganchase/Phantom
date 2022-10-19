@@ -68,13 +68,13 @@ def test_ordering():
     assert n["A"].res_time <= n["B"].res_time
 
 
-def test_batch_resolver_chain_limit(caplog):
+def test_batch_resolver_round_limit(caplog):
     n = Network(
         [
             _TestAgent("A"),
             _TestAgent("B"),
         ],
-        BatchResolver(chain_limit=0),
+        BatchResolver(round_limit=0),
     )
     n.add_connection("A", "B")
 

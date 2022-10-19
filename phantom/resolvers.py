@@ -1,7 +1,10 @@
 import abc
+import itertools
 import logging
 from collections import defaultdict
-from typing import DefaultDict, List, Mapping, TYPE_CHECKING
+from typing import DefaultDict, List, Mapping, Optional, TYPE_CHECKING
+
+import numpy as np
 
 from .context import Context
 from .types import AgentID
@@ -14,19 +17,19 @@ if TYPE_CHECKING:
 class Resolver(abc.ABC):
     """Network message resolver.
 
-    This type is responsible for resolution processing. That is, the order in
-    which (and any special logic therein) messages are handled in a Network.
+    This type is responsible for resolution processing. That is, the order in which
+    (and any special logic therein) messages are handled in a Network.
 
-    In many cases, this type can be arbitrary since the sequence doesn't matter
-    (i.e. the problem is not path dependent). In other cases, however, this is
-    not the case; e.g. processing incoming market orders in an LOB.
+    In many cases, this type can be arbitrary since the sequence doesn't matter (i.e.
+    the problem is not path dependent). In other cases, however, this is not the case;
+    e.g. processing incoming market orders in an LOB.
 
     Implementations of this class must provide implementations of the abstract methods
     below.
 
     Arguments:
-        enable_tracking: If True, the resolver should save all messages in an
-            time-ordered list that can be accessed with :attr:`tracked_messages`.
+        enable_tracking: If True, the resolver will save all messages in a time-ordered
+            list that can be accessed with :attr:`tracked_messages`.
     """
 
     def __init__(self, enable_tracking: bool = False) -> None:
@@ -85,20 +88,32 @@ class Resolver(abc.ABC):
 
 class BatchResolver(Resolver):
     """
-    Resolver that allows each agent to send/respond to messages before delivering the
-    messages to the recipient agents.
+    Resolver that handles messages in multiple discrete rounds. Each round, all agents
+    have the opportunity to respond to previously received messages with new messages.
+    These messages are held in a queue until all agents have been processed before being
+    consumed in the next round. Messages for each agent are delivered in a batch,
+    allowing the recipient agent to decide how to handle the messages within the batch.
 
     Arguments:
-        enable_tracking: If True, the resolver should save all messages in an
-            time-ordered list that can be accessed with :attr:`tracked_messages`.
-        chain_limit: The maximum number of rounds of messages to resolve. If the limit
-            is reached a warning will be logged.
+        enable_tracking: If True, the resolver will save all messages in a time-ordered
+            list that can be accessed with :attr:`tracked_messages`.
+        round_limit: The maximum number of rounds of messages to resolve. If the limit
+            is reached a warning will be logged. By default two rounds will be
+            processed, allowing a single request-response exchange between any agents.
+        shuffle_batches: If True, the order in which messages for a particular
+            recipient are sent to the recipient will be randomised.
     """
 
-    def __init__(self, enable_tracking: bool = False, chain_limit: int = 2) -> None:
+    def __init__(
+        self,
+        enable_tracking: bool = False,
+        round_limit: Optional[int] = 2,
+        shuffle_batches: bool = False,
+    ) -> None:
         super().__init__(enable_tracking)
 
-        self.chain_limit = chain_limit
+        self.round_limit = round_limit
+        self.shuffle_batches = shuffle_batches
 
         self.messages: DefaultDict[AgentID, List[Message]] = defaultdict(list)
 
@@ -109,7 +124,11 @@ class BatchResolver(Resolver):
         self.messages[message.receiver_id].append(message)
 
     def resolve(self, network: "Network", contexts: Mapping[AgentID, Context]) -> None:
-        for _ in range(self.chain_limit):
+        iterator = (
+            itertools.count() if self.round_limit is None else range(self.round_limit)
+        )
+
+        for _ in iterator:
             if len(self.messages) == 0:
                 break
 
@@ -117,6 +136,9 @@ class BatchResolver(Resolver):
             self.messages = defaultdict(list)
 
             for receiver_id, messages in processing_messages.items():
+                if self.shuffle_batches:
+                    np.random.shuffle(messages)
+
                 ctx = contexts[receiver_id]
                 batch = ctx.agent.handle_batch(ctx, messages)
 
