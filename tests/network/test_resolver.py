@@ -2,6 +2,8 @@ import time
 from dataclasses import dataclass
 from typing import List, Tuple
 
+import pytest
+
 from phantom import AgentID, Context, Network, Message
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
@@ -68,7 +70,7 @@ def test_ordering():
     assert n["A"].res_time <= n["B"].res_time
 
 
-def test_batch_resolver_round_limit(caplog):
+def test_batch_resolver_round_limit():
     n = Network(
         [
             _TestAgent("A"),
@@ -80,10 +82,5 @@ def test_batch_resolver_round_limit(caplog):
 
     n.send("A", "B", Request(0))
 
-    assert len(caplog.records) == 0
-    n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
-    assert len(caplog.records) == 1
-
-    assert (
-        "1 message(s) still in queue after resolver chain limit reached." in caplog.text
-    )
+    with pytest.raises(Exception):
+        n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})

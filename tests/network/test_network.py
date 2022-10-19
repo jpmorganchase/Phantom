@@ -29,14 +29,15 @@ class MyAgent(MessageHandlerAgent):
     def handle_message(
         self, _: Context, message: MyMessage
     ) -> List[Tuple[AgentID, MsgPayload]]:
-        self.total_cash += message.payload.cash / 2.0
+        if message.payload.cash > 25:
+            self.total_cash += message.payload.cash / 2.0
 
-        return [(message.sender_id, MyMessage(message.payload.cash / 2.0))]
+            return [(message.sender_id, MyMessage(message.payload.cash / 2.0))]
 
 
 @pytest.fixture
 def net() -> Network:
-    net = Network([MyAgent("mm"), MyAgent("inv")], BatchResolver(round_limit=2))
+    net = Network([MyAgent("mm"), MyAgent("inv")])
     net.add_connection("mm", "inv")
 
     return net

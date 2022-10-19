@@ -98,8 +98,8 @@ class BatchResolver(Resolver):
         enable_tracking: If True, the resolver will save all messages in a time-ordered
             list that can be accessed with :attr:`tracked_messages`.
         round_limit: The maximum number of rounds of messages to resolve. If the limit
-            is reached a warning will be logged. By default two rounds will be
-            processed, allowing a single request-response exchange between any agents.
+            is reached an exception will be thrown. By default the resolver will keep
+            resolving until no more messages are sent.
         shuffle_batches: If True, the order in which messages for a particular
             recipient are sent to the recipient will be randomised.
     """
@@ -107,7 +107,7 @@ class BatchResolver(Resolver):
     def __init__(
         self,
         enable_tracking: bool = False,
-        round_limit: Optional[int] = 2,
+        round_limit: Optional[int] = None,
         shuffle_batches: bool = False,
     ) -> None:
         super().__init__(enable_tracking)
@@ -147,7 +147,6 @@ class BatchResolver(Resolver):
                         self.push(Message(receiver_id, sub_receiver_id, sub_payload))
 
         if len(self.messages) > 0:
-            logging.getLogger("BatchResolver").warning(
-                "%s message(s) still in queue after resolver chain limit reached.",
-                len(self.messages),
+            raise Exception(
+                f"{len(self.messages)} message(s) still in queue after BatchResolver round limit reached."
             )
