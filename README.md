@@ -33,6 +33,7 @@
     <li><a href="#installation">Installation</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#citing-phantom">Citing Phantom</a></li>
     <li><a href="#license">License</a></li>
   </ol>
 </details>
@@ -106,13 +107,31 @@ email to [open_source@jpmorgan.com](mailto:open_source@jpmorgan.com).
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
+## Citing Phantom
+
+Find the paper on Arxiv [Phantom -- An RL-driven framework for agent-based modeling of complex economic systems and markets](https://arxiv.org/abs/2210.06012) or use the following BibTeX:
+
+```
+@misc{https://doi.org/10.48550/arxiv.2210.06012,
+  doi = {10.48550/ARXIV.2210.06012},
+  url = {https://arxiv.org/abs/2210.06012},
+  author = {Ardon, Leo and Vann, Jared and Garg, Deepeka and Spooner, Tom and Ganesh, Sumitra},
+  keywords = {Artificial Intelligence (cs.AI), Multiagent Systems (cs.MA), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title = {Phantom -- An RL-driven framework for agent-based modeling of complex economic systems and markets},
+  publisher = {arXiv},
+  year = {2022},
+  copyright = {arXiv.org perpetual, non-exclusive license}
+}
+```
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
 ## License
 
 Distributed under the Apache 2.0 License. See `LICENSE` for more information.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
-
-
 
 
 [contributors-shield]: https://img.shields.io/github/contributors/jpmorganchase/Phantom.svg?style=for-the-badge
