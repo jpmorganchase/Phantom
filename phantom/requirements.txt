@@ -8,3 +8,4 @@ tabulate==0.8.9
 tensorflow==2.5
 termcolor==1.1
 tqdm==4.62.3
+entry_points<=5
