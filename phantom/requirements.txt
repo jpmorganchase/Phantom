@@ -5,7 +5,7 @@ gym==0.21
 numpy==1.19.3
 ray[rllib]==1.11.0
 tabulate==0.8.9
-tensorflow==2.5
+tensorflow==2.7.2
 termcolor==1.1
 tqdm==4.62.3
 importlib-metadata<5
