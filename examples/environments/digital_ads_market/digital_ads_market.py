@@ -1,9 +1,12 @@
-from collections import defaultdict
 import datetime
 import logging
+import os
+import sys
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterable, Sequence, Tuple
+from typing import Iterable, Sequence
 
+import cloudpickle
 import gym
 import numpy as np
 import phantom as ph
@@ -149,10 +152,11 @@ class PublisherAgent(ph.MessageHandlerAgent):
         2: {"sport": 1., "travel": 0., "science": 0.7, "tech": 0.1},
     }
 
-    def __init__(self, agent_id: str, exchange_id: str):
+    def __init__(self, agent_id: str, exchange_id: str, user_click_proba: dict = None):
         super().__init__(agent_id)
 
         self.exchange_id = exchange_id
+        self.user_click_proba = user_click_proba or self._USER_CLICK_PROBABILITIES
 
         self.observation_space = gym.spaces.Box(low=np.array([0]), high=np.array([0]), dtype=np.float64)
 
@@ -196,7 +200,7 @@ class PublisherAgent(ph.MessageHandlerAgent):
         logger.debug("PublisherAgent %s ads: %s", self.id, msg.payload)
 
         clicked = np.random.binomial(
-            1, self._USER_CLICK_PROBABILITIES[msg.payload.user_id][msg.payload.theme]
+            1, self.user_click_proba[msg.payload.user_id][msg.payload.theme]
         )
         return [(msg.payload.advertiser_id, ImpressionResult(clicked=clicked))]
 
@@ -211,35 +215,40 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
     Observation Space:
         - budget left
         - user id
-        - user age
-        - user zipcode
+        # - user age
+        # - user zipcode
 
     Action Space:
         - bid amount
     """
 
+    @dataclass
+    class Supertype(ph.Supertype):
+        # The overall budget to spend during the episode
+        budget: float
+
     def __init__(
-        self, agent_id: str, exchange_id: str, budget: float, theme: str = "generic"
+        self, agent_id: str, exchange_id: str, theme: str = "generic"
     ):
         self.exchange_id = exchange_id
-        self.budget = budget
         self.theme = theme
-
-        self.left = budget
 
         self.action_space = gym.spaces.Box(
             low=np.array([0.0]), 
-            high=np.array([budget])
+            high=np.array([1.0])
         )
 
-        self.observation_space = gym.spaces.Dict({
+        super().__init__(agent_id)
+
+    @property
+    def observation_space(self):
+        return gym.spaces.Dict({
+            "type": self.type.to_obs_space(),
             "budget_left": gym.spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float64),
             "user_id": gym.spaces.Discrete(2),
             # "user_age": gym.spaces.Box(low=0.0, high=100., shape=(1,), dtype=np.float64),
             # "user_zipcode": gym.spaces.Box(low=0.0, high=99999., shape=(1,), dtype=np.float64),
         })
-
-        super().__init__(agent_id)
 
     def pre_message_resolution(self, _ctx: ph.Context):
         """@override
@@ -247,6 +256,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         We use this method to reset the number of clicks received during the step.
         """
         self.step_clicks = 0
+        self.step_wins = 0
 
     @ph.agents.msg_handler(ImpressionRequest)
     def handle_impression_request(self, ctx: ph.Context, msg: ph.Message):
@@ -278,6 +288,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """
         logger.debug("AdvertiserAgent %s auction result: %s", self.id, msg.payload)
 
+        self.step_wins += int(msg.payload.cost != 0.)
         self.total_wins[self._current_user_id] += int(msg.payload.cost != 0.)
         self.left -= msg.payload.cost
 
@@ -302,7 +313,8 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
             - the user's zipcode
         """
         return {
-            "budget_left": np.array([self.left / self.budget], dtype=np.float64),
+            "type": self.type.to_obs_space_compatible_type(),
+            "budget_left": np.array([self.left / self.type.budget], dtype=np.float64),
             "user_id": self._current_user_id - 1,
             # "user_age": np.array([self._current_age / 100.], dtype=np.float64),
             # "user_zipcode": np.array([self._current_zipcode / 99999.], dtype=np.float64),
@@ -316,7 +328,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         logger.debug("AdvertiserAgent %s decode action: %s", self.id, action)
         msgs = []
 
-        self.bid = min(action[0], self.left)
+        self.bid = min(action[0] * self.type.budget, self.left)
 
         if self.bid > 0.0:
             msg = Bid(bid=self.bid, theme=self.theme, user_id=self._current_user_id)
@@ -330,7 +342,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         is the number of clicks received at the current timestep.
         """
         risk_aversion = 0.
-        return (1-risk_aversion) * self.step_clicks + (risk_aversion * self.left) / self.budget
+        return (1-risk_aversion) * self.step_clicks + (risk_aversion * self.left) / self.type.budget
 
     def is_done(self, _ctx: ph.Context) -> bool:
         """@override
@@ -342,9 +354,12 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """@override
         Reset method called before each episode to clear the state of the agent.
         """
-        self.left = self.budget
+        super().reset()
+
+        self.left = self.type.budget
 
         self.step_clicks = 0
+        self.step_wins = 0
 
         self.total_clicks = defaultdict(int)
         self.total_requests = defaultdict(int)
@@ -505,24 +520,31 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
 
 
 class DigitalAdsEnv(ph.FiniteStateMachineEnv):
-    def __init__(self, num_steps=20):
+    def __init__(self, num_steps=20, **kwargs):
         # agent ids
         self.exchange_id = "ADX"
         self.publisher_id = "PUB"
 
+        USER_CLICK_PROBABILITIES = {
+            1: {"sport": 0., "travel": 1., "science": 0.2, "tech": 0.5},
+            2: {"sport": 1., "travel": 0., "science": 0.7, "tech": 0.5},
+        }
+
         # The `PublisherAgent`
         publisher_agent = PublisherAgent(
-            self.publisher_id, exchange_id=self.exchange_id
+            self.publisher_id, 
+            exchange_id=self.exchange_id, 
+            user_click_proba=USER_CLICK_PROBABILITIES
         )
 
         # The learning `AdvertiserAgent`s
         advertiser_agents = [
-            AdvertiserAgent("ADV_1", self.exchange_id, budget=10.0, theme="travel"),
-            AdvertiserAgent("ADV_2", self.exchange_id, budget=10.0, theme="sport"),
-            AdvertiserAgent("ADV_3", self.exchange_id, budget=10.0, theme="tech"),
-            AdvertiserAgent("ADV_4", self.exchange_id, budget=30.0, theme="tech"),
-            AdvertiserAgent("ADV_5", self.exchange_id, budget=30.0, theme="travel"),
-            AdvertiserAgent("ADV_6", self.exchange_id, budget=5.0, theme="sport"),
+            AdvertiserAgent("ADV_1", self.exchange_id, theme="travel"),
+            AdvertiserAgent("ADV_2", self.exchange_id, theme="sport"),
+            AdvertiserAgent("ADV_3", self.exchange_id, theme="tech"),
+            AdvertiserAgent("ADV_4", self.exchange_id, theme="tech"),
+            AdvertiserAgent("ADV_5", self.exchange_id, theme="travel"),
+            AdvertiserAgent("ADV_6", self.exchange_id, theme="sport"),
         ]
         self.advertiser_ids = [a.id for a in advertiser_agents]
 
@@ -557,7 +579,8 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
                     acting_agents=self.advertiser_ids,
                     rewarded_agents=self.advertiser_ids,
                 ),
-            ]
+            ],
+            **kwargs
         )
 
 
@@ -566,7 +589,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
 #######################################
 
 
-class AdvertiserAverageBidUser(ph.logging.Metric[float]):
+class AdvertiserBidUser(ph.logging.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
@@ -626,12 +649,41 @@ class AdvertiserAverageWinProbaUser(ph.logging.Metric[float]):
         """
         return values[-1]
 
+class AdvertiserTotalRequests(ph.logging.Metric[float]):
+    def __init__(self, agent_id: str, user_id: int) -> None:
+        self.agent_id: str = agent_id
+        self.user_id: int = user_id
+
+    def extract(self, env: ph.PhantomEnv) -> float:
+        return env[self.agent_id].total_requests[self.user_id]
+
+    def reduce(self, values) -> float:
+        return values[-1]
+
+class AdvertiserTotalWins(ph.logging.Metric[float]):
+    def __init__(self, agent_id: str, user_id: int) -> None:
+        self.agent_id: str = agent_id
+        self.user_id: int = user_id
+
+    def extract(self, env: ph.PhantomEnv) -> float:
+        return env[self.agent_id].total_wins[self.user_id]
+
+    def reduce(self, values) -> float:
+        return values[-1]
+
 NUM_ADVERTISERS = 6
 
 metrics = {}
 for aid in (f"ADV_{i}" for i in range(1, NUM_ADVERTISERS+1)):
-    metrics[f"{aid}/avg_bid_user_1"] = AdvertiserAverageBidUser(aid, 1)
-    metrics[f"{aid}/avg_bid_user_2"] = AdvertiserAverageBidUser(aid, 2)
+    metrics[f"{aid}/bid_user_1"] = AdvertiserBidUser(aid, 1)
+    metrics[f"{aid}/bid_user_2"] = AdvertiserBidUser(aid, 2)
+    metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(aid, "left", "mean")
+    metrics[f"{aid}/wins"] = ph.logging.SimpleAgentMetric(aid, "step_wins", "mean")
+    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(aid, "step_clicks", "mean")
+    metrics[f"{aid}/total_requests_user_1"] = AdvertiserTotalRequests(aid, 1)
+    metrics[f"{aid}/total_requests_user_2"] = AdvertiserTotalRequests(aid, 2)
+    metrics[f"{aid}/total_wins_user_1"] = AdvertiserTotalWins(aid, 1)
+    metrics[f"{aid}/total_wins_user_2"] = AdvertiserTotalWins(aid, 2)
     metrics[f"{aid}/avg_hit_ratio_user_1"] = AdvertiserAverageHitRatioUser(aid, 1)
     metrics[f"{aid}/avg_hit_ratio_user_2"] = AdvertiserAverageHitRatioUser(aid, 2)
     metrics[f"{aid}/avg_win_proba_user_1"] = AdvertiserAverageWinProbaUser(aid, 1)
@@ -642,28 +694,108 @@ for aid in (f"ADV_{i}" for i in range(1, NUM_ADVERTISERS+1)):
 #######################################
 
 if __name__ == "__main__":
-    policies = {
-        f"adv_policy_{i}": [f"ADV_{i}"] for i in range(1, NUM_ADVERTISERS+1)
-    }
-    policies["publisher"] = (PublisherPolicy, PublisherAgent)
+    if sys.argv[1] == "test":
+        agent_supertypes = {}
+        # travel agency (i.e. agent 1 and 5) have a rather limited budget
+        agent_supertypes.update({
+        f"ADV_{i}": AdvertiserAgent.Supertype(
+                budget=ph.utils.ranges.LinspaceRange(5.0, 15.0, n=11, name="travel_budget")
+            ) for i in [1, 5]
+        })
 
-    ph.utils.rllib.train(
-        algorithm="PPO",
-        num_workers=40,
-        env_class=DigitalAdsEnv,
-        policies=policies,
-        policies_to_train=[f"adv_policy_{i}" for i in range(1, NUM_ADVERTISERS+1)],
-        metrics=metrics,
-        rllib_config={
-            "seed": 0,
-            "batch_mode": "complete_episodes",
-            "disable_env_checking": True,
-        },
-        tune_config={
-            "name": "simple",
-            "checkpoint_freq": 50,
-            "stop": {
-                "training_iteration": 1e4,
+        # sport companies have a bigger budget
+        agent_supertypes.update({
+        f"ADV_{i}": AdvertiserAgent.Supertype(
+                budget=ph.utils.ranges.LinspaceRange(7.0, 17.0, n=11, name="sport_budget")
+            ) for i in [2, 6]
+        })
+
+        # tech companies have the bigger budget
+        agent_supertypes.update({
+        f"ADV_{i}": AdvertiserAgent.Supertype(
+                budget=ph.utils.ranges.LinspaceRange(10.0, 20.0, n=11, name="tech_budget")
+            ) for i in [3, 4]
+        })
+
+        path = sys.argv[2]
+        results = ph.utils.rllib.rollout(
+                directory=path,
+                algorithm="PPO",
+                env_class=DigitalAdsEnv,
+                num_repeats=50,
+                num_workers=40,
+                metrics=metrics,
+                record_messages=False,
+                env_config={
+                        "agent_supertypes": agent_supertypes
+                }
+        )
+
+        results = list(results)
+        cloudpickle.dump(results, open(os.path.join(path, "results.pkl"), "wb"))
+
+        print("Done with evaluation")
+    elif sys.argv[1] == "train":
+        policies = {
+            f"adv_policy_{i}": [f"ADV_{i}"] for i in range(1, NUM_ADVERTISERS+1)
+        }
+        policies["publisher"] = (PublisherPolicy, PublisherAgent)
+
+
+        agent_supertypes = {}
+        # travel agency (i.e. agent 1 and 5) have a rather limited budget
+        agent_supertypes.update({
+            f"ADV_{i}": AdvertiserAgent.Supertype(
+                budget=ph.utils.samplers.UniformFloatSampler(
+                    low=5.0,
+                    high=15.0 + 0.001,
+                    clip_low=5.0,
+                    clip_high=10.0
+            )) for i in [1]#, 5]
+        })
+
+        # sport companies have a bigger budget
+        agent_supertypes.update({
+            f"ADV_{i}": AdvertiserAgent.Supertype(
+                budget=ph.utils.samplers.UniformFloatSampler(
+                    low=7.0,
+                    high=17.0 + 0.001,
+                    clip_low=5.0,
+                    clip_high=20.0
+            )) for i in [2]#, 6]
+        })
+
+        # tech companies have the bigger budget
+        agent_supertypes.update({
+            f"ADV_{i}": AdvertiserAgent.Supertype(
+                budget=ph.utils.samplers.UniformFloatSampler(
+                    low=10.0,
+                    high=20.0 + 0.001,
+                    clip_low=15.0,
+                    clip_high=30.0
+            )) for i in [3]#, 4]
+        })
+
+        ph.utils.rllib.train(
+            algorithm="PPO",
+            num_workers=40,
+            env_class=DigitalAdsEnv,
+            policies=policies,
+            policies_to_train=[f"adv_policy_{i}" for i in range(1, NUM_ADVERTISERS+1)],
+            metrics=metrics,
+            env_config={
+                "agent_supertypes": agent_supertypes
             },
-        },
-    )
+            rllib_config={
+                "seed": 0,
+                "batch_mode": "complete_episodes",
+                "disable_env_checking": True,
+            },
+            tune_config={
+                "name": "simple",
+                "checkpoint_freq": 50,
+                "stop": {
+                    "training_iteration": 1e4,
+                },
+            },
+        )
