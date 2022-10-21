@@ -80,6 +80,7 @@ def train(
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
         tune_config: Optional algorithm parameters dictionary to pass to Ray Tune.
         metrics: Optional set of metrics to record and log.
+        local_mode: Use RLlib's local mode option for training (default is False).
 
     Returns:
         The Ray Tune experiment results object.
