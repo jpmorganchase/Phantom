@@ -2,8 +2,8 @@ import time
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from phantom import AgentID, Context, Network, Message
-from phantom.agents import msg_handler, MessageHandlerAgent
+from phantom import AgentID, Context, Network
+from phantom.agents import msg_handler, Agent
 from phantom.message import MsgPayload
 from phantom.resolvers import BatchResolver
 from phantom.views import EnvView
@@ -19,7 +19,7 @@ class Response(MsgPayload):
     cash: float
 
 
-class _TestAgent(MessageHandlerAgent):
+class _TestAgent(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

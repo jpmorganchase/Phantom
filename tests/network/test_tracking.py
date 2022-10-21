@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from phantom import AgentID, Context, Network, Message
-from phantom.agents import msg_handler, MessageHandlerAgent
+from phantom.agents import msg_handler, Agent
 from phantom.message import MsgPayload
 from phantom.resolvers import BatchResolver
 from phantom.views import EnvView
@@ -18,7 +18,7 @@ class _TestMessage(MsgPayload):
     value: int
 
 
-class _TestActor(MessageHandlerAgent):
+class _TestActor(Agent):
     @msg_handler(_TestMessage)
     def handle_request(
         self, _: Context, message: _TestMessage

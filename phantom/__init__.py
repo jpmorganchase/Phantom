@@ -1,7 +1,7 @@
 __version__ = "2.0.0"
 
 from . import decoders, encoders, fsm, logging, resolvers, reward_functions
-from .agents import Agent, MessageHandlerAgent
+from .agents import Agent, RLAgent
 from .context import Context
 from .decoders import Decoder
 from .encoders import Encoder

@@ -5,7 +5,7 @@ import numpy as np
 import phantom as ph
 
 
-class MockAgent(ph.Agent):
+class MockAgent(ph.RLAgent):
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 

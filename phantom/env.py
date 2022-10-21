@@ -8,7 +8,7 @@ from typing import (
     Set,
 )
 
-from .agents import Agent
+from .agents import Agent, RLAgent
 from .context import Context
 from .network import Network
 from .supertype import Supertype
@@ -169,7 +169,7 @@ class PhantomEnv:
         ctxs = [
             self.network.context_for(agent.id, env_view)
             for agent in self.agents.values()
-            if agent.takes_actions
+            if isinstance(agent, RLAgent)
         ]
 
         # Generate initial observations for agents taking actions
@@ -219,7 +219,7 @@ class PhantomEnv:
 
         # Pre-generate all context objects for acting agents
         for agent_id, ctx in self._ctxs.items():
-            if ctx.agent.takes_actions:
+            if isinstance(ctx.agent, RLAgent):
                 observations[agent_id] = ctx.agent.encode_observation(ctx)
                 infos[agent_id] = ctx.agent.collect_infos(ctx)
                 rewards[agent_id] = ctx.agent.compute_reward(ctx)

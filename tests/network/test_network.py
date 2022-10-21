@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from phantom import AgentID, Context
-from phantom.agents import msg_handler, MessageHandlerAgent
+from phantom.agents import msg_handler, Agent
 from phantom.message import MsgPayload
 from phantom.network import BatchResolver, Network
 from phantom.views import EnvView
@@ -16,7 +16,7 @@ class MyMessage(MsgPayload):
     cash: float
 
 
-class MyAgent(MessageHandlerAgent):
+class MyAgent(Agent):
     def __init__(self, aid: AgentID) -> None:
         super().__init__(aid)
 
@@ -51,8 +51,8 @@ def test_getters(net):
     assert len(agents) == 1
     assert list(agents.keys())[0] == "mm"
 
-    assert net.get_agents_with_type(MessageHandlerAgent) == net.agents
-    assert net.get_agents_without_type(MessageHandlerAgent) == {}
+    assert net.get_agents_with_type(Agent) == net.agents
+    assert net.get_agents_without_type(Agent) == {}
 
 
 def test_call_response(net):
