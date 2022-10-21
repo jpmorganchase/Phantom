@@ -131,9 +131,11 @@ class ImpressionResult(ph.MsgPayload):
 #   - Advertiser
 #   - AdExchange
 
+
 class PublisherPolicy(ph.Policy):
     def compute_action(self, obs: np.ndarray) -> np.ndarray:
         return np.array([0])
+
 
 class PublisherAgent(ph.MessageHandlerAgent):
     """
@@ -148,8 +150,8 @@ class PublisherAgent(ph.MessageHandlerAgent):
     """
 
     _USER_CLICK_PROBABILITIES = {
-        1: {"sport": 0., "travel": 1., "science": 0.2, "tech": 0.8},
-        2: {"sport": 1., "travel": 0., "science": 0.7, "tech": 0.1},
+        1: {"sport": 0.0, "travel": 1.0, "science": 0.2, "tech": 0.8},
+        2: {"sport": 1.0, "travel": 0.0, "science": 0.7, "tech": 0.1},
     }
 
     def __init__(self, agent_id: str, exchange_id: str, user_click_proba: dict = None):
@@ -158,22 +160,24 @@ class PublisherAgent(ph.MessageHandlerAgent):
         self.exchange_id = exchange_id
         self.user_click_proba = user_click_proba or self._USER_CLICK_PROBABILITIES
 
-        self.observation_space = gym.spaces.Box(low=np.array([0]), high=np.array([0]), dtype=np.float64)
+        self.observation_space = gym.spaces.Box(
+            low=np.array([0]), high=np.array([0]), dtype=np.float64
+        )
 
-        self.action_space = gym.spaces.Box(low=np.array([0]), high=np.array([0]), dtype=np.float64)
+        self.action_space = gym.spaces.Box(
+            low=np.array([0]), high=np.array([0]), dtype=np.float64
+        )
 
     def encode_observation(self, _ctx: ph.Context):
-        """ Dummy observation to trigger the action
-        """
+        """Dummy observation to trigger the action"""
         return np.array([0], dtype=np.float64)
 
     def decode_action(self, ctx: ph.Context, action: np.ndarray):
         return [(self.exchange_id, ImpressionRequest.generate_random())]
 
     def compute_reward(self, _ctx: ph.Context) -> float:
-        """ Dummy reward
-        """
-        return 0.
+        """Dummy reward"""
+        return 0.0
 
     @ph.agents.msg_handler(Ads)
     def handle_ads(self, _ctx: ph.Context, msg: ph.Message):
@@ -227,28 +231,27 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         # The overall budget to spend during the episode
         budget: float
 
-    def __init__(
-        self, agent_id: str, exchange_id: str, theme: str = "generic"
-    ):
+    def __init__(self, agent_id: str, exchange_id: str, theme: str = "generic"):
         self.exchange_id = exchange_id
         self.theme = theme
 
-        self.action_space = gym.spaces.Box(
-            low=np.array([0.0]), 
-            high=np.array([1.0])
-        )
+        self.action_space = gym.spaces.Box(low=np.array([0.0]), high=np.array([1.0]))
 
         super().__init__(agent_id)
 
     @property
     def observation_space(self):
-        return gym.spaces.Dict({
-            "type": self.type.to_obs_space(),
-            "budget_left": gym.spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float64),
-            "user_id": gym.spaces.Discrete(2),
-            # "user_age": gym.spaces.Box(low=0.0, high=100., shape=(1,), dtype=np.float64),
-            # "user_zipcode": gym.spaces.Box(low=0.0, high=99999., shape=(1,), dtype=np.float64),
-        })
+        return gym.spaces.Dict(
+            {
+                "type": self.type.to_obs_space(),
+                "budget_left": gym.spaces.Box(
+                    low=0.0, high=1.0, shape=(1,), dtype=np.float64
+                ),
+                "user_id": gym.spaces.Discrete(2),
+                # "user_age": gym.spaces.Box(low=0.0, high=100., shape=(1,), dtype=np.float64),
+                # "user_zipcode": gym.spaces.Box(low=0.0, high=99999., shape=(1,), dtype=np.float64),
+            }
+        )
 
     def pre_message_resolution(self, _ctx: ph.Context):
         """@override
@@ -288,8 +291,8 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """
         logger.debug("AdvertiserAgent %s auction result: %s", self.id, msg.payload)
 
-        self.step_wins += int(msg.payload.cost != 0.)
-        self.total_wins[self._current_user_id] += int(msg.payload.cost != 0.)
+        self.step_wins += int(msg.payload.cost != 0.0)
+        self.total_wins[self._current_user_id] += int(msg.payload.cost != 0.0)
         self.left -= msg.payload.cost
 
     @ph.agents.msg_handler(ImpressionResult)
@@ -341,8 +344,10 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         The goal is to maximize the number of clicks so the per-step reward
         is the number of clicks received at the current timestep.
         """
-        risk_aversion = 0.
-        return (1-risk_aversion) * self.step_clicks + (risk_aversion * self.left) / self.type.budget
+        risk_aversion = 0.0
+        return (1 - risk_aversion) * self.step_clicks + (
+            risk_aversion * self.left
+        ) / self.type.budget
 
     def is_done(self, _ctx: ph.Context) -> bool:
         """@override
@@ -526,15 +531,15 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         self.publisher_id = "PUB"
 
         USER_CLICK_PROBABILITIES = {
-            1: {"sport": 0., "travel": 1., "science": 0.2, "tech": 0.5},
-            2: {"sport": 1., "travel": 0., "science": 0.7, "tech": 0.5},
+            1: {"sport": 0.0, "travel": 1.0, "science": 0.2, "tech": 0.5},
+            2: {"sport": 1.0, "travel": 0.0, "science": 0.7, "tech": 0.5},
         }
 
         # The `PublisherAgent`
         publisher_agent = PublisherAgent(
-            self.publisher_id, 
-            exchange_id=self.exchange_id, 
-            user_click_proba=USER_CLICK_PROBABILITIES
+            self.publisher_id,
+            exchange_id=self.exchange_id,
+            user_click_proba=USER_CLICK_PROBABILITIES,
         )
 
         # The learning `AdvertiserAgent`s
@@ -563,7 +568,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         network.add_connections_between([self.publisher_id], self.advertiser_ids)
 
         super().__init__(
-            num_steps=num_steps, 
+            num_steps=num_steps,
             network=network,
             initial_stage="publisher_step",
             stages=[
@@ -580,7 +585,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
                     rewarded_agents=self.advertiser_ids,
                 ),
             ],
-            **kwargs
+            **kwargs,
         )
 
 
@@ -609,6 +614,7 @@ class AdvertiserBidUser(ph.logging.Metric[float]):
         """
         return np.nanmean(values)
 
+
 class AdvertiserAverageHitRatioUser(ph.logging.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
@@ -618,8 +624,11 @@ class AdvertiserAverageHitRatioUser(ph.logging.Metric[float]):
         """@override
         Extracts the per-step value to track
         """
-        if env[self.agent_id].total_wins[self.user_id] != 0.:
-            return env[self.agent_id].total_clicks[self.user_id] / env[self.agent_id].total_wins[self.user_id]
+        if env[self.agent_id].total_wins[self.user_id] != 0.0:
+            return (
+                env[self.agent_id].total_clicks[self.user_id]
+                / env[self.agent_id].total_wins[self.user_id]
+            )
         return np.nan
 
     def reduce(self, values) -> float:
@@ -628,6 +637,7 @@ class AdvertiserAverageHitRatioUser(ph.logging.Metric[float]):
         here we are interested in the average bid value
         """
         return values[-1]
+
 
 class AdvertiserAverageWinProbaUser(ph.logging.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
@@ -638,8 +648,11 @@ class AdvertiserAverageWinProbaUser(ph.logging.Metric[float]):
         """@override
         Extracts the per-step value to track
         """
-        if env[self.agent_id].total_requests[self.user_id] != 0.:
-            return env[self.agent_id].total_wins[self.user_id] / env[self.agent_id].total_requests[self.user_id]
+        if env[self.agent_id].total_requests[self.user_id] != 0.0:
+            return (
+                env[self.agent_id].total_wins[self.user_id]
+                / env[self.agent_id].total_requests[self.user_id]
+            )
         return np.nan
 
     def reduce(self, values) -> float:
@@ -648,6 +661,7 @@ class AdvertiserAverageWinProbaUser(ph.logging.Metric[float]):
         here we are interested in the average bid value
         """
         return values[-1]
+
 
 class AdvertiserTotalRequests(ph.logging.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
@@ -660,6 +674,7 @@ class AdvertiserTotalRequests(ph.logging.Metric[float]):
     def reduce(self, values) -> float:
         return values[-1]
 
+
 class AdvertiserTotalWins(ph.logging.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
@@ -671,10 +686,11 @@ class AdvertiserTotalWins(ph.logging.Metric[float]):
     def reduce(self, values) -> float:
         return values[-1]
 
+
 NUM_ADVERTISERS = 6
 
 metrics = {}
-for aid in (f"ADV_{i}" for i in range(1, NUM_ADVERTISERS+1)):
+for aid in (f"ADV_{i}" for i in range(1, NUM_ADVERTISERS + 1)):
     metrics[f"{aid}/bid_user_1"] = AdvertiserBidUser(aid, 1)
     metrics[f"{aid}/bid_user_2"] = AdvertiserBidUser(aid, 2)
     metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(aid, "left", "mean")
@@ -697,38 +713,51 @@ if __name__ == "__main__":
     if sys.argv[1] == "test":
         agent_supertypes = {}
         # travel agency (i.e. agent 1 and 5) have a rather limited budget
-        agent_supertypes.update({
-        f"ADV_{i}": AdvertiserAgent.Supertype(
-                budget=ph.utils.ranges.LinspaceRange(5.0, 15.0, n=11, name="travel_budget")
-            ) for i in [1, 5]
-        })
+        agent_supertypes.update(
+            {
+                f"ADV_{i}": AdvertiserAgent.Supertype(
+                    budget=ph.utils.ranges.LinspaceRange(
+                        5.0, 15.0, n=11, name="travel_budget"
+                    )
+                )
+                for i in [1, 5]
+            }
+        )
 
         # sport companies have a bigger budget
-        agent_supertypes.update({
-        f"ADV_{i}": AdvertiserAgent.Supertype(
-                budget=ph.utils.ranges.LinspaceRange(7.0, 17.0, n=11, name="sport_budget")
-            ) for i in [2, 6]
-        })
+        agent_supertypes.update(
+            {
+                f"ADV_{i}": AdvertiserAgent.Supertype(
+                    budget=ph.utils.ranges.LinspaceRange(
+                        7.0, 17.0, n=11, name="sport_budget"
+                    )
+                )
+                for i in [2, 6]
+            }
+        )
 
         # tech companies have the bigger budget
-        agent_supertypes.update({
-        f"ADV_{i}": AdvertiserAgent.Supertype(
-                budget=ph.utils.ranges.LinspaceRange(10.0, 20.0, n=11, name="tech_budget")
-            ) for i in [3, 4]
-        })
+        agent_supertypes.update(
+            {
+                f"ADV_{i}": AdvertiserAgent.Supertype(
+                    budget=ph.utils.ranges.LinspaceRange(
+                        10.0, 20.0, n=11, name="tech_budget"
+                    )
+                )
+                for i in [3, 4]
+            }
+        )
 
         path = sys.argv[2]
         results = ph.utils.rllib.rollout(
-                directory=path,
-                algorithm="PPO",
-                env_class=DigitalAdsEnv,
-                num_repeats=50,
-                num_workers=40,
-                metrics=metrics,
-                record_messages=False,
-                env_config={
-                        "agent_supertypes": agent_supertypes
-                }
+            directory=path,
+            algorithm="PPO",
+            env_class=DigitalAdsEnv,
+            num_repeats=50,
+            num_workers=40,
+            metrics=metrics,
+            record_messages=False,
+            env_config={"agent_supertypes": agent_supertypes},
         )
 
         results = list(results)
@@ -737,55 +766,57 @@ if __name__ == "__main__":
         print("Done with evaluation")
     elif sys.argv[1] == "train":
         policies = {
-            f"adv_policy_{i}": [f"ADV_{i}"] for i in range(1, NUM_ADVERTISERS+1)
+            f"adv_policy_{i}": [f"ADV_{i}"] for i in range(1, NUM_ADVERTISERS + 1)
         }
         policies["publisher"] = (PublisherPolicy, PublisherAgent)
 
-
         agent_supertypes = {}
         # travel agency (i.e. agent 1 and 5) have a rather limited budget
-        agent_supertypes.update({
-            f"ADV_{i}": AdvertiserAgent.Supertype(
-                budget=ph.utils.samplers.UniformFloatSampler(
-                    low=5.0,
-                    high=15.0 + 0.001,
-                    clip_low=5.0,
-                    clip_high=10.0
-            )) for i in [1]#, 5]
-        })
+        agent_supertypes.update(
+            {
+                f"ADV_{i}": AdvertiserAgent.Supertype(
+                    budget=ph.utils.samplers.UniformFloatSampler(
+                        low=5.0, high=15.0 + 0.001, clip_low=5.0, clip_high=10.0
+                    )
+                )
+                for i in [1, 5]
+            }
+        )
 
         # sport companies have a bigger budget
-        agent_supertypes.update({
-            f"ADV_{i}": AdvertiserAgent.Supertype(
-                budget=ph.utils.samplers.UniformFloatSampler(
-                    low=7.0,
-                    high=17.0 + 0.001,
-                    clip_low=5.0,
-                    clip_high=20.0
-            )) for i in [2]#, 6]
-        })
+        agent_supertypes.update(
+            {
+                f"ADV_{i}": AdvertiserAgent.Supertype(
+                    budget=ph.utils.samplers.UniformFloatSampler(
+                        low=7.0, high=17.0 + 0.001, clip_low=5.0, clip_high=20.0
+                    )
+                )
+                for i in [2, 6]
+            }
+        )
 
         # tech companies have the bigger budget
-        agent_supertypes.update({
-            f"ADV_{i}": AdvertiserAgent.Supertype(
-                budget=ph.utils.samplers.UniformFloatSampler(
-                    low=10.0,
-                    high=20.0 + 0.001,
-                    clip_low=15.0,
-                    clip_high=30.0
-            )) for i in [3]#, 4]
-        })
+        agent_supertypes.update(
+            {
+                f"ADV_{i}": AdvertiserAgent.Supertype(
+                    budget=ph.utils.samplers.UniformFloatSampler(
+                        low=10.0, high=20.0 + 0.001, clip_low=15.0, clip_high=30.0
+                    )
+                )
+                for i in [3, 4]
+            }
+        )
 
         ph.utils.rllib.train(
             algorithm="PPO",
             num_workers=40,
             env_class=DigitalAdsEnv,
             policies=policies,
-            policies_to_train=[f"adv_policy_{i}" for i in range(1, NUM_ADVERTISERS+1)],
+            policies_to_train=[
+                f"adv_policy_{i}" for i in range(1, NUM_ADVERTISERS + 1)
+            ],
             metrics=metrics,
-            env_config={
-                "agent_supertypes": agent_supertypes
-            },
+            env_config={"agent_supertypes": agent_supertypes},
             rllib_config={
                 "seed": 0,
                 "batch_mode": "complete_episodes",
