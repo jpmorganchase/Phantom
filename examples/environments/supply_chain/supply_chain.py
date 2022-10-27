@@ -31,17 +31,18 @@ class UnitArrayUniformRange(
 
 
 # Define fixed parameters:
-NUM_EPISODE_STEPS = 60
-NUM_SHOPS = 1
-NUM_CUSTOMERS = 1
+NUM_EPISODE_STEPS = 100
+NUM_SHOPS = 2
+NUM_CUSTOMERS = 5
 
-CUSTOMER_MAX_ORDER_SIZE = 26
+CUSTOMER_MAX_ORDER_SIZE = 6
 SHOP_MIN_PRICE = 0.0
 SHOP_MAX_PRICE = 2.0
-SHOP_MAX_STOCK = 100
-SHOP_MAX_STOCK_REQUEST = int(CUSTOMER_MAX_ORDER_SIZE * NUM_CUSTOMERS * 1.5)
-MAX_INITIAL_INVENTORY = 26
-ALLOW_PRICE_ACTION = False
+COST_PRICE = 1.0
+SHOP_MAX_STOCK = 50
+SHOP_MAX_STOCK_REQUEST = int((CUSTOMER_MAX_ORDER_SIZE - 4) * NUM_CUSTOMERS * 1.5)
+MAX_INITIAL_INVENTORY = 10
+ALLOW_PRICE_ACTION = True
 
 
 @dataclass(frozen=True)
@@ -75,8 +76,22 @@ class StockResponse(ph.MsgPayload):
 class CustomerPolicy(ph.Policy):
     # The size of the order made and the choice of shop to make the order to for each
     # customer is determined by this fixed policy.
+    def tie_breaker_idx_sort(self, array):
+        def cmp(x, y):
+            if x[1] < y[1]:
+                return -1
+            elif x[1] > y[1]:
+                return 1
+            return np.random.randint(2) * 2 - 1
+        
+        array = sorted(enumerate(array), key=functools.cmp_to_key(cmp))
+        return [x[0] for x in array]
+    
     def compute_action(self, obs: np.ndarray) -> Tuple[int, int]:
-        return (np.random.randint(CUSTOMER_MAX_ORDER_SIZE), np.argmin(obs))
+        # The size of the order made and the choice of shop to make the order to for each
+        # customer is determined by this fixed policy. If both the shops have same price, customers can randomly place order to the one shop or the other
+        return (np.random.randint(1, CUSTOMER_MAX_ORDER_SIZE), self.tie_breaker_idx_sort(obs)[0])
+   
 
 
 class CustomerAgent(ph.MessageHandlerAgent):
@@ -99,10 +114,28 @@ class CustomerAgent(ph.MessageHandlerAgent):
         self.observation_space = gym.spaces.Box(
             low=SHOP_MIN_PRICE, high=SHOP_MAX_PRICE, shape=(len(self.shop_ids),)
         )
+        
+    def pre_message_resolution(self, ctx: ph.Context):
+        # a counter to keep track of the shops the customer have already visited.
+        self.shopsvisited = 0 
 
     @ph.agents.msg_handler(OrderResponse)
     def handle_order_response(self, ctx: ph.Context, message: ph.Message):
-        return
+        #to track the customers that could not get their orders fulfilled so that they can be allowed to the next shop offering the best price
+        self.shopsvisited += 1
+        
+        stock_sold = message.payload.size
+        if stock_sold == 0 and self.shopsvisited < 2:
+            self.customer_notsatisfied = message.receiver_id
+            self.shop_withnostock = message.sender_id
+           
+            if message.sender_id == 'SHOP1':
+                return [('SHOP2', OrderRequest(self.order_size))]
+            else:
+                return [('SHOP1', OrderRequest(self.order_size))]
+           
+        else:
+            return
 
     def decode_action(self, ctx: ph.Context, action: Tuple[int, int]):
         # At the start of each step we generate an order with a random size to send to a
@@ -137,11 +170,11 @@ class FactoryAgent(ph.MessageHandlerAgent):
 class ShopAgent(ph.MessageHandlerAgent):
     @dataclass
     class Supertype(ph.Supertype):
-        sale_price: float
+        #sale_price: float
         # The cost of holding onto one unit of inventory overnight:
         cost_of_carry: float
         # The cost of producing one unit of inventory:
-        cost_per_unit: float
+        #cost_per_unit: float
 
     @dataclass(frozen=True)
     class View(ph.AgentView):
@@ -220,7 +253,20 @@ class ShopAgent(ph.MessageHandlerAgent):
                 "stock": gym.spaces.Box(low=0, high=1, shape=(1,)),
                 # The number of sales made by the agent in the previous step:
                 "previous_sales": gym.spaces.Box(low=0, high=1, shape=(1,)),
+                # The number of orders placed by customers in the previous step:
+                "previous_cusorders": gym.spaces.Box(low=0, high=1, shape=(1,)),
             }
+        )
+    
+    def handle_batch(self, ctx, batch):
+        np.random.shuffle(batch)
+        return list(
+            chain.from_iterable(
+                filter(
+                    lambda x: x is not None,
+                    (self.handle_message(ctx, message) for message in batch),
+                )
+            )
         )
 
     def view(self, neighbour_id: Optional[ph.AgentID] = None) -> "View":
@@ -235,21 +281,6 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.orders_received = 0
 
             self.carried_stock = self.stock
-
-    def post_message_resolution(self, ctx: ph.Context):
-        if ctx["ENV"].stage == "sales_step":
-            self.leftover_stock = self.stock
-
-        self.revenue = self.sales * self.price
-
-        self.costs = (
-            # It incurs a cost for ordering new stock:
-            self.delivered_stock * self.type.cost_per_unit
-            # And for holding onto leftover stock overnight:
-            + self.carried_stock * self.type.cost_of_carry
-        )
-
-        self.pnl = self.revenue - self.costs
 
     @ph.agents.msg_handler(StockResponse)
     def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
@@ -276,6 +307,7 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.stock -= amount_requested
 
         self.sales += stock_to_sell
+        self.leftover_stock = self.stock
 
         # Send the customer their order.
         return [(message.sender_id, OrderResponse(stock_to_sell))]
@@ -291,6 +323,8 @@ class ShopAgent(ph.MessageHandlerAgent):
             # The number of sales made in the previous step is included so the shop can
             # learn to maximise sales.
             "previous_sales": np.array([self.sales]) / (CUSTOMER_MAX_ORDER_SIZE - 1),
+            # The number of customer orders placed in the previous step
+            "previous_cusorders": np.array([self.orders_received]) / ((CUSTOMER_MAX_ORDER_SIZE - 1)*(NUM_CUSTOMERS))
         }
 
     def decode_action(self, ctx: ph.Context, action: Tuple[np.ndarray, int]):
@@ -304,19 +338,18 @@ class ShopAgent(ph.MessageHandlerAgent):
             self.price = self.type.sale_price
 
         # And we send a stock request message to the factory:
-        # return [(self.factory_id, StockRequest(action["restock_qty"]))]
-        return [(self.factory_id, StockRequest(int(action["restock_qty"][0])))]
+        return [(self.factory_id, StockRequest(int(np.round(action["restock_qty"][0]))))]
 
     def compute_reward(self, ctx: ph.Context) -> float:
-        # return (
-        #     # The shop makes profit from selling items at the set price:
-        #     self.sales * self.price
-        #     # It incurs a cost for ordering new stock:
-        #     - self.delivered_stock * self.type.cost_per_unit
-        #     # And for holding onto leftover stock overnight:
-        #     - self.leftover_stock * self.type.cost_of_carry
-        # )
-
+        #sales made by selling stock
+        self.revenue = self.sales * self.price
+        self.costs = (
+            # It incurs a cost for ordering new stock:
+            self.delivered_stock * COST_PRICE    
+            # And for holding onto leftover stock overnight:
+            + self.stock * self.type.cost_of_carry     
+        )
+        self.pnl = self.revenue - self.costs
         return self.pnl
 
     def reset(self):
@@ -351,7 +384,7 @@ class SupplyChainEnv(ph.FiniteStateMachineEnv):
         agents = [factory_agent] + shop_agents + customer_agents
 
         # Define Network and create connections between Actors
-        network = ph.Network(agents)
+        network = ph.Network(agents, resolver=ph.resolvers.BatchResolver(chain_limit=4))
 
         # Connect the shops to the factory
         network.add_connections_between(SHOP_IDS, [FACTORY_ID])
@@ -418,21 +451,6 @@ if sys.argv[1] == "train":
         env_config={
             "agent_supertypes": {
                 shop_id: ShopAgent.Supertype(
-                    # sale_price=1.0,
-                    sale_price=ph.utils.samplers.UniformFloatSampler(
-                        low=-0.1,
-                        high=2.1,
-                        clip_low=0.0,
-                        clip_high=2.0,
-                    ),
-                    # cost_per_unit=0.5,
-                    cost_per_unit=ph.utils.samplers.UniformFloatSampler(
-                        low=-0.1,
-                        high=1.1,
-                        clip_low=0.0,
-                        clip_high=1.0,
-                    ),
-                    # cost_of_carry=0.1,
                     cost_of_carry=ph.utils.samplers.UniformFloatSampler(
                         low=-0.1,
                         high=1.1,
@@ -457,10 +475,10 @@ if sys.argv[1] == "train":
             "disable_env_checking": True,
         },
         tune_config={
-            "name": exp_name,
-            "checkpoint_freq": 500,
+            "name": supply_chain,
+            "checkpoint_freq": 100,
             "stop": {
-                "training_iteration": 1000,
+                "training_iteration": 5000,
             },
         },
     )
@@ -476,19 +494,7 @@ elif sys.argv[1] == "test":
                 shop_id: ShopAgent.Supertype(
                     # sale_price=1.0,
                     sale_price=ph.utils.ranges.UniformRange(
-                        start=0.0,
-                        end=2.0 + 0.001,
-                        step=0.2,
-                        name="sale_price",
-                    ),
-                    # cost_per_unit=0.5,
-                    cost_per_unit=ph.utils.ranges.UniformRange(
-                        start=0.0,
-                        end=1.0 + 0.001,
-                        step=0.1,
-                        name="cost_per_unit",
-                    ),
-                    # cost_of_carry=0.1,
+               
                     cost_of_carry=ph.utils.ranges.UniformRange(
                         start=0.0,
                         end=1.0 + 0.001,
@@ -499,10 +505,10 @@ elif sys.argv[1] == "test":
                 for shop_id in SHOP_IDS
             }
         },
-        num_repeats=5,
+        num_repeats=50,
         metrics=metrics,
         record_messages=False,
-        # num_workers=0,
+     
     )
 
     # cloudpickle.save(file, list(results))
