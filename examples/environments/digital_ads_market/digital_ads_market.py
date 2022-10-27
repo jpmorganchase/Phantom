@@ -13,7 +13,9 @@ import phantom as ph
 
 LOG_LEVEL = "WARN"
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("digital-ads")
 logger.setLevel(LOG_LEVEL)
 
@@ -154,11 +156,15 @@ class PublisherAgent(ph.MessageHandlerAgent):
         2: {"sport": 1.0, "travel": 0.0, "science": 0.7, "tech": 0.1},
     }
 
-    def __init__(self, agent_id: str, exchange_id: str, user_click_proba: dict = None):
+    def __init__(
+        self, agent_id: str, exchange_id: str, user_click_proba: dict = None
+    ):
         super().__init__(agent_id)
 
         self.exchange_id = exchange_id
-        self.user_click_proba = user_click_proba or self._USER_CLICK_PROBABILITIES
+        self.user_click_proba = (
+            user_click_proba or self._USER_CLICK_PROBABILITIES
+        )
 
         self.observation_space = gym.spaces.Box(
             low=np.array([0]), high=np.array([0]), dtype=np.float64
@@ -235,7 +241,9 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         self.exchange_id = exchange_id
         self.theme = theme
 
-        self.action_space = gym.spaces.Box(low=np.array([0.0]), high=np.array([1.0]))
+        self.action_space = gym.spaces.Box(
+            low=np.array([0.0]), high=np.array([1.0])
+        )
 
         super().__init__(agent_id)
 
@@ -271,16 +279,18 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         We receive the user id in the message but we collect extra user information from
         the `ctx` object.
         """
-        logger.debug("AdvertiserAgent %s impression request: %s", self.id, msg.payload)
+        logger.debug(
+            "AdvertiserAgent %s impression request: %s", self.id, msg.payload
+        )
 
         self._current_user_id = msg.payload.user_id
 
-        self._current_age = ctx[self.exchange_id].users_info[self._current_user_id][
-            "age"
-        ]
-        self._current_zipcode = ctx[self.exchange_id].users_info[self._current_user_id][
-            "zipcode"
-        ]
+        self._current_age = ctx[self.exchange_id].users_info[
+            self._current_user_id
+        ]["age"]
+        self._current_zipcode = ctx[self.exchange_id].users_info[
+            self._current_user_id
+        ]["zipcode"]
 
         self.total_requests[self._current_user_id] += 1
 
@@ -289,7 +299,9 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """
         If the `AdvertiserAgent` wins the auction it needs to update its budget left.
         """
-        logger.debug("AdvertiserAgent %s auction result: %s", self.id, msg.payload)
+        logger.debug(
+            "AdvertiserAgent %s auction result: %s", self.id, msg.payload
+        )
 
         self.step_wins += int(msg.payload.cost != 0.0)
         self.total_wins[self._current_user_id] += int(msg.payload.cost != 0.0)
@@ -300,7 +312,9 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """
         When the result of the ad display is received, update the number of clicks.
         """
-        logger.debug("AdvertiserAgent %s impression result: %s", self.id, msg.payload)
+        logger.debug(
+            "AdvertiserAgent %s impression result: %s", self.id, msg.payload
+        )
 
         self.step_clicks += int(msg.payload.clicked)
         self.total_clicks[self._current_user_id] += int(msg.payload.clicked)
@@ -315,13 +329,16 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
             - the user's age
             - the user's zipcode
         """
-        return {
-            "type": self.type.to_obs_space_compatible_type(),
-            "budget_left": np.array([self.left / self.type.budget], dtype=np.float64),
-            "user_id": self._current_user_id - 1,
-            # "user_age": np.array([self._current_age / 100.], dtype=np.float64),
-            # "user_zipcode": np.array([self._current_zipcode / 99999.], dtype=np.float64),
-        }
+        if self._current_user_id != 0:
+            return {
+                "type": self.type.to_obs_space_compatible_type(),
+                "budget_left": np.array(
+                    [self.left / self.type.budget], dtype=np.float64
+                ),
+                "user_id": self._current_user_id - 1,
+                # "user_age": np.array([self._current_age / 100.], dtype=np.float64),
+                # "user_zipcode": np.array([self._current_zipcode / 99999.], dtype=np.float64),
+            }
 
     def decode_action(self, ctx: ph.Context, action: np.ndarray):
         """@override
@@ -334,7 +351,9 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         self.bid = min(action[0] * self.type.budget, self.left)
 
         if self.bid > 0.0:
-            msg = Bid(bid=self.bid, theme=self.theme, user_id=self._current_user_id)
+            msg = Bid(
+                bid=self.bid, theme=self.theme, user_id=self._current_user_id
+            )
             msgs.append((self.exchange_id, msg))
 
         return msgs
@@ -481,9 +500,13 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
         else:
             raise ValueError(f"Unknown auction strategy: {self.strategy}")
 
-        logger.debug("AdExchange auction done winner: %s cost: %s", winner, cost)
+        logger.debug(
+            "AdExchange auction done winner: %s cost: %s", winner, cost
+        )
 
         msgs = []
+
+        advertiser_ids = [m.sender_id for m in bids]
 
         msgs.append(
             (
@@ -496,10 +519,15 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
             )
         )
 
-        for adv_id in self.advertiser_ids:
+        for adv_id in advertiser_ids:
             adv_cost = cost if adv_id == winner.sender_id else 0.0
             msgs.append(
-                (adv_id, AuctionResult(cost=adv_cost, winning_bid=winner.payload.bid)),
+                (
+                    adv_id,
+                    AuctionResult(
+                        cost=adv_cost, winning_bid=winner.payload.bid
+                    ),
+                ),
             )
 
         return msgs
@@ -514,7 +542,9 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
         sorted_bids = sorted(bids, key=lambda m: m.payload.bid, reverse=True)
         winner = sorted_bids[0]
         cost = (
-            sorted_bids[1].payload.bid if len(bids) > 1 else sorted_bids[0].payload.bid
+            sorted_bids[1].payload.bid
+            if len(bids) > 1
+            else sorted_bids[0].payload.bid
         )
         return winner, cost
 
@@ -525,7 +555,7 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
 
 
 class DigitalAdsEnv(ph.FiniteStateMachineEnv):
-    def __init__(self, num_steps=20, **kwargs):
+    def __init__(self, num_steps=20, num_agents_theme=None, **kwargs):
         # agent ids
         self.exchange_id = "ADX"
         self.publisher_id = "PUB"
@@ -543,14 +573,18 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         )
 
         # The learning `AdvertiserAgent`s
-        advertiser_agents = [
-            AdvertiserAgent("ADV_1", self.exchange_id, theme="travel"),
-            AdvertiserAgent("ADV_2", self.exchange_id, theme="sport"),
-            AdvertiserAgent("ADV_3", self.exchange_id, theme="tech"),
-            AdvertiserAgent("ADV_4", self.exchange_id, theme="tech"),
-            AdvertiserAgent("ADV_5", self.exchange_id, theme="travel"),
-            AdvertiserAgent("ADV_6", self.exchange_id, theme="sport"),
-        ]
+        advertiser_agents = []
+        i = 1
+        for theme, num_agents in num_agents_theme.items():
+            for _ in range(num_agents):
+                advertiser_agents.extend(
+                    [
+                        AdvertiserAgent(
+                            f"ADV_{i}", self.exchange_id, theme=theme
+                        ),
+                    ]
+                )
+                i += 1
         self.advertiser_ids = [a.id for a in advertiser_agents]
 
         # The `AdExchangeAgent` that makes the intermediary between publishers and advertisers
@@ -562,10 +596,14 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
 
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
-        network = ph.Network(actors, ph.resolvers.BatchResolver(chain_limit=5))
+        network = ph.StochasticNetwork(
+            actors, ph.resolvers.BatchResolver(chain_limit=5)
+        )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
-        network.add_connections_between([self.publisher_id], self.advertiser_ids)
+        network.add_connections_between(
+            [self.publisher_id], self.advertiser_ids
+        )
 
         super().__init__(
             num_steps=num_steps,
@@ -687,23 +725,48 @@ class AdvertiserTotalWins(ph.logging.Metric[float]):
         return values[-1]
 
 
-NUM_ADVERTISERS = 6
+NUM_TRAVEL_ADVERTISERS = 40
+NUM_TECH_ADVERTISERS = 40
+NUM_SPORT_ADVERTISERS = 40
 
 metrics = {}
-for aid in (f"ADV_{i}" for i in range(1, NUM_ADVERTISERS + 1)):
+for aid in (
+    f"ADV_{i}"
+    for i in range(
+        1,
+        NUM_TRAVEL_ADVERTISERS
+        + NUM_TECH_ADVERTISERS
+        + NUM_SPORT_ADVERTISERS
+        + 1,
+    )
+):
     metrics[f"{aid}/bid_user_1"] = AdvertiserBidUser(aid, 1)
     metrics[f"{aid}/bid_user_2"] = AdvertiserBidUser(aid, 2)
-    metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(aid, "left", "mean")
-    metrics[f"{aid}/wins"] = ph.logging.SimpleAgentMetric(aid, "step_wins", "mean")
-    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(aid, "step_clicks", "mean")
+    metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(
+        aid, "left", "mean"
+    )
+    metrics[f"{aid}/wins"] = ph.logging.SimpleAgentMetric(
+        aid, "step_wins", "mean"
+    )
+    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(
+        aid, "step_clicks", "mean"
+    )
     metrics[f"{aid}/total_requests_user_1"] = AdvertiserTotalRequests(aid, 1)
     metrics[f"{aid}/total_requests_user_2"] = AdvertiserTotalRequests(aid, 2)
     metrics[f"{aid}/total_wins_user_1"] = AdvertiserTotalWins(aid, 1)
     metrics[f"{aid}/total_wins_user_2"] = AdvertiserTotalWins(aid, 2)
-    metrics[f"{aid}/avg_hit_ratio_user_1"] = AdvertiserAverageHitRatioUser(aid, 1)
-    metrics[f"{aid}/avg_hit_ratio_user_2"] = AdvertiserAverageHitRatioUser(aid, 2)
-    metrics[f"{aid}/avg_win_proba_user_1"] = AdvertiserAverageWinProbaUser(aid, 1)
-    metrics[f"{aid}/avg_win_proba_user_2"] = AdvertiserAverageWinProbaUser(aid, 2)
+    metrics[f"{aid}/avg_hit_ratio_user_1"] = AdvertiserAverageHitRatioUser(
+        aid, 1
+    )
+    metrics[f"{aid}/avg_hit_ratio_user_2"] = AdvertiserAverageHitRatioUser(
+        aid, 2
+    )
+    metrics[f"{aid}/avg_win_proba_user_1"] = AdvertiserAverageWinProbaUser(
+        aid, 1
+    )
+    metrics[f"{aid}/avg_win_proba_user_2"] = AdvertiserAverageWinProbaUser(
+        aid, 2
+    )
 
 #######################################
 ##  Params
@@ -720,7 +783,7 @@ if __name__ == "__main__":
                         5.0, 15.0, n=11, name="travel_budget"
                     )
                 )
-                for i in [1, 5]
+                for i in range(1, NUM_TRAVEL_ADVERTISERS + 1)
             }
         )
 
@@ -732,7 +795,10 @@ if __name__ == "__main__":
                         7.0, 17.0, n=11, name="sport_budget"
                     )
                 )
-                for i in [2, 6]
+                for i in range(
+                    NUM_TRAVEL_ADVERTISERS + 1,
+                    NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + 1,
+                )
             }
         )
 
@@ -744,7 +810,13 @@ if __name__ == "__main__":
                         10.0, 20.0, n=11, name="tech_budget"
                     )
                 )
-                for i in [3, 4]
+                for i in range(
+                    NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + 1,
+                    NUM_TRAVEL_ADVERTISERS
+                    + NUM_TECH_ADVERTISERS
+                    + NUM_SPORT_ADVERTISERS
+                    + 1,
+                )
             }
         )
 
@@ -757,7 +829,14 @@ if __name__ == "__main__":
             num_workers=40,
             metrics=metrics,
             record_messages=False,
-            env_config={"agent_supertypes": agent_supertypes},
+            env_config={
+                "agent_supertypes": agent_supertypes,
+                "num_agents_theme": {
+                    "travel": NUM_TRAVEL_ADVERTISERS,
+                    "tech": NUM_TECH_ADVERTISERS,
+                    "sport": NUM_SPORT_ADVERTISERS,
+                },
+            },
         )
 
         results = list(results)
@@ -766,7 +845,26 @@ if __name__ == "__main__":
         print("Done with evaluation")
     elif sys.argv[1] == "train":
         policies = {
-            f"adv_policy_{i}": [f"ADV_{i}"] for i in range(1, NUM_ADVERTISERS + 1)
+            "adv_policy_travel": [
+                f"ADV_{i}" for i in range(1, NUM_TRAVEL_ADVERTISERS + 1)
+            ],
+            "adv_policy_tech": [
+                f"ADV_{i}"
+                for i in range(
+                    NUM_TRAVEL_ADVERTISERS + 1,
+                    NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + 1,
+                )
+            ],
+            "adv_policy_sport": [
+                f"ADV_{i}"
+                for i in range(
+                    NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + 1,
+                    NUM_TRAVEL_ADVERTISERS
+                    + NUM_TECH_ADVERTISERS
+                    + NUM_SPORT_ADVERTISERS
+                    + 1,
+                )
+            ],
         }
         policies["publisher"] = (PublisherPolicy, PublisherAgent)
 
@@ -776,10 +874,10 @@ if __name__ == "__main__":
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.samplers.UniformFloatSampler(
-                        low=5.0, high=15.0 + 0.001, clip_low=5.0, clip_high=10.0
+                        low=5.0, high=15.0 + 0.001, clip_low=5.0, clip_high=15.0
                     )
                 )
-                for i in [1, 5]
+                for i in range(1, NUM_TRAVEL_ADVERTISERS + 1)
             }
         )
 
@@ -788,10 +886,13 @@ if __name__ == "__main__":
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.samplers.UniformFloatSampler(
-                        low=7.0, high=17.0 + 0.001, clip_low=5.0, clip_high=20.0
+                        low=7.0, high=17.0 + 0.001, clip_low=7.0, clip_high=17.0
                     )
                 )
-                for i in [2, 6]
+                for i in range(
+                    NUM_TRAVEL_ADVERTISERS + 1,
+                    NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + 1,
+                )
             }
         )
 
@@ -800,10 +901,19 @@ if __name__ == "__main__":
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.samplers.UniformFloatSampler(
-                        low=10.0, high=20.0 + 0.001, clip_low=15.0, clip_high=30.0
+                        low=10.0,
+                        high=20.0 + 0.001,
+                        clip_low=10.0,
+                        clip_high=20.0,
                     )
                 )
-                for i in [3, 4]
+                for i in range(
+                    NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + 1,
+                    NUM_TRAVEL_ADVERTISERS
+                    + NUM_TECH_ADVERTISERS
+                    + NUM_SPORT_ADVERTISERS
+                    + 1,
+                )
             }
         )
 
@@ -813,10 +923,19 @@ if __name__ == "__main__":
             env_class=DigitalAdsEnv,
             policies=policies,
             policies_to_train=[
-                f"adv_policy_{i}" for i in range(1, NUM_ADVERTISERS + 1)
+                "adv_policy_travel",
+                "adv_policy_tech",
+                "adv_policy_sport",
             ],
             metrics=metrics,
-            env_config={"agent_supertypes": agent_supertypes},
+            env_config={
+                "agent_supertypes": agent_supertypes,
+                "num_agents_theme": {
+                    "travel": NUM_TRAVEL_ADVERTISERS,
+                    "tech": NUM_TECH_ADVERTISERS,
+                    "sport": NUM_SPORT_ADVERTISERS,
+                },
+            },
             rllib_config={
                 "seed": 0,
                 "batch_mode": "complete_episodes",

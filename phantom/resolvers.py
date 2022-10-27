@@ -119,12 +119,14 @@ class BatchResolver(Resolver):
             for receiver_id, messages in processing_messages.items():
                 if receiver_id not in contexts:
                     continue
+                
+                msgs = [m for m in messages if network.has_edge(m.sender_id, m.receiver_id)]
                 ctx = contexts[receiver_id]
-                batch = ctx.agent.handle_batch(ctx, messages)
+                batch = ctx.agent.handle_batch(ctx, msgs)
 
                 if batch is not None:
                     for sub_receiver_id, sub_payload in batch:
-                        self.push(Message(receiver_id, sub_receiver_id, sub_payload))
+                        network.send(receiver_id, sub_receiver_id, sub_payload)
 
         if len(self.messages) > 0:
             logging.getLogger("BatchResolver").warning(

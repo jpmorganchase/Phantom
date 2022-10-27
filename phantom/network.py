@@ -197,15 +197,24 @@ class Network:
 
         return Context(self.agents[agent_id], agent_views, env_view)
 
+    def has_edge(self, sender_id: AgentID, receiver_id: AgentID) -> bool:
+        """Returns whether two agents are connected.
+
+        Arguments:
+            sender_id: the sender ID
+            receiver_id: the receiver ID
+        """
+        return (sender_id, receiver_id) in self.graph.edges
+
     def send(
-        self, sender_id: AgentID, receiver_id: AgentID, payload: MsgPayload
+        self, sender_id: AgentID, receiver_id: AgentID, payload: MsgPayload, errors: str = "ignore"
     ) -> None:
         """Send message batches across the network.
 
         Arguments:
             messages: Mapping from senders, to receivers, to messages.
         """
-        if (sender_id, receiver_id) not in self.graph.edges:
+        if not self.has_edge(sender_id, receiver_id) and errors == "raises":
             raise NetworkError(
                 f"No connection between {self.agents[sender_id]} and {self.agents[receiver_id]}."
             )
