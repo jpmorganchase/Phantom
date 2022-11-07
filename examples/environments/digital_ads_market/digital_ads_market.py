@@ -13,9 +13,7 @@ import phantom as ph
 
 LOG_LEVEL = "WARN"
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("digital-ads")
 logger.setLevel(LOG_LEVEL)
 
@@ -156,15 +154,11 @@ class PublisherAgent(ph.MessageHandlerAgent):
         2: {"sport": 1.0, "travel": 0.0, "science": 0.7, "tech": 0.1},
     }
 
-    def __init__(
-        self, agent_id: str, exchange_id: str, user_click_proba: dict = None
-    ):
+    def __init__(self, agent_id: str, exchange_id: str, user_click_proba: dict = None):
         super().__init__(agent_id)
 
         self.exchange_id = exchange_id
-        self.user_click_proba = (
-            user_click_proba or self._USER_CLICK_PROBABILITIES
-        )
+        self.user_click_proba = user_click_proba or self._USER_CLICK_PROBABILITIES
 
         self.observation_space = gym.spaces.Box(
             low=np.array([0]), high=np.array([0]), dtype=np.float64
@@ -241,9 +235,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         self.exchange_id = exchange_id
         self.theme = theme
 
-        self.action_space = gym.spaces.Box(
-            low=np.array([0.0]), high=np.array([1.0])
-        )
+        self.action_space = gym.spaces.Box(low=np.array([0.0]), high=np.array([1.0]))
 
         super().__init__(agent_id)
 
@@ -279,18 +271,16 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         We receive the user id in the message but we collect extra user information from
         the `ctx` object.
         """
-        logger.debug(
-            "AdvertiserAgent %s impression request: %s", self.id, msg.payload
-        )
+        logger.debug("AdvertiserAgent %s impression request: %s", self.id, msg.payload)
 
         self._current_user_id = msg.payload.user_id
 
-        self._current_age = ctx[self.exchange_id].users_info[
-            self._current_user_id
-        ]["age"]
-        self._current_zipcode = ctx[self.exchange_id].users_info[
-            self._current_user_id
-        ]["zipcode"]
+        self._current_age = ctx[self.exchange_id].users_info[self._current_user_id][
+            "age"
+        ]
+        self._current_zipcode = ctx[self.exchange_id].users_info[self._current_user_id][
+            "zipcode"
+        ]
 
         self.total_requests[self._current_user_id] += 1
 
@@ -299,9 +289,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """
         If the `AdvertiserAgent` wins the auction it needs to update its budget left.
         """
-        logger.debug(
-            "AdvertiserAgent %s auction result: %s", self.id, msg.payload
-        )
+        logger.debug("AdvertiserAgent %s auction result: %s", self.id, msg.payload)
 
         self.step_wins += int(msg.payload.cost != 0.0)
         self.total_wins[self._current_user_id] += int(msg.payload.cost != 0.0)
@@ -312,9 +300,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         """
         When the result of the ad display is received, update the number of clicks.
         """
-        logger.debug(
-            "AdvertiserAgent %s impression result: %s", self.id, msg.payload
-        )
+        logger.debug("AdvertiserAgent %s impression result: %s", self.id, msg.payload)
 
         self.step_clicks += int(msg.payload.clicked)
         self.total_clicks[self._current_user_id] += int(msg.payload.clicked)
@@ -351,9 +337,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         self.bid = min(action[0] * self.type.budget, self.left)
 
         if self.bid > 0.0:
-            msg = Bid(
-                bid=self.bid, theme=self.theme, user_id=self._current_user_id
-            )
+            msg = Bid(bid=self.bid, theme=self.theme, user_id=self._current_user_id)
             msgs.append((self.exchange_id, msg))
 
         return msgs
@@ -500,9 +484,7 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
         else:
             raise ValueError(f"Unknown auction strategy: {self.strategy}")
 
-        logger.debug(
-            "AdExchange auction done winner: %s cost: %s", winner, cost
-        )
+        logger.debug("AdExchange auction done winner: %s cost: %s", winner, cost)
 
         msgs = []
 
@@ -524,9 +506,7 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
             msgs.append(
                 (
                     adv_id,
-                    AuctionResult(
-                        cost=adv_cost, winning_bid=winner.payload.bid
-                    ),
+                    AuctionResult(cost=adv_cost, winning_bid=winner.payload.bid),
                 ),
             )
 
@@ -542,9 +522,7 @@ class AdExchangeAgent(ph.MessageHandlerAgent):
         sorted_bids = sorted(bids, key=lambda m: m.payload.bid, reverse=True)
         winner = sorted_bids[0]
         cost = (
-            sorted_bids[1].payload.bid
-            if len(bids) > 1
-            else sorted_bids[0].payload.bid
+            sorted_bids[1].payload.bid if len(bids) > 1 else sorted_bids[0].payload.bid
         )
         return winner, cost
 
@@ -579,9 +557,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
             for _ in range(num_agents):
                 advertiser_agents.extend(
                     [
-                        AdvertiserAgent(
-                            f"ADV_{i}", self.exchange_id, theme=theme
-                        ),
+                        AdvertiserAgent(f"ADV_{i}", self.exchange_id, theme=theme),
                     ]
                 )
                 i += 1
@@ -601,9 +577,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
-        network.add_connections_between(
-            [self.publisher_id], self.advertiser_ids
-        )
+        network.add_connections_between([self.publisher_id], self.advertiser_ids)
 
         super().__init__(
             num_steps=num_steps,
@@ -734,39 +708,22 @@ for aid in (
     f"ADV_{i}"
     for i in range(
         1,
-        NUM_TRAVEL_ADVERTISERS
-        + NUM_TECH_ADVERTISERS
-        + NUM_SPORT_ADVERTISERS
-        + 1,
+        NUM_TRAVEL_ADVERTISERS + NUM_TECH_ADVERTISERS + NUM_SPORT_ADVERTISERS + 1,
     )
 ):
     metrics[f"{aid}/bid_user_1"] = AdvertiserBidUser(aid, 1)
     metrics[f"{aid}/bid_user_2"] = AdvertiserBidUser(aid, 2)
-    metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(
-        aid, "left", "mean"
-    )
-    metrics[f"{aid}/wins"] = ph.logging.SimpleAgentMetric(
-        aid, "step_wins", "mean"
-    )
-    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(
-        aid, "step_clicks", "mean"
-    )
+    metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(aid, "left", "mean")
+    metrics[f"{aid}/wins"] = ph.logging.SimpleAgentMetric(aid, "step_wins", "mean")
+    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(aid, "step_clicks", "mean")
     metrics[f"{aid}/total_requests_user_1"] = AdvertiserTotalRequests(aid, 1)
     metrics[f"{aid}/total_requests_user_2"] = AdvertiserTotalRequests(aid, 2)
     metrics[f"{aid}/total_wins_user_1"] = AdvertiserTotalWins(aid, 1)
     metrics[f"{aid}/total_wins_user_2"] = AdvertiserTotalWins(aid, 2)
-    metrics[f"{aid}/avg_hit_ratio_user_1"] = AdvertiserAverageHitRatioUser(
-        aid, 1
-    )
-    metrics[f"{aid}/avg_hit_ratio_user_2"] = AdvertiserAverageHitRatioUser(
-        aid, 2
-    )
-    metrics[f"{aid}/avg_win_proba_user_1"] = AdvertiserAverageWinProbaUser(
-        aid, 1
-    )
-    metrics[f"{aid}/avg_win_proba_user_2"] = AdvertiserAverageWinProbaUser(
-        aid, 2
-    )
+    metrics[f"{aid}/avg_hit_ratio_user_1"] = AdvertiserAverageHitRatioUser(aid, 1)
+    metrics[f"{aid}/avg_hit_ratio_user_2"] = AdvertiserAverageHitRatioUser(aid, 2)
+    metrics[f"{aid}/avg_win_proba_user_1"] = AdvertiserAverageWinProbaUser(aid, 1)
+    metrics[f"{aid}/avg_win_proba_user_2"] = AdvertiserAverageWinProbaUser(aid, 2)
 
 #######################################
 ##  Params

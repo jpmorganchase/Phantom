@@ -207,7 +207,11 @@ class Network:
         return (sender_id, receiver_id) in self.graph.edges
 
     def send(
-        self, sender_id: AgentID, receiver_id: AgentID, payload: MsgPayload, errors: str = "ignore"
+        self,
+        sender_id: AgentID,
+        receiver_id: AgentID,
+        payload: MsgPayload,
+        errors: str = "ignore",
     ) -> None:
         """Send message batches across the network.
 

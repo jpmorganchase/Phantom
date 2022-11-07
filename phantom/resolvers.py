@@ -119,8 +119,10 @@ class BatchResolver(Resolver):
             for receiver_id, messages in processing_messages.items():
                 if receiver_id not in contexts:
                     continue
-                
-                msgs = [m for m in messages if network.has_edge(m.sender_id, m.receiver_id)]
+
+                msgs = [
+                    m for m in messages if network.has_edge(m.sender_id, m.receiver_id)
+                ]
                 ctx = contexts[receiver_id]
                 batch = ctx.agent.handle_batch(ctx, msgs)
 
