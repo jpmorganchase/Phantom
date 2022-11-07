@@ -573,7 +573,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
         network = ph.StochasticNetwork(
-            actors, ph.resolvers.BatchResolver(chain_limit=5)
+            actors, ph.resolvers.BatchResolver(chain_limit=5), True
         )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
@@ -876,7 +876,6 @@ if __name__ == "__main__":
 
         ph.utils.rllib.train(
             algorithm="PPO",
-            num_workers=40,
             env_class=DigitalAdsEnv,
             policies=policies,
             policies_to_train=[
