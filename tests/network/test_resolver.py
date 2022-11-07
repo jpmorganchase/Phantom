@@ -4,9 +4,10 @@ from typing import List, Tuple
 
 import pytest
 
-from phantom import AgentID, Context, Network, Message
+from phantom import AgentID, Context, Network
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
+from phantom.network import NetworkError
 from phantom.resolvers import BatchResolver
 from phantom.views import EnvView
 
@@ -83,4 +84,31 @@ def test_batch_resolver_round_limit():
     n.send("A", "B", Request(0))
 
     with pytest.raises(Exception):
+        n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
+
+
+class _TestAgent2(MessageHandlerAgent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def handle_message(
+        self, _: Context, message: bool
+    ) -> List[Tuple[AgentID, MsgPayload]]:
+        return [("C", True)] if self.id == "B" else []
+
+
+def test_invalid_response_connection():
+    n = Network(
+        [
+            _TestAgent2("A"),
+            _TestAgent2("B"),
+            _TestAgent2("C"),
+        ],
+        BatchResolver(),
+    )
+    n.add_connection("A", "B")
+
+    n.send("A", "B", True)
+
+    with pytest.raises(NetworkError):
         n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})

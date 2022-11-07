@@ -1,6 +1,5 @@
-import abc
 import itertools
-import logging
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import DefaultDict, List, Mapping, Optional, TYPE_CHECKING
 
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
     from .network import Network
 
 
-class Resolver(abc.ABC):
+class Resolver(ABC):
     """Network message resolver.
 
     This type is responsible for resolution processing. That is, the order in which
@@ -57,7 +56,7 @@ class Resolver(abc.ABC):
         """
         return self._tracked_messages
 
-    @abc.abstractmethod
+    @abstractmethod
     def handle_push(self, message: Message) -> None:
         """
         Called by the resolver to handle batches of messages. Any further created
@@ -66,7 +65,7 @@ class Resolver(abc.ABC):
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
+    @abstractmethod
     def resolve(self, network: "Network", contexts: Mapping[AgentID, Context]) -> None:
         """Process queues messages for a (sub) set of network contexts.
 
@@ -76,7 +75,7 @@ class Resolver(abc.ABC):
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
+    @abstractmethod
     def reset(self) -> None:
         """Resets the resolver and clears any potential message queues.
 
@@ -144,7 +143,7 @@ class BatchResolver(Resolver):
 
                 if batch is not None:
                     for sub_receiver_id, sub_payload in batch:
-                        self.push(Message(receiver_id, sub_receiver_id, sub_payload))
+                        network.send(receiver_id, sub_receiver_id, sub_payload)
 
         if len(self.messages) > 0:
             raise Exception(

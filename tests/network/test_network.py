@@ -7,7 +7,7 @@ import pytest
 from phantom import AgentID, Context
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
-from phantom.network import BatchResolver, Network
+from phantom.network import Network, NetworkError
 from phantom.views import EnvView
 
 
@@ -37,7 +37,7 @@ class MyAgent(MessageHandlerAgent):
 
 @pytest.fixture
 def net() -> Network:
-    net = Network([MyAgent("mm"), MyAgent("inv")])
+    net = Network([MyAgent("mm"), MyAgent("inv"), MyAgent("inv2")])
     net.add_connection("mm", "inv")
 
     return net
@@ -71,6 +71,11 @@ def test_send_many(net):
 
     assert net.agents["mm"].total_cash == 50.0
     assert net.agents["inv"].total_cash == 100.0
+
+
+def test_invalid_send(net):
+    with pytest.raises(NetworkError):
+        net.send("mm", "inv2", MyMessage(100.0))
 
 
 def test_context_existence(net):
