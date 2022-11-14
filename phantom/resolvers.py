@@ -135,11 +135,18 @@ class BatchResolver(Resolver):
             self.messages = defaultdict(list)
 
             for receiver_id, messages in processing_messages.items():
+                if receiver_id not in contexts:
+                    continue
+
+                msgs = [
+                    m for m in messages if network.has_edge(m.sender_id, m.receiver_id)
+                ]
+                
                 if self.shuffle_batches:
-                    np.random.shuffle(messages)
+                    np.random.shuffle(msgs)
 
                 ctx = contexts[receiver_id]
-                batch = ctx.agent.handle_batch(ctx, messages)
+                batch = ctx.agent.handle_batch(ctx, msgs)
 
                 if batch is not None:
                     for sub_receiver_id, sub_payload in batch:

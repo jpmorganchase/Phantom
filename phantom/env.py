@@ -173,7 +173,8 @@ class PhantomEnv:
         ]
 
         # Generate initial observations for agents taking actions
-        return {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        return {k: v for k, v in obs.items() if v is not None}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
         """
@@ -220,13 +221,15 @@ class PhantomEnv:
         # Pre-generate all context objects for acting agents
         for agent_id, ctx in self._ctxs.items():
             if ctx.agent.takes_actions:
-                observations[agent_id] = ctx.agent.encode_observation(ctx)
-                infos[agent_id] = ctx.agent.collect_infos(ctx)
-                rewards[agent_id] = ctx.agent.compute_reward(ctx)
-                dones[agent_id] = ctx.agent.is_done(ctx)
+                obs = ctx.agent.encode_observation(ctx)
+                if obs is not None:
+                    observations[agent_id] = obs
+                    infos[agent_id] = ctx.agent.collect_infos(ctx)
+                    rewards[agent_id] = ctx.agent.compute_reward(ctx)
+                    dones[agent_id] = ctx.agent.is_done(ctx)
 
-                if dones[agent_id]:
-                    self._dones.add(agent_id)
+                    if dones[agent_id]:
+                        self._dones.add(agent_id)
 
         dones["__all__"] = self.is_done()
 
