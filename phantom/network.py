@@ -41,7 +41,7 @@ class Network:
     Arguments:
         agents: Optional list of agents to add to the network.
         resolver: Optional custom resolver to use, by default will use the BatchResolver
-            with a `chain_limit` of 2.
+            with a `round_limit` of 2.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
 
@@ -292,7 +292,7 @@ class StochasticNetwork(Network):
     Arguments:
         agents: Optional list of agents to add to the network.
         resolver: Optional custom resolver to use, by default will use the BatchResolver
-            with a `chain_limit` of 2.
+            with a `round_limit` of 2.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
 

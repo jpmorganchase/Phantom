@@ -87,7 +87,7 @@ def test_batch_resolver_round_limit():
         n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
 
 
-class _TestAgent2(MessageHandlerAgent):
+class _TestAgent2(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

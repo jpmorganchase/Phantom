@@ -132,7 +132,6 @@ class ImpressionResult(ph.MsgPayload):
 #   - AdExchange
 
 
-
 class PublisherPolicy(ph.Policy):
     def compute_action(self, obs: np.ndarray) -> np.ndarray:
         return np.array([0])
@@ -574,7 +573,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
         network = ph.StochasticNetwork(
-            actors, ph.resolvers.BatchResolver(chain_limit=5), True
+            actors, ph.resolvers.BatchResolver(round_limit=5), True
         )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
