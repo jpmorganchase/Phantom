@@ -141,7 +141,7 @@ class BatchResolver(Resolver):
                 msgs = [
                     m for m in messages if network.has_edge(m.sender_id, m.receiver_id)
                 ]
-                
+
                 if self.shuffle_batches:
                     np.random.shuffle(msgs)
 
