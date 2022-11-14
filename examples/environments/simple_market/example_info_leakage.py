@@ -50,7 +50,7 @@ if __name__ == "__main__":
     all_agents = buyer_agents + seller_agents
 
     # Network definition
-    network = ph.Network(all_agents, ph.resolvers.BatchResolver(chain_limit=4))
+    network = ph.Network(all_agents, ph.resolvers.BatchResolver(round_limit=4))
 
     # Add connections in the network
     network.add_connections_between(["b1", "b2", "b3"], ["s1", "s2"])

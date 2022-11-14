@@ -115,3 +115,42 @@ are created or destroyed randomly, weighted by the connection's strength.
 
 .. figure:: /img/stochastic-network.svg
    :figclass: align-center
+
+
+Message Resolution
+------------------
+
+The process of resolving messages is configurable by the user by choosing or
+implementing a :class:`Resolver` class. The default provided resolver class is the
+:class:`BatchResolver` and should adequately cover most typical use-cases. It works as
+follows:
+
+1. Agents send messages and the network checks that the message is being sent along a
+valid connection before passing the message to the resolver:
+
+.. figure:: /img/batch-resolver-1.svg
+   :figclass: align-center
+
+2. The :class:`BatchResolver` gathers messages sent from all agents into batches based
+on the message's recipients. The :class:`BatchResolver` can optionally shuffle the
+ordering of the messages within each batch using the :attr:`shuffle_batches` argument.
+
+.. figure:: /img/batch-resolver-2.svg
+   :figclass: align-center
+
+3. The agents receive their messages in batches via the :class:`Agent` class
+:meth:`handle_batch` method. By default, these are then automatically distributed to and
+handled with the :meth:`handle_message` method.
+
+.. figure:: /img/batch-resolver-3.svg
+   :figclass: align-center
+
+4. Any further sent messages are then resolved again and delivered.
+
+.. figure:: /img/batch-resolver-4.svg
+   :figclass: align-center
+
+Each step of collecting messages from the agents, batching the messages and then
+delivering the messages is known as a 'round'. By default the :class:`BatchResolver`
+will continue processing infinite rounds until no messages are left to be sent.
+Alternatively this can be limited using the :attr:`round_limit` argument.

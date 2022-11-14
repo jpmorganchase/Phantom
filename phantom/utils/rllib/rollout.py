@@ -20,7 +20,7 @@ from typing import (
 import cloudpickle
 import numpy as np
 import ray
-from ray.rllib.algorithms.registry import get_trainer_class
+from ray.rllib.algorithms.registry import get_algorithm_class
 from ray.tune.registry import register_env
 from ray.util.queue import Queue
 from tqdm import tqdm, trange
@@ -242,8 +242,8 @@ def _rollout_task_fn(
     """Internal function"""
     config["env_config"] = configs[0].env_config
 
-    trainer = get_trainer_class(algorithm)(env=env_class.__name__, config=config)
-    trainer.restore(str(checkpoint_path))
+    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
+    algo.restore(str(checkpoint_path))
 
     for rollout_config in configs:
         # Create environment instance from config from results directory
@@ -252,7 +252,7 @@ def _rollout_task_fn(
         if record_messages:
             env.network.resolver.enable_tracking = True
 
-        # Setting seed needs to come after trainer setup
+        # Setting seed needs to come after algo setup
         np.random.seed(rollout_config.rollout_id)
 
         metrics: DefaultDict[str, List[float]] = defaultdict(list)
@@ -270,7 +270,7 @@ def _rollout_task_fn(
                     agent_id, rollout_config.rollout_id, 0
                 )
 
-                agent_action = trainer.compute_single_action(
+                agent_action = algo.compute_single_action(
                     agent_obs, policy_id=policy_id, explore=False
                 )
 

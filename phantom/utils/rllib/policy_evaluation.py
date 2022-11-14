@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import cloudpickle
-from ray.rllib.algorithms.registry import get_trainer_class
+from ray.rllib.algorithms.registry import get_algorithm_class
 from ray.tune.registry import register_env
 
 
@@ -64,8 +64,8 @@ def evaluate_policy(
             env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
         )
 
-    trainer = get_trainer_class(algorithm)(env=env_class.__name__, config=config)
-    trainer.restore(str(checkpoint_path))
+    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
+    algo.restore(str(checkpoint_path))
 
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
 
@@ -96,6 +96,6 @@ def evaluate_policy(
         variations = variations2
 
     return [
-        (params, trainer.compute_single_action(obs, policy_id=policy_id, explore=False))
+        (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))
         for (params, obs) in variations
     ]
