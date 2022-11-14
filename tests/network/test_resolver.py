@@ -2,9 +2,12 @@ import time
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from phantom import AgentID, Context, Network, Message
+import pytest
+
+from phantom import AgentID, Context, Network
 from phantom.agents import msg_handler, MessageHandlerAgent
 from phantom.message import MsgPayload
+from phantom.network import NetworkError
 from phantom.resolvers import BatchResolver
 from phantom.views import EnvView
 
@@ -68,22 +71,44 @@ def test_ordering():
     assert n["A"].res_time <= n["B"].res_time
 
 
-def test_batch_resolver_chain_limit(caplog):
+def test_batch_resolver_round_limit():
     n = Network(
         [
             _TestAgent("A"),
             _TestAgent("B"),
         ],
-        BatchResolver(chain_limit=0),
+        BatchResolver(round_limit=0),
     )
     n.add_connection("A", "B")
 
     n.send("A", "B", Request(0))
 
-    assert len(caplog.records) == 0
-    n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
-    assert len(caplog.records) == 1
+    with pytest.raises(Exception):
+        n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
 
-    assert (
-        "1 message(s) still in queue after resolver chain limit reached." in caplog.text
+
+class _TestAgent2(MessageHandlerAgent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def handle_message(
+        self, _: Context, message: bool
+    ) -> List[Tuple[AgentID, MsgPayload]]:
+        return [("C", True)] if self.id == "B" else []
+
+
+def test_invalid_response_connection():
+    n = Network(
+        [
+            _TestAgent2("A"),
+            _TestAgent2("B"),
+            _TestAgent2("C"),
+        ],
+        BatchResolver(),
     )
+    n.add_connection("A", "B")
+
+    n.send("A", "B", True)
+
+    with pytest.raises(NetworkError):
+        n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
