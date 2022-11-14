@@ -5,7 +5,7 @@ from typing import List, Tuple
 import pytest
 
 from phantom import AgentID, Context, Network
-from phantom.agents import msg_handler, MessageHandlerAgent
+from phantom.agents import msg_handler, Agent
 from phantom.message import MsgPayload
 from phantom.network import NetworkError
 from phantom.resolvers import BatchResolver
@@ -22,7 +22,7 @@ class Response(MsgPayload):
     cash: float
 
 
-class _TestAgent(MessageHandlerAgent):
+class _TestAgent(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -87,7 +87,7 @@ def test_batch_resolver_round_limit():
         n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
 
 
-class _TestAgent2(MessageHandlerAgent):
+class _TestAgent2(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

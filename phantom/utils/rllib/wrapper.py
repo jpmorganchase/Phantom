@@ -3,7 +3,7 @@ from typing import Any, Dict, Mapping
 import gym
 from ray import rllib
 
-from ...agents import AgentID
+from ...agents import AgentID, RLAgent
 from ...env import PhantomEnv
 
 
@@ -21,7 +21,7 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
         self._agent_ids = set(
             agent.id
             for agent in self.env.network.agents.values()
-            if agent.action_space is not None and agent.observation_space is not None
+            if isinstance(agent, RLAgent)
         )
 
         self.action_space = gym.spaces.Dict(

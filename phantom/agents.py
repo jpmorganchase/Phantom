@@ -33,7 +33,7 @@ MessageList = List[Tuple[AgentID, Message]]
 
 class Agent(ABC):
     """
-    Representation of a behavioural agent in the network.
+    Representation of an agent in the network.
 
     Instances of :class:`phantom.Agent` occupy the nodes on the network graph.
     They are resonsible for storing and monitoring internal state, constructing
@@ -41,43 +41,42 @@ class Agent(ABC):
 
     Arguments:
         agent_id: Unique identifier for the agent.
-        observation_encoder: Optional :class:`Encoder` instance, otherwise define an
-            :meth:`encode_observation` method on the :class:`Agent` sub-class.
-        action_decoder: Optional :class:`Decoder` instance, otherwise define an
-            :meth:`decode_action` method on the :class:`Agent` sub-class.
-        reward_function: Optional :class:`RewardFunction` instance, otherwise define an
-            :meth:`compute_reward` method on the :class:`Agent` sub-class.
         supertype: Optional :class:`Supertype` instance. When the agent's reset function
             is called the supertype will be sampled from and the values set as the
             agent's :attr:`type` property.
+
+    Implementations can make use of the ``msg_handler`` function decorator:
+
+    .. code-block:: python
+
+        class SomeAgent(ph.Agent):
+            ...
+
+            @ph.agents.msg_handler(RequestMessage)
+            def handle_request_msg(self, ctx: ph.Context, message: ph.Message):
+                response_msgs = do_something_with_msg(message)
+
+                return [response_msgs]
     """
 
     def __init__(
         self,
         agent_id: AgentID,
-        observation_encoder: Optional[Encoder] = None,
-        action_decoder: Optional[Decoder] = None,
-        reward_function: Optional[RewardFunction] = None,
         supertype: Optional[Supertype] = None,
     ) -> None:
         self._id = agent_id
 
-        self.observation_encoder = observation_encoder
-        self.action_decoder = action_decoder
-        self.reward_function = reward_function
         self.supertype = supertype
 
         self.type: Optional[Supertype] = None
 
-        if action_decoder is not None:
-            self.action_space = action_decoder.action_space
-        elif "action_space" not in dir(self):
-            self.action_space = None
+        self.__handlers: DefaultDict[Type[MsgPayload], List[Handler]] = defaultdict(
+            list
+        )
 
-        if observation_encoder is not None:
-            self.observation_space = observation_encoder.observation_space
-        elif "observation_space" not in dir(self):
-            self.observation_space = None
+        for name, attr in self.__class__.__dict__.items():
+            if callable(attr) and hasattr(attr, "_message_type"):
+                self.__handlers[attr._message_type].append(getattr(self, name))
 
     @property
     def id(self) -> AgentID:
@@ -119,9 +118,10 @@ class Agent(ABC):
 
     def handle_message(
         self, ctx: Context, message: Message
-    ) -> Optional[List[Tuple[AgentID, MsgPayload]]]:
+    ) -> List[Tuple[AgentID, MsgPayload]]:
         """
-        Handle a messages sent from other agents.
+        Handle a messages sent from other agents. The default implementation is the use
+        the ``msg_handler`` function decorators.
 
         Arguments:
             ctx: A Context object representing agent's the local view of the environment.
@@ -132,9 +132,83 @@ class Agent(ABC):
             response to further resolve.
         """
 
-        raise NotImplementedError(
-            f"The handle_message method is not implemented for agent '{self.id}' with type {self.__class__.__name__}"
+        ptype = type(message.payload)
+
+        if ptype not in self.__handlers:
+            raise KeyError(
+                f"Unknown message type {ptype} in message sent from '{message.sender_id}' to '{self.id}'. Agent '{self.id}' needs a message handler function capable of receiving this mesage type."
+            )
+
+        return list(
+            chain.from_iterable(
+                filter(
+                    lambda x: x is not None,
+                    (
+                        bound_handler(ctx, message)
+                        for bound_handler in self.__handlers[ptype]
+                    ),
+                )
+            )
         )
+
+    def generate_messages(self, ctx: Context) -> List[Tuple[AgentID, MsgPayload]]:
+        return []
+
+    def reset(self) -> None:
+        """
+        Resets the Agent.
+
+        Can be extended by subclasses to provide additional functionality.
+        """
+
+    def __repr__(self) -> str:
+        return f"[{self.__class__.__name__} {self.id}]"
+
+
+class RLAgent(Agent):
+    """
+    Representation of a behavioural agent in the network.
+
+    Instances of :class:`phantom.Agent` occupy the nodes on the network graph.
+    They are resonsible for storing and monitoring internal state, constructing
+    :class:`View` instances and handling messages.
+
+    Arguments:
+        agent_id: Unique identifier for the agent.
+        observation_encoder: Optional :class:`Encoder` instance, otherwise define an
+            :meth:`encode_observation` method on the :class:`Agent` sub-class.
+        action_decoder: Optional :class:`Decoder` instance, otherwise define an
+            :meth:`decode_action` method on the :class:`Agent` sub-class.
+        reward_function: Optional :class:`RewardFunction` instance, otherwise define an
+            :meth:`compute_reward` method on the :class:`Agent` sub-class.
+        supertype: Optional :class:`Supertype` instance. When the agent's reset function
+            is called the supertype will be sampled from and the values set as the
+            agent's :attr:`type` property.
+    """
+
+    def __init__(
+        self,
+        agent_id: AgentID,
+        observation_encoder: Optional[Encoder] = None,
+        action_decoder: Optional[Decoder] = None,
+        reward_function: Optional[RewardFunction] = None,
+        supertype: Optional[Supertype] = None,
+    ) -> None:
+        super().__init__(agent_id, supertype)
+
+        self.observation_encoder = observation_encoder
+        self.action_decoder = action_decoder
+        self.reward_function = reward_function
+
+        if action_decoder is not None:
+            self.action_space = action_decoder.action_space
+        elif "action_space" not in dir(self):
+            self.action_space = None
+
+        if observation_encoder is not None:
+            self.observation_space = observation_encoder.observation_space
+        elif "observation_space" not in dir(self):
+            self.observation_space = None
 
     def encode_observation(self, ctx: Context) -> np.ndarray:
         """
@@ -181,9 +255,6 @@ class Agent(ABC):
             )
 
         return self.action_decoder.decode(ctx, action)
-
-    def generate_messages(self, ctx: Context) -> List[Tuple[AgentID, MsgPayload]]:
-        return []
 
     def compute_reward(self, ctx: Context) -> float:
         """
@@ -236,101 +307,8 @@ class Agent(ABC):
         """
         return {}
 
-    def reset(self) -> None:
-        """
-        Resets the Agent.
-
-        Can be extended by subclasses to provide additional functionality.
-        """
-
-    @property
-    def takes_actions(self) -> bool:
-        return self.action_space is not None or self.action_decoder is not None
-
-    def __repr__(self) -> str:
-        return f"[{self.__class__.__name__} {self.id}]"
-
 
 Handler = Callable[[Context, Message], List[Tuple[AgentID, MsgPayload]]]
-
-
-class MessageHandlerAgent(Agent, ABC):
-    """
-    Agent sub-class that makes it easier to handle multiple types of incoming messages
-    via the use of the ``msg_handler`` function decorator.
-
-    Example:
-
-    .. code-block:: python
-
-        class SomeAgent(ph.MessageHandlerAgent):
-            ...
-
-            @ph.agents.msg_handler(RequestMessage)
-            def handle_request_msg(self, ctx: ph.Context, message: ph.Message):
-                response_msgs = do_something_with_msg(message)
-
-                return [response_msgs]
-
-    Arguments:
-        agent_id: Unique identifier for the agent.
-        observation_encoder: Optional :class:`Encoder` instance, otherwise define an
-            :meth:`encode_observation` method on the :class:`Agent` sub-class.
-        action_decoder: Optional :class:`Decoder` instance, otherwise define an
-            :meth:`decode_action` method on the :class:`Agent` sub-class.
-        reward_function: Optional :class:`RewardFunction` instance, otherwise define an
-            :meth:`compute_reward` method on the :class:`Agent` sub-class.
-        supertype: Optional :class:`Supertype` instance. When the agent's reset function
-            is called the supertype will be sampled from and the values set as the
-            agent's :attr:`type` property.
-    """
-
-    def __init__(
-        self,
-        agent_id: AgentID,
-        observation_encoder: Optional[Encoder] = None,
-        action_decoder: Optional[Decoder] = None,
-        reward_function: Optional[RewardFunction] = None,
-        supertype: Optional[Supertype] = None,
-    ) -> None:
-        super().__init__(
-            agent_id, observation_encoder, action_decoder, reward_function, supertype
-        )
-
-        self.__handlers: DefaultDict[Type[MsgPayload], List[Handler]] = defaultdict(
-            list
-        )
-
-        for name, attr in self.__class__.__dict__.items():
-            if callable(attr) and hasattr(attr, "_message_type"):
-                self.__handlers[attr._message_type].append(getattr(self, name))
-
-    def handle_message(
-        self, ctx: Context, message: Message
-    ) -> List[Tuple[AgentID, MsgPayload]]:
-        """
-        Note: This method should not be overridden by :class:`MessageHandlerAgent`
-        sub-classes.
-        """
-
-        ptype = type(message.payload)
-
-        if ptype not in self.__handlers:
-            raise KeyError(
-                f"Unknown message type {ptype} in message sent from '{message.sender_id}' to '{self.id}'. Agent '{self.id}' needs a message handler function capable of receiving this mesage type."
-            )
-
-        return list(
-            chain.from_iterable(
-                filter(
-                    lambda x: x is not None,
-                    (
-                        bound_handler(ctx, message)
-                        for bound_handler in self.__handlers[ptype]
-                    ),
-                )
-            )
-        )
 
 
 def msg_handler(message_type: Type[MsgPayload]) -> Callable[[Handler], Handler]:

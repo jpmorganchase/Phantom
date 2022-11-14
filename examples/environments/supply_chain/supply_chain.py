@@ -79,7 +79,7 @@ class CustomerPolicy(ph.Policy):
         return (np.random.randint(CUSTOMER_MAX_ORDER_SIZE), np.argmin(obs))
 
 
-class CustomerAgent(ph.MessageHandlerAgent):
+class CustomerAgent(ph.RLAgent):
     def __init__(self, agent_id: ph.AgentID, shop_ids: List[ph.AgentID]):
         super().__init__(agent_id)
 
@@ -122,7 +122,7 @@ class CustomerAgent(ph.MessageHandlerAgent):
         return 0.0
 
 
-class FactoryAgent(ph.MessageHandlerAgent):
+class FactoryAgent(ph.Agent):
     def __init__(self, agent_id: str):
         super().__init__(agent_id)
 
@@ -134,7 +134,7 @@ class FactoryAgent(ph.MessageHandlerAgent):
         return [(message.sender_id, StockResponse(message.payload.size))]
 
 
-class ShopAgent(ph.MessageHandlerAgent):
+class ShopAgent(ph.RLAgent):
     @dataclass
     class Supertype(ph.Supertype):
         sale_price: float

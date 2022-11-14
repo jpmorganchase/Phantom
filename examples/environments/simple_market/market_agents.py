@@ -28,7 +28,7 @@ class BuyerSupertype(ph.Supertype):
     value: float
 
 
-class BuyerAgent(ph.MessageHandlerAgent):
+class BuyerAgent(ph.RLAgent):
     # Buyer agent decides whether to buy/not buy and from whom
     # Demand (if it exists) is always 1 unit
 
@@ -83,7 +83,7 @@ class BuyerAgent(ph.MessageHandlerAgent):
 ####################################################################################################
 
 
-class SellerAgent(ph.MessageHandlerAgent):
+class SellerAgent(ph.RLAgent):
     # Infinite supply
     # No inventory costs
     # TODO: could publish a view containing its price - alternate implementation

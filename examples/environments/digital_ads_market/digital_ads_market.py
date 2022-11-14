@@ -137,7 +137,7 @@ class PublisherPolicy(ph.Policy):
         return np.array([0])
 
 
-class PublisherAgent(ph.MessageHandlerAgent):
+class PublisherAgent(ph.Agent):
     """
     A `PublisherAgent` generates `ImpressionRequest` which corresponds to
     real-estate on their website rented to advertisers to display their ads.
@@ -209,7 +209,7 @@ class PublisherAgent(ph.MessageHandlerAgent):
         return [(msg.payload.advertiser_id, ImpressionResult(clicked=clicked))]
 
 
-class AdvertiserAgent(ph.MessageHandlerAgent):
+class AdvertiserAgent(ph.RLAgent):
     """
     An `AdvertiserAgent` learns to bid efficiently and within its budget limit, on an impression
     in order to maximize the number of clicks it gets.
@@ -379,7 +379,7 @@ class AdvertiserAgent(ph.MessageHandlerAgent):
         self._current_zipcode = 0.0
 
 
-class AdExchangeAgent(ph.MessageHandlerAgent):
+class AdExchangeAgent(ph.Agent):
     """
     The `AdExchangeAgent` is actually just an actor who reacts to messages reveived.
     It doesn't perform any action on its own.
@@ -573,7 +573,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
         network = ph.StochasticNetwork(
-            actors, ph.resolvers.BatchResolver(chain_limit=5), True
+            actors, ph.resolvers.BatchResolver(round_limit=5), True
         )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)

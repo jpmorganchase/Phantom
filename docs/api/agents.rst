@@ -3,10 +3,8 @@
 Agents
 ======
 
-Phantom has one base agent class, :class:`Agent`. One extra class,
-:class:`MessageHandlerAgent`, builds on this by adding some additional message handling
-functionality. All user implemented agent classes should be derived from one of these
-two classes.
+Phantom has two base agent classes, :class:`Agent` and :class:`RLAgent`.  All user
+implemented agent classes should be derived from one of these two classes.
 
 Depending on which methods are implemented / properties set, agents can have differing
 levels of functionality:
@@ -15,16 +13,12 @@ The most basic type of agent is one that only responds to messages sent from oth
 This agent does not take actions by itself and as such does not have a defined Policy or
 reward function.
 
-To implement this agent type the :meth:`handle_message` method must be implemented if
-deriving from the :class:`Agent` class or at least one message handler method must be
-implemented if deriving from the :class:`MessageHandlerAgent` class.
-
 If the :meth:`generate_messages` method is also implemented the agent can now also
 pro-actively create messages at the start of each step.
 
-Finally there is a full agent that has a Policy, reward function, observation encoder
-and action decoder. The :meth:`generate_messages` should not be implemented here as the
-action decoder provides the message generation functionality.
+Finally there is the :class:`RLAgent` that has a Policy, reward function, observation
+encoder and action decoder. The :meth:`generate_messages` should not be implemented here
+as the action decoder provides the message generation functionality.
 
 Each of the reward function, observation encoder and action decoder components can be
 provided in two ways:
@@ -54,8 +48,8 @@ Agent
    :inherited-members:
 
 
-MessageHandlerAgent
--------------------
+RLAgent
+-------
 
-.. autoclass:: phantom.agents.MessageHandlerAgent
+.. autoclass:: phantom.agents.RLAgent
    :inherited-members:
