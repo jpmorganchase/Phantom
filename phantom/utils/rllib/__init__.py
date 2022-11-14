@@ -102,11 +102,7 @@ def construct_results_paths(
     if checkpoint is None:
         checkpoint = get_checkpoints(directory)[-1]
 
-    checkpoint_path = Path(
-        directory,
-        f"checkpoint_{str(checkpoint).zfill(6)}",
-        f"checkpoint-{checkpoint}",
-    )
+    checkpoint_path = Path(directory, f"checkpoint_{str(checkpoint).zfill(6)}")
 
     return (directory, checkpoint_path)
 
