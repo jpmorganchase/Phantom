@@ -40,6 +40,10 @@ class Network:
 
     Arguments:
         agents: Optional list of agents to add to the network.
+        resolver: Optional custom resolver to use, by default will use the BatchResolver
+            with a `chain_limit` of 2.
+        ignore_connection_errors: If True will not raise errors if an attempt is made
+            to send a message along an non-existant connection.
 
     Attributes:
         agents: Mapping between IDs and the corresponding agents in the
@@ -50,11 +54,15 @@ class Network:
     RESERVED_AGENT_IDS = ["ENV"]
 
     def __init__(
-        self, agents: Optional[List[Agent]] = None, resolver: Optional[Resolver] = None
+        self,
+        agents: Optional[List[Agent]] = None,
+        resolver: Optional[Resolver] = None,
+        ignore_connection_errors: bool = False,
     ) -> None:
-        self.graph: nx.DiGraph = nx.DiGraph()
+        self.graph = nx.DiGraph()
         self.agents: Dict[AgentID, Agent] = {}
         self.resolver = resolver or BatchResolver()
+        self.ignore_connection_errors = ignore_connection_errors
 
         if agents is not None:
             self.add_agents(agents)
@@ -197,15 +205,32 @@ class Network:
 
         return Context(self.agents[agent_id], agent_views, env_view)
 
+    def has_edge(self, sender_id: AgentID, receiver_id: AgentID) -> bool:
+        """Returns whether two agents are connected.
+
+        Arguments:
+            sender_id: The sender ID.
+            receiver_id: The receiver ID.
+        """
+        return (sender_id, receiver_id) in self.graph.edges
+
     def send(
-        self, sender_id: AgentID, receiver_id: AgentID, payload: MsgPayload
+        self,
+        sender_id: AgentID,
+        receiver_id: AgentID,
+        payload: MsgPayload,
     ) -> None:
         """Send message batches across the network.
 
         Arguments:
-            messages: Mapping from senders, to receivers, to messages.
+            sender_id: The sender ID.
+            receiver_id: The receiver ID.
+            payload: The contents of the message.
         """
-        if (sender_id, receiver_id) not in self.graph.edges:
+        if (
+            not self.has_edge(sender_id, receiver_id)
+            and not self.ignore_connection_errors
+        ):
             raise NetworkError(
                 f"No connection between {self.agents[sender_id]} and {self.agents[receiver_id]}."
             )
@@ -266,6 +291,10 @@ class StochasticNetwork(Network):
 
     Arguments:
         agents: Optional list of agents to add to the network.
+        resolver: Optional custom resolver to use, by default will use the BatchResolver
+            with a `chain_limit` of 2.
+        ignore_connection_errors: If True will not raise errors if an attempt is made
+            to send a message along an non-existant connection.
 
     Attributes:
         agents: Mapping between IDs and the corresponding agents in the
@@ -274,9 +303,12 @@ class StochasticNetwork(Network):
     """
 
     def __init__(
-        self, agents: Optional[List[Agent]] = None, resolver: Optional[Resolver] = None
+        self,
+        agents: Optional[List[Agent]] = None,
+        resolver: Optional[Resolver] = None,
+        ignore_connection_errors: bool = False,
     ) -> None:
-        super().__init__(agents, resolver)
+        super().__init__(agents, resolver, ignore_connection_errors)
 
         self._base_connections: List[Tuple[AgentID, AgentID, float]] = []
 

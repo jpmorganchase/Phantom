@@ -235,7 +235,8 @@ class FiniteStateMachineEnv(PhantomEnv):
         ctxs = [self.network.context_for(aid, env_view) for aid in acting_agents]
 
         # Generate initial observations for agents taking actions
-        return {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        return {k: v for k, v in obs.items() if v is not None}
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
@@ -321,8 +322,10 @@ class FiniteStateMachineEnv(PhantomEnv):
             ctx = self._ctxs[aid]
 
             if aid in next_acting_agents:
-                observations[aid] = ctx.agent.encode_observation(ctx)
-                infos[aid] = ctx.agent.collect_infos(ctx)
+                obs = ctx.agent.encode_observation(ctx)
+                if obs is not None:
+                    observations[aid] = obs
+                    infos[aid] = ctx.agent.collect_infos(ctx)
 
             if aid in rewarded_agents:
                 rewards[aid] = ctx.agent.compute_reward(ctx)
