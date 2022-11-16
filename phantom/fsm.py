@@ -233,7 +233,11 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Pre-generate all contexts for agents taking actions
         env_view = self.view()
-        ctxs = [self.network.context_for(aid, env_view) for aid in acting_agents]
+        ctxs = [
+            self.network.context_for(aid, env_view)
+            for aid in acting_agents
+            if aid in self._rl_agent_ids
+        ]
 
         # Generate initial observations for agents taking actions
         obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
@@ -267,11 +271,15 @@ class FiniteStateMachineEnv(PhantomEnv):
                 self.network.send(aid, receiver_id, message)
 
         for aid in self._non_rl_agent_ids:
-            ctx = self._ctxs[aid]
-            messages = ctx.agent.generate_messages(ctx) or []
+            if (
+                self._stages[self.current_stage].acting_agents is None
+                or aid in self._stages[self.current_stage].acting_agents
+            ):
+                ctx = self._ctxs[aid]
+                messages = ctx.agent.generate_messages(ctx) or []
 
-            for receiver_id, message in messages:
-                self.network.send(aid, receiver_id, message)
+                for receiver_id, message in messages:
+                    self.network.send(aid, receiver_id, message)
 
         env_handler = self._stages[self.current_stage].handler
 
