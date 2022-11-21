@@ -6,14 +6,17 @@ import numpy as np
 import phantom as ph
 
 
-class MockSampler(ph.utils.samplers.Sampler):
+class MockSampler(ph.utils.samplers.Sampler[float]):
+    def __init__(self, value: float) -> None:
+        self.value = value
+
     def sample(self) -> float:
-        return 0.0
+        return self.value
 
 
 @dataclass
 class MockSupertype(ph.Supertype):
-    st_field: float
+    type_value: float
 
 
 class MockAgent(ph.RLAgent):

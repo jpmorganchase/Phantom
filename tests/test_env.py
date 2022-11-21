@@ -1,16 +1,14 @@
 import phantom as ph
 import pytest
 
-from . import MockAgent, MockSupertype
+from . import MockAgent
 
 
 @pytest.fixture
 def phantom_env():
     return ph.PhantomEnv(
         num_steps=2,
-        network=ph.Network(
-            [MockAgent("A", num_steps=1), MockAgent("B", supertype=MockSupertype(1.0))]
-        ),
+        network=ph.Network([MockAgent("A", num_steps=1), MockAgent("B")]),
     )
 
 
@@ -43,14 +41,10 @@ def test_is_done(phantom_env):
 
 
 def test_reset(phantom_env):
-    assert phantom_env["B"].type is None
-
     obs = phantom_env.reset()
 
     assert phantom_env.current_step == 0
     assert list(obs.keys()) == ["A", "B"]
-
-    assert phantom_env["B"].type == MockSupertype(1.0)
 
 
 def test_step(phantom_env):

@@ -1,19 +1,6 @@
-from dataclasses import dataclass
-
 import phantom as ph
 
-
-class StaticSampler(ph.utils.samplers.Sampler[float]):
-    def __init__(self, value: float) -> None:
-        self.value = value
-
-    def sample(self) -> float:
-        return self.value
-
-
-@dataclass
-class MockSupertype(ph.Supertype):
-    type_value: float
+from . import MockSampler, MockSupertype
 
 
 def test_supertypes_env():
@@ -21,8 +8,8 @@ def test_supertypes_env():
 
     network = ph.Network(agents)
 
-    s1 = StaticSampler(1.0)
-    s2 = StaticSampler(2.0)
+    s1 = MockSampler(1.0)
+    s2 = MockSampler(2.0)
 
     agent_supertypes = {
         "a1": MockSupertype(type_value=s1),

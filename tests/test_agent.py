@@ -1,16 +1,16 @@
-from dataclasses import dataclass
+import phantom as ph
 
-from . import MockAgent, MockSampler, MockSupertype
+from . import MockSampler, MockSupertype
 
 
 def test_repr():
-    assert str(MockAgent("Agent")) == "[MockAgent Agent]"
+    assert str(ph.Agent("Agent")) == "[Agent Agent]"
 
 
 def test_reset():
-    st = MockSupertype(MockSampler())
+    st = MockSupertype(MockSampler(0.0))
 
-    agent = MockAgent("Agent", supertype=st)
+    agent = ph.Agent("Agent", supertype=st)
 
     assert agent.supertype == st
     assert agent.type is None
