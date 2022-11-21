@@ -1,8 +1,19 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import gym
 import numpy as np
 import phantom as ph
+
+
+class MockSampler(ph.utils.samplers.Sampler):
+    def sample(self) -> float:
+        return 0.0
+
+
+@dataclass
+class MockSupertype(ph.Supertype):
+    st_field: float
 
 
 class MockAgent(ph.RLAgent):
