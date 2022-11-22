@@ -1,8 +1,10 @@
+import uuid
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import gym
+import tensorflow as tf
 from ray.rllib.models.preprocessors import get_preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
 from ray.rllib.utils.spaces import space_utils
@@ -13,8 +15,7 @@ from . import construct_results_paths
 
 
 class PolicyEvaluator:
-    """
-    A class for evaluating trained policies in isolation of an environment.
+    """A class for evaluating trained policies in isolation of an environment.
 
     Arguments:
         directory: Results directory containing trained policies. By default, this is
@@ -35,9 +36,11 @@ class PolicyEvaluator:
     ) -> None:
         directory, checkpoint_path = construct_results_paths(directory, checkpoint)
 
-        self.policy = RLlibPolicy.from_checkpoint(
-            str(checkpoint_path / "policies" / policy_id)
-        )
+        with tf.compat.v1.variable_scope(str(uuid.uuid1())):
+            self.policy = RLlibPolicy.from_checkpoint(
+                str(checkpoint_path / "policies" / policy_id)
+            )
+
         self.pp = get_preprocessor(obs_space)(obs_space).transform
 
     def evaluate(

@@ -160,6 +160,7 @@ def train(
         "env_config": env_config,
         "num_sgd_iter": 10,
         "num_workers": num_workers_,
+        "disable_env_checking": True,
         "rollout_fragment_length": env.num_steps,
         "train_batch_size": env.num_steps * max(1, num_workers_),
         "multiagent": {

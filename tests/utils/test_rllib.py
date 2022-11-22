@@ -13,9 +13,6 @@ def test_rllib_train_rollout(tmpdir):
             "mock_policy": MockAgent,
         },
         policies_to_train=["mock_policy"],
-        rllib_config={
-            "disable_env_checking": True,
-        },
         tune_config={
             "checkpoint_freq": 1,
             "stop": {
@@ -26,35 +23,27 @@ def test_rllib_train_rollout(tmpdir):
         num_workers=1,
     )
 
+    rgen = ph.utils.rllib.RolloutGenerator(directory=f"{tmpdir}/PPO/LATEST")
+
+    # num_repeats < 1
+    with pytest.raises(AssertionError):
+        list(rgen.rollout(num_repeats=0))
+
+    # num_workers < 0
+    with pytest.raises(AssertionError):
+        list(rgen.rollout(num_workers=-1))
+
     # Without workers:
-    results = ph.utils.rllib.rollout(
-        directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
-        env_config={},
-        num_repeats=3,
-        num_workers=0,
-    )
+    results = rgen.rollout(num_repeats=3, num_workers=0)
     assert len(list(results)) == 3
 
     # With workers:
-    results = ph.utils.rllib.rollout(
-        directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
-        env_config={},
-        num_repeats=3,
-        num_workers=1,
-    )
+    results = rgen.rollout(num_repeats=3, num_workers=1)
     results = list(results)
     assert len(results) == 3
     assert results[0].actions_for_agent("a1") == [0, 0, 0, 0, 0]
 
-    results = ph.utils.rllib.rollout(
-        directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
-        env_config={},
+    results = rgen.rollout(
         custom_policy_mapping={"a1": MockPolicy},
         num_repeats=1,
         num_workers=1,
@@ -66,7 +55,7 @@ def test_rllib_train_rollout(tmpdir):
         directory=f"{tmpdir}/PPO/LATEST",
         obs_space=MockAgent("").observation_space,
         policy_id="mock_policy",
-    ).evaluate(0)
+    ).evaluate(0, False)
     assert len(list(results)) == 1
 
 
@@ -81,36 +70,7 @@ def test_rllib_train_bad(tmpdir):
                 "mock_policy": MockAgent,
             },
             policies_to_train=["undefined_policy"],
-            rllib_config={
-                "disable_env_checking": True,
-            },
             tune_config={
                 "local_dir": tmpdir,
             },
-        )
-
-
-def test_rllib_rollout_bad(tmpdir):
-    # num_repeats < 1
-    with pytest.raises(AssertionError):
-        list(
-            ph.utils.rllib.rollout(
-                directory=tmpdir,
-                algorithm="PPO",
-                env_class=MockEnv,
-                env_config={},
-                num_repeats=0,
-            )
-        )
-
-    # num_repeats < 0
-    with pytest.raises(AssertionError):
-        list(
-            ph.utils.rllib.rollout(
-                directory=tmpdir,
-                algorithm="PPO",
-                env_class=MockEnv,
-                env_config={},
-                num_workers=-1,
-            )
         )

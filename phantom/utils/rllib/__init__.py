@@ -109,4 +109,4 @@ def construct_results_paths(
 
 from .policy_evaluation import PolicyEvaluator
 from .train import train
-from .rollout import rollout
+from .rollout import RolloutGenerator
