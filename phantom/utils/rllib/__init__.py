@@ -107,6 +107,6 @@ def construct_results_paths(
     return (directory, checkpoint_path)
 
 
-from .policy_evaluation import evaluate_policy
+from .policy_evaluation import PolicyEvaluator
 from .train import train
 from .rollout import rollout

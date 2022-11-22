@@ -62,12 +62,11 @@ def test_rllib_train_rollout(tmpdir):
     assert list(results)[0].actions_for_agent("a1") == [1, 1, 1, 1, 1]
 
     # Evaluate policy:
-    results = ph.utils.rllib.evaluate_policy(
+    results = ph.utils.rllib.PolicyEvaluator(
         directory=f"{tmpdir}/PPO/LATEST",
-        obs=0,
         obs_space=MockAgent("").observation_space,
         policy_id="mock_policy",
-    )
+    ).evaluate(0)
     assert len(list(results)) == 1
 
 
