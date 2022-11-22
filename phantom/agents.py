@@ -27,6 +27,7 @@ from .views import AgentView
 
 
 Action = TypeVar("Action")
+Observation = TypeVar("Observation")
 
 MessageList = List[Tuple[AgentID, Message]]
 
@@ -210,7 +211,7 @@ class RLAgent(Agent):
         elif "observation_space" not in dir(self):
             self.observation_space = None
 
-    def encode_observation(self, ctx: Context) -> np.ndarray:
+    def encode_observation(self, ctx: Context) -> Observation:
         """
         Encodes a local view of the environment state into a set of observations.
 
