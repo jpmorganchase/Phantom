@@ -17,7 +17,7 @@ class MockSampler(ph.utils.samplers.Sampler[float]):
 class MockAgent(ph.RLAgent):
     @dataclass
     class Supertype(ph.Supertype):
-        type_value: float
+        type_value: float = 0.0
 
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
