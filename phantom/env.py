@@ -74,6 +74,11 @@ class PhantomEnv:
         self._samplers: List[Sampler] = []
 
         if env_supertype is not None:
+            if isinstance(env_supertype, dict):
+                env_supertype = self.Supertype(**env_supertype)
+            else:
+                assert isinstance(env_supertype, self.Supertype)
+
             # The env will manage sampling the supertype values
             env_supertype._managed = True
 
@@ -86,6 +91,11 @@ class PhantomEnv:
 
         if agent_supertypes is not None:
             for agent_id, agent_supertype in agent_supertypes.items():
+                if isinstance(agent_supertype, dict):
+                    agent_supertype = self.agents[agent_id].Supertype(**agent_supertype)
+                else:
+                    assert isinstance(agent_supertype, self.agents[agent_id].Supertype)
+
                 # The env will manage sampling the supertype values
                 agent_supertype._managed = True
 

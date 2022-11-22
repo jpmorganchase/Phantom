@@ -1,6 +1,6 @@
 import phantom as ph
 
-from . import MockSampler, MockSupertype
+from . import MockAgent, MockSampler
 
 
 def test_repr():
@@ -8,7 +8,7 @@ def test_repr():
 
 
 def test_reset():
-    st = MockSupertype(MockSampler(0.0))
+    st = MockAgent.Supertype(MockSampler(0.0))
 
     agent = ph.Agent("Agent", supertype=st)
 
@@ -17,4 +17,4 @@ def test_reset():
 
     agent.reset()
 
-    assert agent.type == MockSupertype(0.0)
+    assert agent.type == MockAgent.Supertype(0.0)
