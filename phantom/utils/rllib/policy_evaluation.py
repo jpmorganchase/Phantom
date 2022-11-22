@@ -1,28 +1,25 @@
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import cloudpickle
-from ray.rllib.algorithms.registry import get_algorithm_class
-from ray.tune.registry import register_env
+import gym
+from ray.rllib.models.preprocessors import get_preprocessor
+from ray.rllib.policy import Policy as RLlibPolicy
+from ray.rllib.utils.spaces import space_utils
 
-
-from ...env import PhantomEnv
 from .. import (
     collect_instances_of_type_with_paths,
     update_val,
     Range,
 )
-from .wrapper import RLlibEnvWrapper
 from . import construct_results_paths
 
 
 def evaluate_policy(
     directory: Union[str, Path],
-    algorithm: str,
-    env_class: Type[PhantomEnv],
     policy_id: str,
     obs: Any,
+    obs_space: gym.spaces.Space,
     checkpoint: Optional[int] = None,
 ) -> List[Tuple[Dict[str, Any], Any]]:
     """
@@ -34,14 +31,12 @@ def evaluate_policy(
             located within `~/ray_results/`. If LATEST is given as the last element of
             the path, the parent directory will be scanned for the most recent run and
             this will be used.
-        algorithm: RLlib algorithm to use.
-        env_class: Optionally pass the Environment class to use. If not give will
-            fallback to the copy of the environment class saved during training.
         policy_id: The ID of the trained policy to evaluate.
         obs: The observation space to evaluate the policy with, of which can include
             :class:`Range` class instances to evaluate the policy over multiple
             dimensions in a similar fashion to the :func:`ph.utils.rllib.rollout`
             function.
+        obs_space: The observation space of the policy.
         checkpoint: Checkpoint to use (defaults to most recent).
 
     Returns:
@@ -49,23 +44,9 @@ def evaluate_policy(
     """
     directory, checkpoint_path = construct_results_paths(directory, checkpoint)
 
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
+    policy = RLlibPolicy.from_checkpoint(str(checkpoint_path / "policies" / policy_id))
 
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
-    if isinstance(env_class, RLlibEnvWrapper):
-        register_env(env_class.__name__, lambda config: env_class(**config))
-    else:
-        register_env(
-            env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
-        )
-
-    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
-    algo.restore(str(checkpoint_path))
+    pp = get_preprocessor(obs_space)(obs_space).transform
 
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
 
@@ -96,6 +77,12 @@ def evaluate_policy(
         variations = variations2
 
     return [
-        (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))
+        (
+            params,
+            space_utils.unsquash_action(
+                policy.compute_single_action(pp(obs), explore=False)[0],
+                policy.action_space_struct,
+            ),
+        )
         for (params, obs) in variations
     ]

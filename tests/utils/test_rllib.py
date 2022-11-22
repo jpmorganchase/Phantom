@@ -70,9 +70,8 @@ def test_rllib_train_rollout(tmpdir):
 
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
         obs=0,
+        obs_space=MockAgent("").observation_space,
         policy_id="mock_policy",
     )
     assert len(list(results)) == 1
