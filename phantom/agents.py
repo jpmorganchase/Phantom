@@ -169,7 +169,7 @@ class Agent(ABC):
                     self.type = self.Supertype().sample()
                 except TypeError as e:
                     raise Exception(
-                        f"Tried to initialise base Supertype on agent '{self.id}' but failed:\n\t{e}"
+                        f"Tried to initialise agent {self.id}'s Supertype with default values but failed:\n\t{e}"
                     )
 
     def __repr__(self) -> str:
