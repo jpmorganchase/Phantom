@@ -1,7 +1,7 @@
 import phantom as ph
 import pytest
 
-from .. import MockAgent, MockEnv
+from .. import MockAgent, MockEnv, MockPolicy
 
 
 def test_rllib_train_rollout(tmpdir):
@@ -32,16 +32,6 @@ def test_rllib_train_rollout(tmpdir):
         algorithm="PPO",
         env_class=MockEnv,
         env_config={},
-        num_repeats=1,
-        num_workers=0,
-    )
-    assert len(list(results)) == 1
-
-    results = ph.utils.rllib.rollout(
-        directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
-        env_config={},
         num_repeats=3,
         num_workers=0,
     )
@@ -53,21 +43,25 @@ def test_rllib_train_rollout(tmpdir):
         algorithm="PPO",
         env_class=MockEnv,
         env_config={},
-        num_repeats=1,
+        num_repeats=3,
         num_workers=1,
     )
-    assert len(list(results)) == 1
+    results = list(results)
+    assert len(results) == 3
+    assert results[0].actions_for_agent("a1") == [0, 0, 0, 0, 0]
 
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/PPO/LATEST",
         algorithm="PPO",
         env_class=MockEnv,
         env_config={},
-        num_repeats=3,
+        custom_policy_mapping={"a1": MockPolicy},
+        num_repeats=1,
         num_workers=1,
     )
-    assert len(list(results)) == 3
+    assert list(results)[0].actions_for_agent("a1") == [1, 1, 1, 1, 1]
 
+    # Evaluate policy:
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/PPO/LATEST",
         obs=0,
@@ -97,12 +91,12 @@ def test_rllib_train_bad(tmpdir):
         )
 
 
-def test_rllib_rollout_bad():
+def test_rllib_rollout_bad(tmpdir):
     # num_repeats < 1
     with pytest.raises(AssertionError):
         list(
             ph.utils.rllib.rollout(
-                directory=f"PPO/LATEST",
+                directory=tmpdir,
                 algorithm="PPO",
                 env_class=MockEnv,
                 env_config={},
@@ -114,7 +108,7 @@ def test_rllib_rollout_bad():
     with pytest.raises(AssertionError):
         list(
             ph.utils.rllib.rollout(
-                directory=f"PPO/LATEST",
+                directory=tmpdir,
                 algorithm="PPO",
                 env_class=MockEnv,
                 env_config={},

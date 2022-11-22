@@ -6,6 +6,7 @@ import gym
 from ray.rllib.models.preprocessors import get_preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
 from ray.rllib.utils.spaces import space_utils
+from tqdm import tqdm
 
 from .. import (
     collect_instances_of_type_with_paths,
@@ -21,6 +22,7 @@ def evaluate_policy(
     obs: Any,
     obs_space: gym.spaces.Space,
     checkpoint: Optional[int] = None,
+    show_progress_bar: bool = True,
 ) -> List[Tuple[Dict[str, Any], Any]]:
     """
     Evaluates a given pre-trained RLlib policy over a one of more dimensional
@@ -38,6 +40,7 @@ def evaluate_policy(
             function.
         obs_space: The observation space of the policy.
         checkpoint: Checkpoint to use (defaults to most recent).
+        show_progress_bar: If True shows a progress bar in the terminal output.
 
     Returns:
         A list of tuples of the form (observation, action).
@@ -75,6 +78,9 @@ def evaluate_policy(
                 variations2.append(variation)
 
         variations = variations2
+
+    if show_progress_bar:
+        variations = tqdm(variations)
 
     return [
         (
