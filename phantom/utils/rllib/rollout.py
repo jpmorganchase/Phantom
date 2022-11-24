@@ -28,6 +28,8 @@ from tqdm import tqdm, trange
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
 from ...metrics import Metric
+from ...policy import Policy
+from ...types import AgentID
 from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
@@ -43,12 +45,15 @@ from . import construct_results_paths
 
 logger = logging.getLogger(__name__)
 
+CustomPolicyMapping = Mapping[AgentID, Type[Policy]]
+
 
 def rollout(
     directory: Union[str, Path],
     algorithm: str,
     env_class: Type[PhantomEnv],
     env_config: Optional[Dict[str, Any]] = None,
+    custom_policy_mapping: Optional[CustomPolicyMapping] = None,
     num_repeats: int = 1,
     num_workers: Optional[int] = None,
     checkpoint: Optional[int] = None,
@@ -73,13 +78,15 @@ def rollout(
             the path, the parent directory will be scanned for the most recent run and
             this will be used.
         algorithm: RLlib algorithm to use.
+        env_class: Optionally pass the Environment class to use. If not give will
+            fallback to the copy of the environment class saved during training.
+        env_config: Configuration parameters to pass to the environment init method.
+        custom_policy_mapping: Optionally replace agent policies with custom fixed
+            policies.
         num_workers: Number of rollout worker processes to initialise
             (defaults to 'NUM CPU - 1').
         num_repeats: Number of rollout repeats to perform, distributed over all workers.
         checkpoint: Checkpoint to use (defaults to most recent).
-        env_class: Optionally pass the Environment class to use. If not give will
-            fallback to the copy of the environment class saved during training.
-        env_config: Configuration parameters to pass to the environment init method.
         metrics: Optional set of metrics to record and log.
         record_messages: If True the full list of episode messages for each of the
             rollouts will be recorded. Only applies if `save_trajectories` is also True.
@@ -102,6 +109,7 @@ def rollout(
 
     metrics = metrics or {}
     env_config = env_config or {}
+    custom_policy_mapping = custom_policy_mapping or {}
 
     if contains_type(env_config, Sampler):
         raise TypeError(
@@ -186,6 +194,7 @@ def rollout(
             algorithm,
             rollout_configs,
             env_class,
+            custom_policy_mapping,
             metrics,
             record_messages,
         )
@@ -215,6 +224,7 @@ def rollout(
                 algorithm,
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
+                custom_policy_mapping,
                 metrics,
                 record_messages,
             )
@@ -236,6 +246,7 @@ def _rollout_task_fn(
     algorithm: str,
     configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
+    custom_policy_mapping: CustomPolicyMapping,
     tracked_metrics: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
@@ -261,20 +272,30 @@ def _rollout_task_fn(
 
         observation = env.reset()
 
+        initted_policy_mapping = {
+            agent_id: policy(
+                env[agent_id].observation_space, env[agent_id].action_space
+            )
+            for agent_id, policy in custom_policy_mapping.items()
+        }
+
         # Run rollout steps.
         for i in range(env.num_steps):
             step_actions = {}
 
             for agent_id, agent_obs in observation.items():
-                policy_id = config["multiagent"]["policy_mapping_fn"](
-                    agent_id, rollout_config.rollout_id, 0
-                )
+                if agent_id in initted_policy_mapping:
+                    action = initted_policy_mapping[agent_id].compute_action(agent_obs)
+                else:
+                    policy_id = config["multiagent"]["policy_mapping_fn"](
+                        agent_id, rollout_config.rollout_id, 0
+                    )
 
-                agent_action = algo.compute_single_action(
-                    agent_obs, policy_id=policy_id, explore=False
-                )
+                    action = algo.compute_single_action(
+                        agent_obs, policy_id=policy_id, explore=False
+                    )
 
-                step_actions[agent_id] = agent_action
+                step_actions[agent_id] = action
 
             new_observation, reward, done, info = env.step(step_actions)
 
