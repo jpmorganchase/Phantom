@@ -57,13 +57,20 @@ class Sampler(ABC, Generic[T]):
     """
 
     def __init__(self):
-        self.value: Optional[T] = None
+        self._value: Optional[T] = None
         self._id = uuid4()
+
+    @property
+    def value(self) -> Optional[T]:
+        return self._value
 
     @abstractmethod
     def sample(self) -> T:
         """
         Returns a single value defined by the Sampler's internal distribution.
+
+        Implementations of this function should also update the instance's
+        :attr:`_value` property.
         """
         raise NotImplementedError
 
@@ -122,6 +129,8 @@ class UniformFloatSampler(ComparableSampler[float]):
         clip_low: Optional[float] = None,
         clip_high: Optional[float] = None,
     ) -> None:
+        assert high > low
+
         self.low = low
         self.high = high
         self.clip_low = clip_low
@@ -130,12 +139,12 @@ class UniformFloatSampler(ComparableSampler[float]):
         super().__init__()
 
     def sample(self) -> float:
-        value = np.random.uniform(self.low, self.high)
+        self._value = np.random.uniform(self.low, self.high)
 
-        if self.clip_low is None and self.clip_high is None:
-            return value
+        if self.clip_low is not None or self.clip_high is not None:
+            self._value = np.clip(self._value, self.clip_low, self.clip_high)
 
-        return np.clip(value, a_min=self.clip_low, a_max=self.clip_high)
+        return self._value
 
 
 class UniformIntSampler(ComparableSampler[int]):
@@ -151,6 +160,8 @@ class UniformIntSampler(ComparableSampler[int]):
         clip_low: Optional[int] = None,
         clip_high: Optional[int] = None,
     ) -> None:
+        assert high > low
+
         self.low = low
         self.high = high
         self.clip_low = clip_low
@@ -159,12 +170,12 @@ class UniformIntSampler(ComparableSampler[int]):
         super().__init__()
 
     def sample(self) -> float:
-        value = np.random.randint(self.low, self.high)
+        self._value = np.random.randint(self.low, self.high)
 
-        if self.clip_low is None and self.clip_high is None:
-            return value
+        if self.clip_low is not None or self.clip_high is not None:
+            self._value = np.clip(self._value, self.clip_low, self.clip_high)
 
-        return np.clip(value, a_min=self.clip_low, a_max=self.clip_high)
+        return self._value
 
 
 class UniformArraySampler(ComparableSampler[np.ndarray]):
@@ -181,6 +192,8 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
         clip_low: Optional[float] = None,
         clip_high: Optional[float] = None,
     ) -> None:
+        assert high > low
+
         self.low = low
         self.high = high
         self.shape = shape
@@ -190,12 +203,12 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
         super().__init__()
 
     def sample(self) -> np.ndarray:
-        value = np.random.uniform(self.low, self.high, self.shape)
+        self._value = np.random.uniform(self.low, self.high, self.shape)
 
         if self.clip_low is not None or self.clip_high is not None:
-            value = np.clip(value, self.clip_low, self.clip_high)
+            self._value = np.clip(self._value, self.clip_low, self.clip_high)
 
-        return value
+        return self._value
 
 
 class NormalSampler(ComparableSampler[float]):
@@ -219,12 +232,12 @@ class NormalSampler(ComparableSampler[float]):
         super().__init__()
 
     def sample(self) -> float:
-        value = np.random.normal(self.mu, self.sigma)
+        self._value = np.random.normal(self.mu, self.sigma)
 
         if self.clip_low is not None or self.clip_high is not None:
-            value = np.clip(value, self.clip_low, self.clip_high)
+            self._value = np.clip(self._value, self.clip_low, self.clip_high)
 
-        return value
+        return self._value
 
 
 class NormalArraySampler(ComparableSampler[np.ndarray]):
@@ -250,12 +263,12 @@ class NormalArraySampler(ComparableSampler[np.ndarray]):
         super().__init__()
 
     def sample(self) -> np.ndarray:
-        value = np.random.normal(self.mu, self.sigma, self.shape)
+        self._value = np.random.normal(self.mu, self.sigma, self.shape)
 
         if self.clip_low is not None or self.clip_high is not None:
-            value = np.clip(value, self.clip_low, self.clip_high)
+            self._value = np.clip(self._value, self.clip_low, self.clip_high)
 
-        return value
+        return self._value
 
 
 class LambdaSampler(Sampler[T]):
@@ -269,4 +282,5 @@ class LambdaSampler(Sampler[T]):
         super().__init__()
 
     def sample(self) -> T:
-        return self.func(*self.args, **self.kwargs)
+        self._value = self.func(*self.args, **self.kwargs)
+        return self._value

@@ -74,6 +74,11 @@ class PhantomEnv:
         self._samplers: List[Sampler] = []
 
         if env_supertype is not None:
+            if isinstance(env_supertype, dict):
+                env_supertype = self.Supertype(**env_supertype)
+            else:
+                assert isinstance(env_supertype, self.Supertype)
+
             # The env will manage sampling the supertype values
             env_supertype._managed = True
 
@@ -86,6 +91,11 @@ class PhantomEnv:
 
         if agent_supertypes is not None:
             for agent_id, agent_supertype in agent_supertypes.items():
+                if isinstance(agent_supertype, dict):
+                    agent_supertype = self.agents[agent_id].Supertype(**agent_supertype)
+                else:
+                    assert isinstance(agent_supertype, self.agents[agent_id].Supertype)
+
                 # The env will manage sampling the supertype values
                 agent_supertype._managed = True
 
@@ -99,7 +109,7 @@ class PhantomEnv:
 
         # Generate initial sampled values in samplers
         for sampler in self._samplers:
-            sampler.value = sampler.sample()
+            sampler.sample()
 
     @property
     def agents(self) -> Dict[AgentID, Agent]:
@@ -135,16 +145,12 @@ class PhantomEnv:
         self.network.resolve(self._ctxs)
         self.post_message_resolution()
 
-    def reset(self, sample_supertypes: bool = True) -> Dict[AgentID, Any]:
+    def reset(self) -> Dict[AgentID, Any]:
         """
         Reset the environment and return an initial observation.
 
         This method resets the step count and the :attr:`network`. This includes all the
         agents in the network.
-
-        Arguments:
-            sample_supertypes: If set to False will not automatically sample supertypes
-                and apply agent and environment types.
 
         Returns:
             A dictionary mapping Agent IDs to observations made by the respective
@@ -153,9 +159,12 @@ class PhantomEnv:
         # Reset clock
         self.current_step = 0
 
-        # Sample from supertypes and apply to agent and env type objects
-        if sample_supertypes:
-            self.sample_supertypes()
+        # Sample from supertype shared sampler objects
+        for sampler in self._samplers:
+            sampler.sample()
+
+        if self.env_supertype is not None:
+            self.env_type = self.env_supertype.sample()
 
         # Reset network and call reset method on all agents in the network
         self.network.reset()
@@ -247,14 +256,3 @@ class PhantomEnv:
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]
-
-    def sample_supertypes(self) -> None:
-        for sampler in self._samplers:
-            sampler.value = sampler.sample()
-
-        if self.env_supertype is not None:
-            self.env_type = self.env_supertype.sample()
-
-        for agent in self.network.agents.values():
-            if agent.supertype is not None:
-                agent.type = agent.supertype.sample()

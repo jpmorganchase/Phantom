@@ -210,12 +210,14 @@ class FiniteStateMachineEnv(PhantomEnv):
         self.current_step = 0
         self.current_stage = self.initial_stage
 
-        # Sample from supertypes and apply to agent and env type objects
-        if sample_supertypes:
-            self.sample_supertypes()
+        # Sample from supertype shared sampler objects
+        for sampler in self._samplers:
+            sampler.sample()
+
+        if self.env_supertype is not None:
+            self.env_type = self.env_supertype.sample()
 
         # Reset network and call reset method on all agents in the network.
-        # Message samplers should be called here from the respective agent's reset method.
         self.network.reset()
         self.resolve_network()
 
@@ -238,6 +240,10 @@ class FiniteStateMachineEnv(PhantomEnv):
             for aid in acting_agents
             if aid in self._rl_agent_ids
         ]
+
+        # Generate initial sampled values in samplers
+        for sampler in self._samplers:
+            sampler.sample()
 
         # Generate initial observations for agents taking actions
         obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
