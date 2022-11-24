@@ -18,7 +18,7 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
 
         self.env.reset()
 
-        self._agent_ids = self.env.rl_agent_ids
+        self._agent_ids = self.env.strategic_agent_ids
 
         self.action_space = gym.spaces.Dict(
             {

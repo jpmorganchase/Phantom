@@ -24,8 +24,8 @@ def test_n_agents(phantom_env):
 
 def test_agent_ids(phantom_env):
     assert phantom_env.agent_ids == ["A", "B", "C"]
-    assert phantom_env.rl_agent_ids == ["A", "B"]
-    assert phantom_env.non_rl_agent_ids == ["C"]
+    assert phantom_env.strategic_agent_ids == ["A", "B"]
+    assert phantom_env.non_strategic_agent_ids == ["C"]
 
 
 def test_get_agents(phantom_env):
@@ -48,7 +48,7 @@ def test_is_done(phantom_env):
     phantom_env._dones = ["A"]
     assert not phantom_env.is_done()
 
-    phantom_env._dones = ["A", "B", "C"]
+    phantom_env._dones = ["A", "B"]
     assert phantom_env.is_done()
 
     phantom_env._dones = []

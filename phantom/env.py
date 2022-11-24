@@ -60,8 +60,8 @@ class PhantomEnv:
         self.env_supertype: Optional[Supertype] = None
         self.env_type: Optional[Supertype] = None
 
-        # Keep track of which agents are already done so we know to not continue to
-        # send back obs, rewards, etc...
+        # Keep track of which strategic agents are already done so we know to not
+        # continue to send back obs, rewards, etc...
         self._dones: Set[AgentID] = set()
 
         # Context objects are generated for all active agents once at the start of each
@@ -127,12 +127,12 @@ class PhantomEnv:
         return [a for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
     @property
-    def rl_agent_ids(self) -> List[AgentID]:
+    def strategic_agent_ids(self) -> List[AgentID]:
         """Return a list of the IDs of the agents that take actions."""
         return [a.id for a in self.agents.values() if isinstance(a, StrategicAgent)]
 
     @property
-    def non_rl_agent_ids(self) -> List[AgentID]:
+    def non_strategic_agent_ids(self) -> List[AgentID]:
         """Return a list of the IDs of the agents that do not take actions."""
         return [a.id for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
@@ -181,7 +181,7 @@ class PhantomEnv:
         self.network.reset()
         self.resolve_network()
 
-        # Reset the agents' done statuses stored by the environment
+        # Reset the strategic agents' done statuses stored by the environment
         self._dones = set()
 
         # Pre-generate all contexts for agents taking actions
@@ -261,7 +261,7 @@ class PhantomEnv:
             self.num_steps is not None and self.current_step == self.num_steps
         )
 
-        return is_at_max_step or len(self._dones) == len(self.network.agents)
+        return is_at_max_step or len(self._dones) == len(self.rl_agents)
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]
