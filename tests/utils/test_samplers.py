@@ -1,6 +1,13 @@
 import pytest
 
-from phantom.utils.samplers import UniformFloatSampler, UniformIntSampler, LambdaSampler
+from phantom.utils.samplers import (
+    NormalArraySampler,
+    NormalSampler,
+    UniformArraySampler,
+    UniformFloatSampler,
+    UniformIntSampler,
+    LambdaSampler,
+)
 
 
 @pytest.fixture
@@ -67,3 +74,29 @@ def test_lambda_sampler():
     sampler = LambdaSampler(_my_func, a)
     assert sampler.sample() == 5
     assert sampler.sample() == 5
+
+
+def test_asserts():
+    with pytest.raises(AssertionError):
+        UniformFloatSampler(high=0.0, low=1.0)
+
+    with pytest.raises(AssertionError):
+        UniformIntSampler(high=0, low=1)
+
+    with pytest.raises(AssertionError):
+        UniformArraySampler(high=0.0, low=1.0)
+
+    with pytest.raises(AssertionError):
+        UniformFloatSampler(clip_high=0.0, clip_low=1.0)
+
+    with pytest.raises(AssertionError):
+        UniformIntSampler(clip_high=0, clip_low=1)
+
+    with pytest.raises(AssertionError):
+        UniformArraySampler(clip_high=0.0, clip_low=1.0)
+
+    with pytest.raises(AssertionError):
+        NormalSampler(clip_high=0.0, clip_low=1.0)
+
+    with pytest.raises(AssertionError):
+        NormalArraySampler(clip_high=0.0, clip_low=1.0)

@@ -9,6 +9,7 @@ from phantom import Supertype
 
 from . import MockSampler
 
+
 def test_base_supertype_sample():
     @dataclass
     class TestSupertype(Supertype):
