@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
 from functools import reduce
-from typing import Generic, Iterable, Optional, Sequence, TypeVar
+from typing import Generic, Iterable, Literal, Optional, Sequence, TypeVar
 
 import numpy as np
 
@@ -58,8 +58,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
 
     def __init__(
         self,
-        # reduce_action: Literal["last", "mean", "sum"] = "last", PYTHON3.8
-        reduce_action: str = "last",
+        reduce_action: Literal["last", "mean", "sum"] = "last",
         fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -110,8 +109,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self,
         agent_id: str,
         agent_property: str,
-        # reduce_action: Literal["last", "mean", "sum"] = "last", PYTHON3.8
-        reduce_action: str = "last",
+        reduce_action: Literal["last", "mean", "sum"] = "last",
         fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -145,8 +143,7 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
     def __init__(
         self,
         env_property: str,
-        # reduce_action: Literal["last", "mean", "sum"] = "last", PYTHON3.8
-        reduce_action: str = "last",
+        reduce_action: Literal["last", "mean", "sum"] = "last",
         fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -191,10 +188,8 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self,
         agent_ids: Iterable[str],
         agent_property: str,
-        # group_reduce_action: Literal["min", "max", "mean", "sum"] = "mean", PYTHON3.8
-        group_reduce_action: str = "mean",
-        # reduce_action: Literal["last", "mean", "sum"] = "last", PYTHON3.8
-        reduce_action: str = "last",
+        group_reduce_action: Literal["min", "max", "mean", "sum"] = "mean",
+        reduce_action: Literal["last", "mean", "sum"] = "last",
         fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
