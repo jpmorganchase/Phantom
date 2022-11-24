@@ -162,6 +162,16 @@ class Agent(ABC):
         Can be extended by subclasses to provide additional functionality.
         """
 
+        if self.supertype is not None:
+            self.type = self.supertype.sample()
+        elif hasattr(self, "Supertype"):
+            try:
+                self.type = self.Supertype().sample()
+            except TypeError as e:
+                raise Exception(
+                    f"Tried to initialise agent {self.id}'s Supertype with default values but failed:\n\t{e}"
+                )
+
     def __repr__(self) -> str:
         return f"[{self.__class__.__name__} {self.id}]"
 

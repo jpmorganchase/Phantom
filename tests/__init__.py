@@ -1,8 +1,18 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import gym
 import numpy as np
 import phantom as ph
+
+
+class MockSampler(ph.utils.samplers.Sampler[float]):
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def sample(self) -> float:
+        self._value += 1
+        return self._value
 
 
 class MockAgent(ph.Agent):
@@ -11,11 +21,12 @@ class MockAgent(ph.Agent):
 
         self.num_steps = num_steps
 
-    def is_done(self, ctx: ph.Context) -> bool:
-        return ctx.env_view.current_step == self.num_steps
-
 
 class MockStrategicAgent(ph.StrategicAgent):
+    @dataclass
+    class Supertype(ph.Supertype):
+        type_value: float = 0.0
+
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -50,7 +61,11 @@ class MockPolicy(ph.Policy):
 
 
 class MockEnv(ph.PhantomEnv):
-    def __init__(self):
+    @dataclass
+    class Supertype(ph.Supertype):
+        type_value: float
+
+    def __init__(self, env_supertype=None):
         agents = [MockStrategicAgent("a1"), MockStrategicAgent("a2"), MockAgent("a3")]
 
         network = ph.network.Network(agents)
@@ -59,4 +74,4 @@ class MockEnv(ph.PhantomEnv):
         network.add_connection("a2", "a3")
         network.add_connection("a3", "a1")
 
-        super().__init__(num_steps=5, network=network)
+        super().__init__(num_steps=5, network=network, env_supertype=env_supertype)

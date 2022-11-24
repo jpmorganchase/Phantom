@@ -878,11 +878,6 @@ if __name__ == "__main__":
             algorithm="PPO",
             env_class=DigitalAdsEnv,
             policies=policies,
-            policies_to_train=[
-                "adv_policy_travel",
-                "adv_policy_tech",
-                "adv_policy_sport",
-            ],
             metrics=metrics,
             env_config={
                 "agent_supertypes": agent_supertypes,
