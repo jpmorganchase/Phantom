@@ -14,27 +14,27 @@ def int_sampler():
 
 
 def test_comparison_with_float(float_sampler):
-    float_sampler.value = float_sampler.sample()
+    float_sampler._value = float_sampler.sample()
 
     assert float_sampler <= 1.0
     assert float_sampler >= 0.0
-    assert float_sampler == float_sampler.value
-    assert float_sampler != (float_sampler.value + 0.1)
+    assert float_sampler == float_sampler._value
+    assert float_sampler != (float_sampler._value + 0.1)
 
 
 def test_comparison_with_int(int_sampler):
-    int_sampler.value = int_sampler.sample()
+    int_sampler._value = int_sampler.sample()
 
     assert int_sampler == 0 or int_sampler == 1
-    assert int_sampler == int_sampler.value
-    assert int_sampler != (int_sampler.value + 1)
+    assert int_sampler == int_sampler._value
+    assert int_sampler != (int_sampler._value + 1)
 
 
 def test_comparison_with_sampler(float_sampler):
-    float_sampler.value = 0.5
+    float_sampler._value = 0.5
 
     float_sampler2 = UniformFloatSampler()
-    float_sampler2.value = 0.5
+    float_sampler2._value = 0.5
 
     assert not (float_sampler == float_sampler2)
     assert float_sampler != float_sampler2
@@ -42,13 +42,13 @@ def test_comparison_with_sampler(float_sampler):
 
 def test_iterable():
     sampler1 = UniformFloatSampler()
-    sampler1.value = 0.5
+    sampler1._value = 0.5
 
     sampler2 = UniformFloatSampler()
-    sampler2.value = 0.5
+    sampler2._value = 0.5
 
     sampler3 = UniformFloatSampler()
-    sampler3.value = 0.5
+    sampler3._value = 0.5
 
     l = [sampler1, sampler2]
     assert not sampler3 in l

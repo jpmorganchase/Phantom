@@ -8,7 +8,7 @@ import phantom as ph
 
 class MockSampler(ph.utils.samplers.Sampler[float]):
     def __init__(self, value: float) -> None:
-        self.value = value
+        self._value = value
 
     def sample(self) -> float:
         return self.value

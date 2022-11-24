@@ -109,7 +109,7 @@ class PhantomEnv:
 
         # Generate initial sampled values in samplers
         for sampler in self._samplers:
-            sampler.value = sampler.sample()
+            sampler.sample()
 
     @property
     def agents(self) -> Dict[AgentID, Agent]:
@@ -161,7 +161,7 @@ class PhantomEnv:
 
         # Sample from supertype shared sampler objects
         for sampler in self._samplers:
-            sampler.value = sampler.sample()
+            sampler.sample()
 
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()

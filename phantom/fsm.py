@@ -212,7 +212,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Sample from supertype shared sampler objects
         for sampler in self._samplers:
-            sampler.value = sampler.sample()
+            sampler.sample()
 
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
@@ -240,6 +240,10 @@ class FiniteStateMachineEnv(PhantomEnv):
             for aid in acting_agents
             if aid in self._rl_agent_ids
         ]
+
+        # Generate initial sampled values in samplers
+        for sampler in self._samplers:
+            sampler.sample()
 
         # Generate initial observations for agents taking actions
         obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
