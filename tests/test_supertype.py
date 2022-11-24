@@ -6,15 +6,8 @@ import numpy as np
 import pytest
 
 from phantom import Supertype
-from phantom.utils.samplers import Sampler
 
-
-class StaticSampler(Sampler[float]):
-    def __init__(self, value: float) -> None:
-        self.value = value
-
-    def sample(self) -> float:
-        return self.value
+from . import MockSampler
 
 
 def test_base_supertype_sample():
@@ -32,11 +25,11 @@ def test_base_supertype_sample():
         "b": "string",
     }
 
-    s2 = TestSupertype(StaticSampler(1.0), "string")
+    s2 = TestSupertype(MockSampler(0), "string")
     t2 = s2.sample()
 
     assert t2.__dict__ == {
-        "a": 1.0,
+        "a": 1,
         "b": "string",
     }
 
