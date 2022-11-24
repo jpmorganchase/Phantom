@@ -11,14 +11,15 @@ def test_agent_supertypes_in_env_1():
 
     network = ph.Network(agents)
 
-    s1 = MockSampler(1.0)
-    s2 = MockSampler(2.0)
+    s1 = MockSampler(0)
+    s2 = MockSampler(10)
 
     agent_supertypes = {
         "a1": MockAgent.Supertype(type_value=s1),
         "a2": MockAgent.Supertype(type_value=s2),
     }
 
+    # sampler sampled 1st time
     env = ph.PhantomEnv(1, network, agent_supertypes=agent_supertypes)
 
     assert set(env._samplers) == set([s1, s2])
@@ -32,10 +33,11 @@ def test_agent_supertypes_in_env_1():
     assert env.agents["a1"].supertype.type_value == s1
     assert env.agents["a2"].supertype.type_value == s2
 
+    # sampler sampled 2nd time
     env.reset()
 
-    assert env.agents["a1"].type == MockAgent.Supertype(1.0)
-    assert env.agents["a2"].type == MockAgent.Supertype(2.0)
+    assert env.agents["a1"].type == MockAgent.Supertype(2)
+    assert env.agents["a2"].type == MockAgent.Supertype(12)
 
 
 def test_agent_supertypes_in_env_2():
@@ -44,14 +46,15 @@ def test_agent_supertypes_in_env_2():
 
     network = ph.Network(agents)
 
-    s1 = MockSampler(1.0)
-    s2 = MockSampler(2.0)
+    s1 = MockSampler(0)
+    s2 = MockSampler(10)
 
     agent_supertypes = {
         "a1": {"type_value": s1},
         "a2": {"type_value": s2},
     }
 
+    # sampler sampled 1st time
     env = ph.PhantomEnv(1, network, agent_supertypes=agent_supertypes)
 
     assert set(env._samplers) == set([s1, s2])
@@ -65,10 +68,11 @@ def test_agent_supertypes_in_env_2():
     assert env.agents["a1"].supertype.type_value == s1
     assert env.agents["a2"].supertype.type_value == s2
 
+    # sampler sampled 2nd time
     env.reset()
 
-    assert env.agents["a1"].type == MockAgent.Supertype(1.0)
-    assert env.agents["a2"].type == MockAgent.Supertype(2.0)
+    assert env.agents["a1"].type == MockAgent.Supertype(2)
+    assert env.agents["a2"].type == MockAgent.Supertype(12)
 
 
 def test_agent_supertypes_in_env_bad():
@@ -84,10 +88,11 @@ def test_agent_supertypes_in_env_bad():
 
 def test_env_supertype_in_env_1():
     # USING STANDARD ENV_SUPERTYPES PARAMETER STYLE
-    s1 = MockSampler(1.0)
+    s1 = MockSampler(0)
 
     env_supertype = MockEnv.Supertype(type_value=s1)
 
+    # sampler sampled 1st time
     env = MockEnv(env_supertype=env_supertype)
 
     assert set(env._samplers) == set([s1])
@@ -95,17 +100,19 @@ def test_env_supertype_in_env_1():
     assert env.env_type == None
     assert env.env_supertype == MockEnv.Supertype(s1)
 
+    # sampler sampled 2nd time
     env.reset()
 
-    assert env.env_type == MockEnv.Supertype(1.0)
+    assert env.env_type == MockEnv.Supertype(2)
 
 
 def test_env_supertype_in_env_2():
     # USING DICTIONARY ENV_SUPERTYPES PARAMETER STYLE
-    s1 = MockSampler(1.0)
+    s1 = MockSampler(0)
 
     env_supertype = MockEnv.Supertype(type_value=s1)
 
+    # sampler sampled 1st time
     env = MockEnv(env_supertype={"type_value": s1})
 
     assert set(env._samplers) == set([s1])
@@ -113,9 +120,10 @@ def test_env_supertype_in_env_2():
     assert env.env_type == None
     assert env.env_supertype == env_supertype
 
+    # sampler sampled 2nd time
     env.reset()
 
-    assert env.env_type == MockEnv.Supertype(1.0)
+    assert env.env_type == MockEnv.Supertype(2)
 
 
 def test_env_supertype_in_env_bad():

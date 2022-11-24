@@ -11,7 +11,8 @@ class MockSampler(ph.utils.samplers.Sampler[float]):
         self._value = value
 
     def sample(self) -> float:
-        return self.value
+        self._value += 1
+        return self._value
 
 
 class MockAgent(ph.RLAgent):

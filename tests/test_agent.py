@@ -12,7 +12,7 @@ def test_repr():
 
 
 def test_reset():
-    st = MockAgent.Supertype(MockSampler(0.0))
+    st = MockAgent.Supertype(MockSampler(0))
 
     agent = MockAgent("Agent", supertype=st)
 
@@ -21,14 +21,14 @@ def test_reset():
 
     agent.reset()
 
-    assert agent.type == MockAgent.Supertype(0.0)
+    assert agent.type == MockAgent.Supertype(1)
 
     class MockAgent2(ph.RLAgent):
         @dataclass
         class Supertype(ph.Supertype):
             type_value: float
 
-    agent = MockAgent2("Agent", supertype=MockAgent.Supertype(0.0))
+    agent = MockAgent2("Agent", supertype=MockAgent.Supertype(0))
     agent.reset()
 
     agent = MockAgent2("Agent")

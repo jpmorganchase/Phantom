@@ -25,11 +25,11 @@ def test_base_supertype_sample():
         "b": "string",
     }
 
-    s2 = TestSupertype(MockSampler(1.0), "string")
+    s2 = TestSupertype(MockSampler(0), "string")
     t2 = s2.sample()
 
     assert t2.__dict__ == {
-        "a": 1.0,
+        "a": 1,
         "b": "string",
     }
 
