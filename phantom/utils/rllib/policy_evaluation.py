@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import cloudpickle
 from ray.rllib.algorithms.registry import get_algorithm_class
 from ray.tune.registry import register_env
-
+from tqdm import tqdm
 
 from ...env import PhantomEnv
 from .. import (
@@ -24,6 +24,7 @@ def evaluate_policy(
     policy_id: str,
     obs: Any,
     checkpoint: Optional[int] = None,
+    show_progress_bar: bool = True,
 ) -> List[Tuple[Dict[str, Any], Any]]:
     """
     Evaluates a given pre-trained RLlib policy over a one of more dimensional
@@ -43,6 +44,7 @@ def evaluate_policy(
             dimensions in a similar fashion to the :func:`ph.utils.rllib.rollout`
             function.
         checkpoint: Checkpoint to use (defaults to most recent).
+        show_progress_bar: If True shows a progress bar in the terminal output.
 
     Returns:
         A list of tuples of the form (observation, action).
@@ -94,6 +96,9 @@ def evaluate_policy(
                 variations2.append(variation)
 
         variations = variations2
+
+    if show_progress_bar:
+        variations = tqdm(variations)
 
     return [
         (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))
