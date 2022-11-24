@@ -27,7 +27,7 @@ from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
-from ...logging import Metric
+from ...metrics import Metric
 from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,

@@ -26,7 +26,7 @@ from ray.tune.logger import LoggerCallback
 
 from ...agents import Agent
 from ...env import PhantomEnv
-from ...logging import Metric
+from ...metrics import Metric
 from ...policy import Policy
 from ...types import AgentID
 from .. import check_env_config, show_pythonhashseed_warning
