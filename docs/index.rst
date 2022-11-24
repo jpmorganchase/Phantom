@@ -12,6 +12,7 @@ Phantom
     user/design
     user/designpatterns
     user/fsmdesignpatterns
+    user/env_execution
     user/network
     user/supertypes
 
@@ -34,6 +35,6 @@ Phantom
     api/reward_functions
     api/rllib
     api/supertypes
-    api/trainers/index
+    api/trainer
     api/utils
     api/views

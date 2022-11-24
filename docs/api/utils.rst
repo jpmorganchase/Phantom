@@ -6,7 +6,8 @@ Utilities
 Samplers
 --------
 
-.. TODO: link to supertypes
+Samplers are designed to be used with supertypes. See the :doc:`/user/supertypes` page
+for examples on how they are used.
 
 Interface
 ^^^^^^^^^
@@ -36,7 +37,8 @@ Implementations
 Ranges
 ------
 
-.. TODO: link to supertypes
+Ranges are designed to be used with supertypes. See the :doc:`/user/supertypes` page for
+examples on how they are used.
 
 Interface
 ^^^^^^^^^
