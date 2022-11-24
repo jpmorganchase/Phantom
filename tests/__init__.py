@@ -15,7 +15,7 @@ class MockAgent(ph.Agent):
         return ctx.env_view.current_step == self.num_steps
 
 
-class MockRLAgent(ph.RLAgent):
+class MockStrategicAgent(ph.StrategicAgent):
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -51,7 +51,7 @@ class MockPolicy(ph.Policy):
 
 class MockEnv(ph.PhantomEnv):
     def __init__(self):
-        agents = [MockRLAgent("a1"), MockRLAgent("a2"), MockAgent("a3")]
+        agents = [MockStrategicAgent("a1"), MockStrategicAgent("a2"), MockAgent("a3")]
 
         network = ph.network.Network(agents)
 

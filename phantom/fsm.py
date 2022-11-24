@@ -10,7 +10,7 @@ from typing import (
     Tuple,
 )
 
-from .agents import RLAgent
+from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype

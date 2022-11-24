@@ -1,7 +1,7 @@
 import phantom as ph
 import pytest
 
-from . import MockAgent, MockRLAgent
+from . import MockAgent, MockStrategicAgent
 
 
 @pytest.fixture
@@ -9,7 +9,11 @@ def phantom_env():
     return ph.PhantomEnv(
         num_steps=2,
         network=ph.Network(
-            [MockRLAgent("A", num_steps=1), MockRLAgent("B"), MockAgent("C")]
+            [
+                MockStrategicAgent("A", num_steps=1),
+                MockStrategicAgent("B"),
+                MockAgent("C"),
+            ]
         ),
     )
 
@@ -33,7 +37,7 @@ def test_get_agents(phantom_env):
 
 
 def test__get_item__(phantom_env):
-    assert isinstance(phantom_env["A"], MockRLAgent)
+    assert isinstance(phantom_env["A"], MockStrategicAgent)
     assert phantom_env["A"].id == "A"
 
 

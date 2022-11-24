@@ -166,7 +166,7 @@ class Agent(ABC):
         return f"[{self.__class__.__name__} {self.id}]"
 
 
-class RLAgent(Agent):
+class StrategicAgent(Agent):
     """
     Representation of a behavioural agent in the network.
 

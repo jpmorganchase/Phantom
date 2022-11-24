@@ -209,7 +209,7 @@ class PublisherAgent(ph.Agent):
         return [(msg.payload.advertiser_id, ImpressionResult(clicked=clicked))]
 
 
-class AdvertiserAgent(ph.RLAgent):
+class AdvertiserAgent(ph.StrategicAgent):
     """
     An `AdvertiserAgent` learns to bid efficiently and within its budget limit, on an impression
     in order to maximize the number of clicks it gets.

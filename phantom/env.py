@@ -8,7 +8,7 @@ from typing import (
     Set,
 )
 
-from .agents import Agent, RLAgent
+from .agents import Agent, StrategicAgent
 from .context import Context
 from .network import Network
 from .supertype import Supertype
@@ -117,24 +117,24 @@ class PhantomEnv:
         return list(self.network.agent_ids)
 
     @property
-    def rl_agents(self) -> List[RLAgent]:
+    def rl_agents(self) -> List[StrategicAgent]:
         """Return a list of agents that take actions."""
-        return [a for a in self.agents.values() if isinstance(a, RLAgent)]
+        return [a for a in self.agents.values() if isinstance(a, StrategicAgent)]
 
     @property
     def non_rl_agents(self) -> List[Agent]:
         """Return a list of agents that do not take actions."""
-        return [a for a in self.agents.values() if not isinstance(a, RLAgent)]
+        return [a for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
     @property
     def rl_agent_ids(self) -> List[AgentID]:
         """Return a list of the IDs of the agents that take actions."""
-        return [a.id for a in self.agents.values() if isinstance(a, RLAgent)]
+        return [a.id for a in self.agents.values() if isinstance(a, StrategicAgent)]
 
     @property
     def non_rl_agent_ids(self) -> List[AgentID]:
         """Return a list of the IDs of the agents that do not take actions."""
-        return [a.id for a in self.agents.values() if not isinstance(a, RLAgent)]
+        return [a.id for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
     def view(self) -> EnvView:
         """Return an immutable view to the environment's public state."""
@@ -238,7 +238,7 @@ class PhantomEnv:
 
         # Pre-generate all context objects for acting agents
         for agent_id, ctx in self._ctxs.items():
-            if isinstance(ctx.agent, RLAgent):
+            if isinstance(ctx.agent, StrategicAgent):
                 obs = ctx.agent.encode_observation(ctx)
                 if obs is not None:
                     observations[agent_id] = obs
