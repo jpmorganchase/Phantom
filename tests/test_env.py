@@ -1,26 +1,39 @@
 import phantom as ph
 import pytest
 
-from . import MockAgent
+from . import MockAgent, MockRLAgent
 
 
 @pytest.fixture
 def phantom_env():
     return ph.PhantomEnv(
-        num_steps=2, network=ph.Network([MockAgent("A", num_steps=1), MockAgent("B")])
+        num_steps=2,
+        network=ph.Network(
+            [MockRLAgent("A", num_steps=1), MockRLAgent("B"), MockAgent("C")]
+        ),
     )
 
 
-def test_agent_ids(phantom_env):
-    assert list(phantom_env.agent_ids) == ["A", "B"]
-
-
 def test_n_agents(phantom_env):
-    assert phantom_env.n_agents == 2
+    assert phantom_env.n_agents == 3
+
+
+def test_agent_ids(phantom_env):
+    assert phantom_env.agent_ids == ["A", "B", "C"]
+    assert phantom_env.rl_agent_ids == ["A", "B"]
+    assert phantom_env.non_rl_agent_ids == ["C"]
+
+
+def test_get_agents(phantom_env):
+    assert phantom_env.rl_agents == [
+        phantom_env.agents["A"],
+        phantom_env.agents["B"],
+    ]
+    assert phantom_env.non_rl_agents == [phantom_env.agents["C"]]
 
 
 def test__get_item__(phantom_env):
-    assert isinstance(phantom_env["A"], MockAgent)
+    assert isinstance(phantom_env["A"], MockRLAgent)
     assert phantom_env["A"].id == "A"
 
 
@@ -31,7 +44,7 @@ def test_is_done(phantom_env):
     phantom_env._dones = ["A"]
     assert not phantom_env.is_done()
 
-    phantom_env._dones = ["A", "B"]
+    phantom_env._dones = ["A", "B", "C"]
     assert phantom_env.is_done()
 
     phantom_env._dones = []

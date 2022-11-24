@@ -102,6 +102,11 @@ class PhantomEnv:
             sampler.value = sampler.sample()
 
     @property
+    def n_agents(self) -> int:
+        """Return the number of agents in the environment."""
+        return len(self.agent_ids)
+
+    @property
     def agents(self) -> Dict[AgentID, Agent]:
         """Return a mapping of agent IDs to agents in the environment."""
         return self.network.agents
@@ -112,9 +117,24 @@ class PhantomEnv:
         return list(self.network.agent_ids)
 
     @property
-    def n_agents(self) -> int:
-        """Return the number of agents in the environment."""
-        return len(self.agent_ids)
+    def rl_agents(self) -> List[RLAgent]:
+        """Return a list of agents that take actions."""
+        return [a for a in self.agents.values() if isinstance(a, RLAgent)]
+
+    @property
+    def non_rl_agents(self) -> List[Agent]:
+        """Return a list of agents that do not take actions."""
+        return [a for a in self.agents.values() if not isinstance(a, RLAgent)]
+
+    @property
+    def rl_agent_ids(self) -> List[AgentID]:
+        """Return a list of the IDs of the agents that take actions."""
+        return [a.id for a in self.agents.values() if isinstance(a, RLAgent)]
+
+    @property
+    def non_rl_agent_ids(self) -> List[AgentID]:
+        """Return a list of the IDs of the agents that do not take actions."""
+        return [a.id for a in self.agents.values() if not isinstance(a, RLAgent)]
 
     def view(self) -> EnvView:
         """Return an immutable view to the environment's public state."""
@@ -167,9 +187,7 @@ class PhantomEnv:
         # Pre-generate all contexts for agents taking actions
         env_view = self.view()
         ctxs = [
-            self.network.context_for(agent.id, env_view)
-            for agent in self.agents.values()
-            if isinstance(agent, RLAgent)
+            self.network.context_for(agent.id, env_view) for agent in self.rl_agents
         ]
 
         # Generate initial observations for agents taking actions

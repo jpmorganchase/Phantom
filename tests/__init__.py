@@ -5,7 +5,17 @@ import numpy as np
 import phantom as ph
 
 
-class MockAgent(ph.RLAgent):
+class MockAgent(ph.Agent):
+    def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.num_steps = num_steps
+
+    def is_done(self, ctx: ph.Context) -> bool:
+        return ctx.env_view.current_step == self.num_steps
+
+
+class MockRLAgent(ph.RLAgent):
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -41,7 +51,7 @@ class MockPolicy(ph.Policy):
 
 class MockEnv(ph.PhantomEnv):
     def __init__(self):
-        agents = [MockAgent("a1"), MockAgent("a2"), MockAgent("a3")]
+        agents = [MockRLAgent("a1"), MockRLAgent("a2"), MockAgent("a3")]
 
         network = ph.network.Network(agents)
 
