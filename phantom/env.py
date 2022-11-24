@@ -14,7 +14,7 @@ from .network import Network
 from .supertype import Supertype
 from .types import AgentID
 from .utils.samplers import Sampler
-from .views import EnvView
+from .views import AgentView, EnvView
 
 
 class PhantomEnv:
@@ -65,8 +65,12 @@ class PhantomEnv:
         self._dones: Set[AgentID] = set()
 
         # Context objects are generated for all active agents once at the start of each
-        # step and stored for use across functions
+        # step and stored for use across functions.
         self._ctxs: Dict[AgentID, Context] = {}
+
+        # A view for each agent is generated every step. This should be used by only the
+        # environment for generating it's own view or metrics.
+        self._views: Dict[AgentID, AgentView] = {}
 
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the
@@ -195,12 +199,20 @@ class PhantomEnv:
 
         # Pre-generate all contexts for agents taking actions
         env_view = self.view()
-        ctxs = [
-            self.network.context_for(agent.id, env_view) for agent in self.rl_agents
-        ]
+        self._ctxs = {
+            agent.id: self.network.context_for(agent.id, env_view)
+            for agent in self.rl_agents
+        }
+
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
 
         # Generate initial observations for agents taking actions
-        obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        obs = {
+            ctx.agent.id: ctx.agent.encode_observation(ctx)
+            for ctx in self._ctxs.values()
+        }
         return {k: v for k, v in obs.items() if v is not None}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
@@ -224,6 +236,10 @@ class PhantomEnv:
             agent_id: self.network.context_for(agent_id, env_view)
             for agent_id in self.agent_ids
             if agent_id not in self._dones
+        }
+
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
         }
 
         # Decode action/generate messages for agents and send to the network
