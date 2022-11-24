@@ -130,7 +130,6 @@ class UniformFloatSampler(ComparableSampler[float]):
         clip_high: Optional[float] = None,
     ) -> None:
         assert high > low
-        assert clip_high > clip_low
 
         self.low = low
         self.high = high
@@ -162,7 +161,6 @@ class UniformIntSampler(ComparableSampler[int]):
         clip_high: Optional[int] = None,
     ) -> None:
         assert high > low
-        assert clip_high > clip_low
 
         self.low = low
         self.high = high
@@ -195,7 +193,6 @@ class UniformArraySampler(ComparableSampler[np.ndarray]):
         clip_high: Optional[float] = None,
     ) -> None:
         assert high > low
-        assert clip_high > clip_low
 
         self.low = low
         self.high = high
@@ -227,8 +224,6 @@ class NormalSampler(ComparableSampler[float]):
         clip_low: Optional[float] = None,
         clip_high: Optional[float] = None,
     ) -> None:
-        assert clip_high > clip_low
-
         self.mu = mu
         self.sigma = sigma
         self.clip_low = clip_low
@@ -259,8 +254,6 @@ class NormalArraySampler(ComparableSampler[np.ndarray]):
         clip_low: Optional[float] = None,
         clip_high: Optional[float] = None,
     ) -> None:
-        assert clip_high > clip_low
-
         self.mu = mu
         self.sigma = sigma
         self.shape = shape

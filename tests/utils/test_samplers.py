@@ -85,18 +85,3 @@ def test_asserts():
 
     with pytest.raises(AssertionError):
         UniformArraySampler(high=0.0, low=1.0)
-
-    with pytest.raises(AssertionError):
-        UniformFloatSampler(clip_high=0.0, clip_low=1.0)
-
-    with pytest.raises(AssertionError):
-        UniformIntSampler(clip_high=0, clip_low=1)
-
-    with pytest.raises(AssertionError):
-        UniformArraySampler(clip_high=0.0, clip_low=1.0)
-
-    with pytest.raises(AssertionError):
-        NormalSampler(clip_high=0.0, clip_low=1.0)
-
-    with pytest.raises(AssertionError):
-        NormalArraySampler(clip_high=0.0, clip_low=1.0)
