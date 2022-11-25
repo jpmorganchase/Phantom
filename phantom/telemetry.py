@@ -1,4 +1,4 @@
-from typing import Mapping, Optional, Sequence, TypeVar, Union
+from typing import Any, Mapping, Optional, Sequence, TypeVar, Union
 
 import numpy as np
 from termcolor import colored
@@ -23,14 +23,24 @@ class TelemetryLogger:
         log_actions: Union[bool, Sequence[AgentID]] = False,
         log_observations: Union[bool, Sequence[AgentID]] = False,
         log_rewards: Union[bool, Sequence[AgentID]] = False,
+        log_dones: Union[bool, Sequence[AgentID]] = False,
+        log_infos: Union[bool, Sequence[AgentID]] = False,
         log_messages: Union[bool, Sequence[AgentID]] = False,
     ) -> None:
         self._enable = (
-            enable or log_actions or log_observations or log_rewards or log_messages
+            enable
+            or log_actions
+            or log_observations
+            or log_rewards
+            or log_dones
+            or log_infos
+            or log_messages
         )
         self._log_actions = log_actions
         self._log_observations = log_observations
         self._log_rewards = log_rewards
+        self._log_dones = log_dones
+        self._log_infos = log_infos
         self._log_messages = log_messages
 
     def log_reset(self) -> None:
@@ -48,19 +58,24 @@ class TelemetryLogger:
             print(_t(1) + colored(f"DECODING ACTIONS:", color="cyan"))
 
     def log_actions(self, actions: Mapping[AgentID, Action]) -> None:
-        if self._enable and self._log_actions and len(actions) > 0:
+        if self._enable and self._log_actions:
+            print(_t(1) + colored("ACTIONS:", color="cyan"))
+
             if not isinstance(self._log_actions, bool):
                 actions = {
                     a: act for a, act in actions.items() if a in self._log_actions
                 }
 
-            print(_t(1) + colored("ACTIONS:", color="cyan"))
-
-            for agent, action in actions.items():
-                print(_t(2) + f"{agent}: {_pretty_format_space(action)}")
+            if len(actions) > 0:
+                for agent, action in actions.items():
+                    print(_t(2) + f"{agent}: {_pretty_format_space(action)}")
+            else:
+                print(_t(2) + "None")
 
     def log_observations(self, observations: Mapping[AgentID, Observation]) -> None:
-        if self._enable and self._log_observations and len(observations) > 0:
+        if self._enable and self._log_observations:
+            print(_t(1) + colored("OBSERVATIONS:", color="cyan"))
+
             if not isinstance(self._log_observations, bool):
                 observations = {
                     a: obs
@@ -68,22 +83,67 @@ class TelemetryLogger:
                     if a in self._log_observations
                 }
 
-            print(_t(1) + colored("OBSERVATIONS:", color="cyan"))
-
-            for agent, observation in observations.items():
-                print(_t(2) + f"{agent}: {_pretty_format_space(observation)}")
+            if len(observations) > 0:
+                for agent, observation in observations.items():
+                    print(_t(2) + f"{agent}: {_pretty_format_space(observation)}")
+            else:
+                print(_t(2) + "None")
 
     def log_rewards(self, rewards: Mapping[AgentID, float]) -> None:
-        if self._enable and self._log_rewards and len(rewards) > 0:
+        if self._enable and self._log_rewards:
+            print(_t(1) + colored("REWARDS:", color="cyan"))
+
             if not isinstance(self._log_rewards, bool):
                 rewards = {
                     a: rew for a, rew in rewards.items() if a in self._log_rewards
                 }
 
-            print(_t(1) + colored("COMPUTED REWARDS:", color="cyan"))
+            if len(rewards) > 0:
+                for agent, reward in rewards.items():
+                    print(_t(2) + f"{agent}: {reward:.2f}")
+            else:
+                print(_t(2) + "None")
 
-            for agent, reward in rewards.items():
-                print(_t(2) + f"{agent}: {reward:.2f}")
+    def log_dones(self, dones: Mapping[AgentID, bool]) -> None:
+        if self._enable and self._log_dones:
+            print(_t(1) + colored("DONES:", color="cyan"))
+
+            dones = [a for a, done in dones.items() if done]
+
+            if not isinstance(self._log_dones, bool):
+                dones = [a for a in dones if a in self._log_dones]
+
+            if len(dones) > 0:
+                print(_t(2) + ", ".join(dones))
+            else:
+                print(_t(2) + "None")
+
+    def log_infos(self, infos: Mapping[AgentID, Any]) -> None:
+        if self._enable and self._log_infos:
+            print(_t(1) + colored("INFOS:", color="cyan"))
+
+            if not isinstance(self._log_infos, bool):
+                infos = {a: info for a, info in infos.items() if a in self._log_infos}
+
+            infos = {a: info for a, info in infos.items() if info is not None and info != {}}
+
+            if len(infos) > 0:
+                for agent, info in infos.items():
+                    print(_t(2) + f"{agent}: {info}")
+            else:
+                print(_t(2) + "None")
+
+    def log_step_values(
+        self,
+        observations: Mapping[AgentID, Observation],
+        rewards: Mapping[AgentID, float],
+        dones: Mapping[AgentID, bool],
+        infos: Mapping[AgentID, Any],
+    ) -> None:
+        self.log_observations(observations)
+        self.log_rewards(rewards)
+        self.log_dones(dones)
+        self.log_infos(infos)
 
     def log_fsm_transition(self, current_stage: StageID, next_stage: StageID) -> None:
         if self._enable:

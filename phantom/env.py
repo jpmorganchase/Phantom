@@ -284,8 +284,7 @@ class PhantomEnv:
                     if dones[agent_id]:
                         self._dones.add(agent_id)
 
-        logger.log_observations(observations)
-        logger.log_rewards(rewards)
+        logger.log_step_values(observations, rewards, dones, infos)
 
         dones["__all__"] = self.is_done()
 

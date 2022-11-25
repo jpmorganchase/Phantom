@@ -235,7 +235,6 @@ class FiniteStateMachineEnv(PhantomEnv):
             if aid in self.strategic_agent_ids
         }
 
-
         # Generate initial sampled values in samplers
         for sampler in self._samplers:
             sampler.sample()
@@ -270,7 +269,6 @@ class FiniteStateMachineEnv(PhantomEnv):
             for aid in self.agents
             if aid not in self._dones
         }
-
 
         logger.log_actions(actions)
         logger.log_start_decoding_actions()
@@ -357,8 +355,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             if dones[aid]:
                 self._dones.add(aid)
 
-        logger.log_observations(observations)
-        logger.log_rewards(rewards)
+        logger.log_step_values(observations, rewards, dones, infos)
 
         self._observations.update(observations)
         self._rewards.update(rewards)
