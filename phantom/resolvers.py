@@ -146,10 +146,10 @@ class BatchResolver(Resolver):
                     np.random.shuffle(msgs)
 
                 ctx = contexts[receiver_id]
-                batch = ctx.agent.handle_batch(ctx, msgs)
+                responses = ctx.agent.handle_batch(ctx, msgs)
 
-                if batch is not None:
-                    for sub_receiver_id, sub_payload in batch:
+                if responses is not None:
+                    for sub_receiver_id, sub_payload in responses:
                         network.send(receiver_id, sub_receiver_id, sub_payload)
 
         if len(self.messages) > 0:
