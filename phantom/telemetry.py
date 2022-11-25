@@ -15,33 +15,44 @@ TAB_SIZE = 4
 
 class TelemetryLogger:
     def __init__(self) -> None:
-        self.configure()
+        self._enable = False
+        self._log_actions: Union[bool, Sequence[AgentID]] = False
+        self._log_observations: Union[bool, Sequence[AgentID]] = False
+        self._log_rewards: Union[bool, Sequence[AgentID]] = False
+        self._log_dones: Union[bool, Sequence[AgentID]] = False
+        self._log_infos: Union[bool, Sequence[AgentID]] = False
+        self._log_messages: Union[bool, Sequence[AgentID]] = False
 
     def configure(
         self,
-        enable: bool = False,
-        log_actions: Union[bool, Sequence[AgentID]] = False,
-        log_observations: Union[bool, Sequence[AgentID]] = False,
-        log_rewards: Union[bool, Sequence[AgentID]] = False,
-        log_dones: Union[bool, Sequence[AgentID]] = False,
-        log_infos: Union[bool, Sequence[AgentID]] = False,
-        log_messages: Union[bool, Sequence[AgentID]] = False,
+        enable: Union[bool, None] = None,
+        log_actions: Union[bool, Sequence[AgentID], None] = None,
+        log_observations: Union[bool, Sequence[AgentID], None] = None,
+        log_rewards: Union[bool, Sequence[AgentID], None] = None,
+        log_dones: Union[bool, Sequence[AgentID], None] = None,
+        log_infos: Union[bool, Sequence[AgentID], None] = None,
+        log_messages: Union[bool, Sequence[AgentID], None] = None,
     ) -> None:
-        self._enable = (
-            enable
-            or log_actions
-            or log_observations
-            or log_rewards
-            or log_dones
-            or log_infos
-            or log_messages
-        )
-        self._log_actions = log_actions
-        self._log_observations = log_observations
-        self._log_rewards = log_rewards
-        self._log_dones = log_dones
-        self._log_infos = log_infos
-        self._log_messages = log_messages
+        if log_actions is not None:
+            self._log_actions = log_actions
+
+        if log_observations is not None:
+            self._log_observations = log_observations
+
+        if log_rewards is not None:
+            self._log_rewards = log_rewards
+
+        if log_dones is not None:
+            self._log_dones = log_dones
+
+        if log_infos is not None:
+            self._log_infos = log_infos
+
+        if log_messages is not None:
+            self._log_messages = log_messages
+
+        if enable is not None:
+            self._enable = enable
 
     def log_reset(self) -> None:
         if self._enable:
