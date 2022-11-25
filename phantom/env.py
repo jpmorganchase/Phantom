@@ -12,6 +12,7 @@ from .agents import Agent, StrategicAgent
 from .context import Context
 from .network import Network
 from .supertype import Supertype
+from .telemetry import logger
 from .types import AgentID
 from .utils.samplers import Sampler
 from .views import AgentView, EnvView
@@ -180,6 +181,8 @@ class PhantomEnv:
             A dictionary mapping Agent IDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
+        logger.log_reset()
+
         # Reset clock
         self.current_step = 0
 
@@ -192,7 +195,6 @@ class PhantomEnv:
 
         # Reset network and call reset method on all agents in the network
         self.network.reset()
-        self.resolve_network()
 
         # Reset the strategic agents' done statuses stored by the environment
         self._dones = set()
@@ -213,6 +215,9 @@ class PhantomEnv:
             ctx.agent.id: ctx.agent.encode_observation(ctx)
             for ctx in self._ctxs.values()
         }
+
+        logger.log_observations(obs)
+
         return {k: v for k, v in obs.items() if v is not None}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
@@ -230,6 +235,8 @@ class PhantomEnv:
         # Increment clock
         self.current_step += 1
 
+        logger.log_step(self.current_step, self.num_steps)
+
         # Generate all contexts for all agents taking actions / generating messages
         env_view = self.view()
         self._ctxs = {
@@ -241,6 +248,9 @@ class PhantomEnv:
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
         }
+
+        logger.log_actions(actions)
+        logger.log_start_decoding_actions()
 
         # Decode action/generate messages for agents and send to the network
         for agent_id, ctx in self._ctxs.items():
@@ -274,7 +284,13 @@ class PhantomEnv:
                     if dones[agent_id]:
                         self._dones.add(agent_id)
 
+        logger.log_observations(observations)
+        logger.log_rewards(rewards)
+
         dones["__all__"] = self.is_done()
+
+        if dones["__all__"]:
+            logger.log_episode_done()
 
         return self.Step(
             observations=observations, rewards=rewards, dones=dones, infos=infos

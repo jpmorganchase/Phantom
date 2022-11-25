@@ -14,14 +14,13 @@ from typing import (
     TypeVar,
 )
 
-import numpy as np
-
 from .context import Context
 from .decoders import Decoder
 from .encoders import Encoder
 from .message import Message, MsgPayload
 from .reward_functions import RewardFunction
 from .supertype import Supertype
+from .telemetry import logger
 from .types import AgentID
 from .views import AgentView
 
@@ -108,14 +107,17 @@ class Agent(ABC):
             A list of receiver ID / message payload pairs to form into messages in
             response to further resolve.
         """
-        return list(
-            chain.from_iterable(
-                filter(
-                    lambda x: x is not None,
-                    (self.handle_message(ctx, message) for message in batch),
-                )
-            )
-        )
+        all_responses = []
+
+        for message in batch:
+            logger.log_msg_recv(message)
+
+            responses = self.handle_message(ctx, message)
+
+            if responses is not None:
+                all_responses += responses
+
+        return all_responses
 
     def handle_message(
         self, ctx: Context, message: Message

@@ -6,6 +6,7 @@ from typing import DefaultDict, List, Mapping, Optional, TYPE_CHECKING
 import numpy as np
 
 from .context import Context
+from .telemetry import logger
 from .types import AgentID
 from .message import Message
 
@@ -39,6 +40,8 @@ class Resolver(ABC):
         """Called by the Network to add messages to the resolver."""
         if self.enable_tracking:
             self._tracked_messages.append(message)
+
+        logger.log_msg_send(message)
 
         self.handle_push(message)
 
@@ -127,9 +130,11 @@ class BatchResolver(Resolver):
             itertools.count() if self.round_limit is None else range(self.round_limit)
         )
 
-        for _ in iterator:
+        for i in iterator:
             if len(self.messages) == 0:
                 break
+
+            logger.log_resolver_round(i, self.round_limit)
 
             processing_messages = self.messages
             self.messages = defaultdict(list)
