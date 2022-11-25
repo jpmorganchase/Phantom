@@ -128,7 +128,7 @@ class PhantomEnv:
 
     def view(self) -> EnvView:
         """Return an immutable view to the environment's public state."""
-        return EnvView(self.current_step)
+        return EnvView(self.current_step, self.current_step / self.num_steps)
 
     def pre_message_resolution(self) -> None:
         """Perform internal, pre-message resolution updates to the environment."""
