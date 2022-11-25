@@ -131,12 +131,12 @@ class PhantomEnv:
         return list(self.network.agent_ids)
 
     @property
-    def rl_agents(self) -> List[StrategicAgent]:
+    def strategic_agents(self) -> List[StrategicAgent]:
         """Return a list of agents that take actions."""
         return [a for a in self.agents.values() if isinstance(a, StrategicAgent)]
 
     @property
-    def non_rl_agents(self) -> List[Agent]:
+    def non_strategic_agents(self) -> List[Agent]:
         """Return a list of agents that do not take actions."""
         return [a for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
@@ -201,7 +201,7 @@ class PhantomEnv:
         env_view = self.view()
         self._ctxs = {
             agent.id: self.network.context_for(agent.id, env_view)
-            for agent in self.rl_agents
+            for agent in self.strategic_agents
         }
 
         self._views = {
@@ -286,7 +286,7 @@ class PhantomEnv:
             self.num_steps is not None and self.current_step == self.num_steps
         )
 
-        return is_at_max_step or len(self._dones) == len(self.rl_agents)
+        return is_at_max_step or len(self._dones) == len(self.strategic_agents)
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]
