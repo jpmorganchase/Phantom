@@ -125,7 +125,9 @@ class TelemetryLogger:
             if not isinstance(self._log_infos, bool):
                 infos = {a: info for a, info in infos.items() if a in self._log_infos}
 
-            infos = {a: info for a, info in infos.items() if info is not None and info != {}}
+            infos = {
+                a: info for a, info in infos.items() if info is not None and info != {}
+            }
 
             if len(infos) > 0:
                 for agent, info in infos.items():
