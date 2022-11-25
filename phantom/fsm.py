@@ -190,17 +190,12 @@ class FiniteStateMachineEnv(PhantomEnv):
         """Return an immutable view to the FSM environment's public state."""
         return FSMEnvView(self.current_step, self.current_stage)
 
-    def reset(self, sample_supertypes: bool = True) -> Dict[AgentID, Any]:
+    def reset(self) -> Dict[AgentID, Any]:
         """
         Reset the environment and return an initial observation.
 
         This method resets the step count and the :attr:`network`. This includes all the
         agents in the network.
-
-        Arguments:
-            sample_supertypes: If set to False will not automatically sample supertypes
-                and apply agent and environment types.
-
 
         Returns:
             A dictionary mapping AgentIDs to observations made by the respective
