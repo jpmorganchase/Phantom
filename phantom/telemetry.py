@@ -89,6 +89,7 @@ class TelemetryLogger:
             print(colored(f"ENV RESET", attrs=["bold"]))
 
     def log_step(self, current_step: int, num_steps: int) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"].append({"messages": []})
 
         if self._enable_print:
@@ -100,6 +101,7 @@ class TelemetryLogger:
             print(_t(1) + colored(f"DECODING ACTIONS:", color="cyan"))
 
     def log_actions(self, actions: Mapping[AgentID, Action]) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["actions"] = actions
 
         if self._enable_print and self._print_actions:
@@ -117,6 +119,7 @@ class TelemetryLogger:
                 print(_t(2) + "None")
 
     def log_observations(self, observations: Mapping[AgentID, Observation]) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["observations"] = observations
 
         if self._enable_print and self._print_observations:
@@ -136,6 +139,7 @@ class TelemetryLogger:
                 print(_t(2) + "None")
 
     def log_rewards(self, rewards: Mapping[AgentID, float]) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["rewards"] = rewards
 
         if self._enable_print and self._print_rewards:
@@ -155,6 +159,7 @@ class TelemetryLogger:
     def log_dones(self, dones: Mapping[AgentID, bool]) -> None:
         dones = [a for a, done in dones.items() if done]
 
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["dones"] = dones
 
         if self._enable_print and self._print_dones:
@@ -169,6 +174,7 @@ class TelemetryLogger:
                 print(_t(2) + "None")
 
     def log_infos(self, infos: Mapping[AgentID, Any]) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["infos"] = infos
 
         if self._enable_print and self._print_infos:
@@ -200,6 +206,7 @@ class TelemetryLogger:
         self.log_infos(infos)
 
     def log_fsm_transition(self, current_stage: StageID, next_stage: StageID) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["fsm_current_stage"] = current_stage
         self._current_episode["steps"][-1]["fsm_next_stage"] = next_stage
 
@@ -234,6 +241,7 @@ class TelemetryLogger:
             print(_t(2) + f"MSG SEND: {route_str} {msg_name: <20}")
 
     def log_msg_recv(self, message: Message) -> None:
+        if self._current_episode is not None:
         self._current_episode["steps"][-1]["messages"].append(asdict(message))
 
         if self._should_print_msg(message):
@@ -248,10 +256,10 @@ class TelemetryLogger:
             )
 
     def log_episode_done(self) -> None:
+        self._write_episode_to_file()
+
         if self._enable_print:
             print(_t(1) + colored("EPISODE DONE", color="green", attrs=["bold"]))
-
-            self._write_episode_to_file()
 
     def _write_episode_to_file(self) -> None:
         if self._output_file is not None and self._current_episode is not None:
