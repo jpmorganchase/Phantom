@@ -321,7 +321,7 @@ class TelemetryLogger:
         if self._current_episode is not None:
             self._current_episode["steps"][-1]["metrics"] = {
                 name: metric.extract(env)
-                for name, metric in self._print_metrics.items()
+                for name, metric in self._file_metrics.items()
             }
 
         if self._enable_print and self._print_metrics is not None:
