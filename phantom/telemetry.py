@@ -23,6 +23,23 @@ TAB_SIZE = 4
 
 
 class TelemetryLogger:
+    """
+    This class is for logging episodes either to the terminal or to a JSON stream file.
+
+    An instance of this class is automatically initialised when the Phantom library is
+    imported. It should be configured by the user using the
+    :meth:`configure_print_logging` and :meth:`configure_file_logging` methods. Both
+    print and file logging are turned off by default.
+
+    WARNING: this feature will not produce desired results when using any form of
+    multiprocessing! This feature is designed for debugging purposes when using manual
+    episode invocation.
+
+    NOTE: any custom derived environments that modify the :meth:`reset` and :meth:`step`
+    methods should take care to call the required class methods to enable telemetry
+    logging.
+    """
+
     def __init__(self) -> None:
         self._enable_print = False
         self._print_actions: Union[bool, Sequence[AgentID]] = False
@@ -51,6 +68,24 @@ class TelemetryLogger:
         print_messages: Union[bool, Sequence[AgentID], None] = None,
         metrics: Optional[Mapping[str, Metric]] = None,
     ) -> None:
+        """Configures logging to the terminal/stdout.
+
+        All options except :attr:`metrics` will log for:
+            - All agents if True is given.
+            - No agents if False is given.
+            - A subset of agents if a list of :type:`AgentID`s is given.
+            - The pre-existing choice if None is given.
+
+        Arguments:
+            enable: If False, nothing will be logged to the terminal.
+            print_actions: Updates whether and what action data will be logged.
+            print_observations: Updates whether and what observation data will be logged.
+            print_rewards: Updates whether and what reward data will be logged.
+            print_dones: Updates whether and what done data will be logged.
+            print_infos: Updates whether and what info data will be logged.
+            print_messages: Updates whether and what message data will be logged.
+            metrics: Sets which metrics will be logged.
+        """
         if enable is not None:
             self._enable_print = enable
 
@@ -82,6 +117,17 @@ class TelemetryLogger:
         human_readable: Optional[bool] = None,
         metrics: Optional[Mapping[str, Metric]] = None,
     ) -> None:
+        """
+        Configures logging to the a file in the JSON stream format (each episode is a
+        JSON object separated by a newline).
+
+        Arguments:
+            file_path: The path to the file to save telemetry to.
+            append: If True will append to the file if it already exists, if False will
+                overwrite any existing data.
+            human_readable: If True will save the data in a human readable format.
+            metrics: Sets which metrics will be logged.
+        """
         if file_path is None:
             self._output_file = None
         else:
