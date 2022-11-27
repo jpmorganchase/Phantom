@@ -1,10 +1,11 @@
 from abc import abstractmethod, ABC
 from functools import reduce
-from typing import Generic, Iterable, Optional, Sequence, TypeVar
+from typing import Generic, Iterable, Optional, Sequence, TypeVar, TYPE_CHECKING
 
 import numpy as np
 
-from .env import PhantomEnv
+if TYPE_CHECKING:
+    from .env import PhantomEnv
 
 
 MetricValue = TypeVar("MetricValue")
@@ -21,7 +22,7 @@ class Metric(Generic[MetricValue], ABC):
         self.description = description
 
     @abstractmethod
-    def extract(self, env: PhantomEnv) -> MetricValue:
+    def extract(self, env: "PhantomEnv") -> MetricValue:
         """Extract and return the current metric value from `env`.
 
         Arguments:
@@ -105,7 +106,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
         super().__init__(reduce_action, description)
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return _rgetattr(env.agents[self.agent_id], self.agent_property)
 
 
@@ -138,7 +139,7 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
         super().__init__(reduce_action, description)
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return _rgetattr(env, self.env_property)
 
 
@@ -192,7 +193,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
         super().__init__(reduce_action, description)
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         values = [
             _rgetattr(env.agents[agent_id], self.agent_property)
             for agent_id in self.agent_ids

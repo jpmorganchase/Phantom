@@ -3,13 +3,17 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence, TypeVar, Union
+from typing import Any, Mapping, Optional, Sequence, TypeVar, Union, TYPE_CHECKING
 
 import numpy as np
 from termcolor import colored
 
 from .message import Message
+from .logging import Metric
 from .types import AgentID, StageID
+
+if TYPE_CHECKING:
+    from .env import PhantomEnv
 
 
 Action = TypeVar("Action")
@@ -28,6 +32,9 @@ class TelemetryLogger:
         self._print_infos: Union[bool, Sequence[AgentID]] = False
         self._print_messages: Union[bool, Sequence[AgentID]] = False
 
+        self._print_metrics: Optional[Mapping[str, Metric]] = None
+        self._file_metrics: Optional[Mapping[str, Metric]] = None
+
         self._output_file: Optional[io.TextIOBase] = None
         self._human_readable: bool = False
 
@@ -42,6 +49,7 @@ class TelemetryLogger:
         print_dones: Union[bool, Sequence[AgentID], None] = None,
         print_infos: Union[bool, Sequence[AgentID], None] = None,
         print_messages: Union[bool, Sequence[AgentID], None] = None,
+        metrics: Optional[Mapping[str, Metric]] = None,
     ) -> None:
         if enable is not None:
             self._enable_print = enable
@@ -64,25 +72,33 @@ class TelemetryLogger:
         if print_messages is not None:
             self._print_messages = print_messages
 
+        if metrics is not None:
+            self._print_metrics = metrics
+
     def configure_file_logging(
         self,
         file_path: Union[str, Path, None],
         append: bool = True,
         human_readable: Optional[bool] = None,
+        metrics: Optional[Mapping[str, Metric]] = None,
     ) -> None:
-        if human_readable is not None:
-            self._human_readable = human_readable
-
         if file_path is None:
             self._output_file = None
         else:
             self._output_file = open(file_path, "a" if append else "w")
 
+        if human_readable is not None:
+            self._human_readable = human_readable
+
+        if metrics is not None:
+            self._file_metrics = metrics
+
     def log_reset(self) -> None:
-        self._current_episode = {
-            "start": str(datetime.now()),
-            "steps": [{"messages": []}],
-        }
+        if self._output_file is not None:
+            self._current_episode = {
+                "start": str(datetime.now()),
+                "steps": [{"messages": [], "metrics": []}],
+            }
 
         if self._enable_print:
             print(colored("=" * 80, attrs=["dark"]))
@@ -90,7 +106,7 @@ class TelemetryLogger:
 
     def log_step(self, current_step: int, num_steps: int) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"].append({"messages": []})
+            self._current_episode["steps"].append({"messages": []})
 
         if self._enable_print:
             print(colored("-" * 80, attrs=["dark"]))
@@ -102,7 +118,7 @@ class TelemetryLogger:
 
     def log_actions(self, actions: Mapping[AgentID, Action]) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["actions"] = actions
+            self._current_episode["steps"][-1]["actions"] = actions
 
         if self._enable_print and self._print_actions:
             print(_t(1) + colored("ACTIONS:", color="cyan"))
@@ -120,7 +136,7 @@ class TelemetryLogger:
 
     def log_observations(self, observations: Mapping[AgentID, Observation]) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["observations"] = observations
+            self._current_episode["steps"][-1]["observations"] = observations
 
         if self._enable_print and self._print_observations:
             print(_t(1) + colored("OBSERVATIONS:", color="cyan"))
@@ -140,7 +156,7 @@ class TelemetryLogger:
 
     def log_rewards(self, rewards: Mapping[AgentID, float]) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["rewards"] = rewards
+            self._current_episode["steps"][-1]["rewards"] = rewards
 
         if self._enable_print and self._print_rewards:
             print(_t(1) + colored("REWARDS:", color="cyan"))
@@ -160,7 +176,7 @@ class TelemetryLogger:
         dones = [a for a, done in dones.items() if done]
 
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["dones"] = dones
+            self._current_episode["steps"][-1]["dones"] = dones
 
         if self._enable_print and self._print_dones:
             print(_t(1) + colored("DONES:", color="cyan"))
@@ -175,7 +191,7 @@ class TelemetryLogger:
 
     def log_infos(self, infos: Mapping[AgentID, Any]) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["infos"] = infos
+            self._current_episode["steps"][-1]["infos"] = infos
 
         if self._enable_print and self._print_infos:
             print(_t(1) + colored("INFOS:", color="cyan"))
@@ -207,8 +223,8 @@ class TelemetryLogger:
 
     def log_fsm_transition(self, current_stage: StageID, next_stage: StageID) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["fsm_current_stage"] = current_stage
-        self._current_episode["steps"][-1]["fsm_next_stage"] = next_stage
+            self._current_episode["steps"][-1]["fsm_current_stage"] = current_stage
+            self._current_episode["steps"][-1]["fsm_next_stage"] = next_stage
 
         if self._enable_print:
             print(
@@ -242,7 +258,7 @@ class TelemetryLogger:
 
     def log_msg_recv(self, message: Message) -> None:
         if self._current_episode is not None:
-        self._current_episode["steps"][-1]["messages"].append(asdict(message))
+            self._current_episode["steps"][-1]["messages"].append(asdict(message))
 
         if self._should_print_msg(message):
             route_str = f"{message.sender_id: >10} --> {message.receiver_id: <10}"
@@ -254,6 +270,22 @@ class TelemetryLogger:
                 + f"MSG RECV: {route_str} {msg_name: <20}"
                 + colored(fields, attrs=["dark"])
             )
+
+    def log_metrics(self, env: "PhantomEnv") -> None:
+        if self._current_episode is not None:
+            self._current_episode["steps"][-1]["metrics"] = {
+                name: metric.extract(env)
+                for name, metric in self._print_metrics.items()
+            }
+
+        if self._enable_print and self._print_metrics is not None:
+            print(_t(1) + colored("METRICS:", color="cyan"))
+
+            if len(self._print_metrics) > 0:
+                for name, metric in self._print_metrics.items():
+                    print(_t(2) + f"{name: <30} : {metric.extract(env)}")
+            else:
+                print(_t(2) + "None")
 
     def log_episode_done(self) -> None:
         self._write_episode_to_file()

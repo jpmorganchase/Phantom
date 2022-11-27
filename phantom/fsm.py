@@ -356,6 +356,7 @@ class FiniteStateMachineEnv(PhantomEnv):
                 self._dones.add(aid)
 
         logger.log_step_values(observations, rewards, dones, infos)
+        logger.log_metrics(self)
 
         self._observations.update(observations)
         self._rewards.update(rewards)

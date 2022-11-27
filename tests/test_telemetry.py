@@ -13,6 +13,7 @@ def test_telemetry(tmpdir):
         print_dones=True,
         print_infos=True,
         print_messages=True,
+        metrics={"step": ph.logging.SimpleEnvMetric("current_step")},
     )
 
     env = MockEnv()
@@ -22,12 +23,14 @@ def test_telemetry(tmpdir):
     for _ in range(5):
         env.step({})
 
+    assert ph.telemetry.logger._current_episode is None
     assert not os.path.isfile(tmpdir.join("log.json"))
 
     ph.telemetry.logger.configure_print_logging(enable=False)
 
     ph.telemetry.logger.configure_file_logging(
         file_path=tmpdir.join("log.json"),
+        metrics={"step": ph.logging.SimpleEnvMetric("current_step")},
     )
 
     env = MockEnv()
@@ -39,6 +42,19 @@ def test_telemetry(tmpdir):
 
     assert os.path.isfile(tmpdir.join("log.json"))
 
-    json.load(open(tmpdir.join("log.json"), "r"))
+    data = json.load(open(tmpdir.join("log.json"), "r"))
+
+    assert set(data.keys()) == {"start", "steps"}
+    assert len(data["steps"]) == 6
+    assert set(data["steps"][0]) == {"messages", "metrics", "observations"}
+    assert set(data["steps"][1]) == {
+        "actions",
+        "dones",
+        "infos",
+        "messages",
+        "metrics",
+        "observations",
+        "rewards",
+    }
 
     ph.telemetry.logger.configure_file_logging(file_path=None)

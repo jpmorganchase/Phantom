@@ -285,6 +285,7 @@ class PhantomEnv:
                         self._dones.add(agent_id)
 
         logger.log_step_values(observations, rewards, dones, infos)
+        logger.log_metrics(self)
 
         dones["__all__"] = self.is_done()
 
