@@ -149,7 +149,7 @@ class TelemetryLogger:
         if self._enable_print:
             print(colored("=" * 80, attrs=["dark"]))
             print(colored(f"ENV RESET", attrs=["bold"]))
-            print(colored("=" * 80, attrs=["dark"]))
+            print(colored("-" * 80, attrs=["dark"]))
 
     def log_step(self, current_step: int, num_steps: int) -> None:
         if self._current_episode is not None:
