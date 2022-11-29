@@ -214,6 +214,10 @@ class FiniteStateMachineEnv(PhantomEnv):
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
+
         # Generate views for use of the environment itself for generating it's own view
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
@@ -261,6 +265,10 @@ class FiniteStateMachineEnv(PhantomEnv):
         """
         # Increment clock
         self.current_step += 1
+
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
 
         # Pre-generate all contexts for all agents taking actions / generating messages
         env_view = self.view()
