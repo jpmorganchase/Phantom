@@ -208,6 +208,15 @@ class FiniteStateMachineEnv(PhantomEnv):
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
+
+        # Generate views for use of the environment itself for generating it's own view
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
+
         # Reset network and call reset method on all agents in the network.
         self.network.reset()
         self.resolve_network()
@@ -258,6 +267,10 @@ class FiniteStateMachineEnv(PhantomEnv):
         self.current_step += 1
 
         logger.log_step(self.current_step, self.num_steps)
+        
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
 
         # Pre-generate all contexts for all agents taking actions / generating messages
         env_view = self.view()
@@ -269,6 +282,11 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         logger.log_actions(actions)
         logger.log_start_decoding_actions()
+        
+        # Generate views for use of the environment itself for generating it's own view
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
 
         # Decode action/generate messages for agents and send to the network
         for aid in actions.keys():

@@ -74,7 +74,8 @@ class Agent(ABC):
             list
         )
 
-        for name, attr in self.__class__.__dict__.items():
+        for name in dir(self):
+            attr = getattr(self, name)
             if callable(attr) and hasattr(attr, "_message_type"):
                 self.__handlers[attr._message_type].append(getattr(self, name))
 
