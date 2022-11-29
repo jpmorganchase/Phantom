@@ -3,7 +3,7 @@
 Agents
 ======
 
-Phantom has two base agent classes, :class:`Agent` and :class:`RLAgent`.  All user
+Phantom has two base agent classes, :class:`Agent` and :class:`StrategicAgent`.  All user
 implemented agent classes should be derived from one of these two classes.
 
 Depending on which methods are implemented / properties set, agents can have differing
@@ -16,7 +16,7 @@ reward function.
 If the :meth:`generate_messages` method is also implemented the agent can now also
 pro-actively create messages at the start of each step.
 
-Finally there is the :class:`RLAgent` that has a Policy, reward function, observation
+Finally there is the :class:`StrategicAgent` that has a Policy, reward function, observation
 encoder and action decoder. The :meth:`generate_messages` should not be implemented here
 as the action decoder provides the message generation functionality.
 
@@ -48,8 +48,8 @@ Agent
    :inherited-members:
 
 
-RLAgent
--------
+StrategicAgent
+--------------
 
-.. autoclass:: phantom.agents.RLAgent
+.. autoclass:: phantom.agents.StrategicAgent
    :inherited-members:

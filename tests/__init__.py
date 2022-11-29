@@ -15,7 +15,14 @@ class MockSampler(ph.utils.samplers.Sampler[float]):
         return self._value
 
 
-class MockAgent(ph.RLAgent):
+class MockAgent(ph.Agent):
+    def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.num_steps = num_steps
+
+
+class MockStrategicAgent(ph.StrategicAgent):
     @dataclass
     class Supertype(ph.Supertype):
         type_value: float = 0.0
@@ -59,7 +66,7 @@ class MockEnv(ph.PhantomEnv):
         type_value: float
 
     def __init__(self, env_supertype=None):
-        agents = [MockAgent("a1"), MockAgent("a2"), MockAgent("a3")]
+        agents = [MockStrategicAgent("a1"), MockStrategicAgent("a2"), MockAgent("a3")]
 
         network = ph.network.Network(agents)
 

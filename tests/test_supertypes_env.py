@@ -2,12 +2,12 @@ import pytest
 
 import phantom as ph
 
-from . import MockAgent, MockEnv, MockSampler
+from . import MockStrategicAgent, MockEnv, MockSampler
 
 
 def test_agent_supertypes_in_env_1():
     # USING STANDARD AGENT_SUPERTYPES PARAMETER STYLE
-    agents = [MockAgent("a1"), MockAgent("a2")]
+    agents = [MockStrategicAgent("a1"), MockStrategicAgent("a2")]
 
     network = ph.Network(agents)
 
@@ -15,8 +15,8 @@ def test_agent_supertypes_in_env_1():
     s2 = MockSampler(10)
 
     agent_supertypes = {
-        "a1": MockAgent.Supertype(type_value=s1),
-        "a2": MockAgent.Supertype(type_value=s2),
+        "a1": MockStrategicAgent.Supertype(type_value=s1),
+        "a2": MockStrategicAgent.Supertype(type_value=s2),
     }
 
     # sampler sampled 1st time
@@ -36,13 +36,13 @@ def test_agent_supertypes_in_env_1():
     # sampler sampled 2nd time
     env.reset()
 
-    assert env.agents["a1"].type == MockAgent.Supertype(2)
-    assert env.agents["a2"].type == MockAgent.Supertype(12)
+    assert env.agents["a1"].type == MockStrategicAgent.Supertype(2)
+    assert env.agents["a2"].type == MockStrategicAgent.Supertype(12)
 
 
 def test_agent_supertypes_in_env_2():
     # USING DICTIONARY AGENT_SUPERTYPES PARAMETER STYLE
-    agents = [MockAgent("a1"), MockAgent("a2")]
+    agents = [MockStrategicAgent("a1"), MockStrategicAgent("a2")]
 
     network = ph.Network(agents)
 
@@ -60,10 +60,10 @@ def test_agent_supertypes_in_env_2():
     assert set(env._samplers) == set([s1, s2])
 
     assert env.agents["a1"].type == None
-    assert env.agents["a1"].supertype == MockAgent.Supertype(type_value=s1)
+    assert env.agents["a1"].supertype == MockStrategicAgent.Supertype(type_value=s1)
 
     assert env.agents["a2"].type == None
-    assert env.agents["a2"].supertype == MockAgent.Supertype(type_value=s2)
+    assert env.agents["a2"].supertype == MockStrategicAgent.Supertype(type_value=s2)
 
     assert env.agents["a1"].supertype.type_value == s1
     assert env.agents["a2"].supertype.type_value == s2
@@ -71,12 +71,12 @@ def test_agent_supertypes_in_env_2():
     # sampler sampled 2nd time
     env.reset()
 
-    assert env.agents["a1"].type == MockAgent.Supertype(2)
-    assert env.agents["a2"].type == MockAgent.Supertype(12)
+    assert env.agents["a1"].type == MockStrategicAgent.Supertype(2)
+    assert env.agents["a2"].type == MockStrategicAgent.Supertype(12)
 
 
 def test_agent_supertypes_in_env_bad():
-    agents = [MockAgent("a1"), MockAgent("a2")]
+    agents = [MockStrategicAgent("a1"), MockStrategicAgent("a2")]
 
     network = ph.Network(agents)
 

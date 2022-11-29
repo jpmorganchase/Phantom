@@ -9,12 +9,12 @@ The episode duration is two steps.
 import numpy as np
 import phantom as ph
 
-from .. import MockAgent
+from .. import MockStrategicAgent
 
 
 class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
     def __init__(self):
-        agents = [MockAgent("odd_agent"), MockAgent("even_agent")]
+        agents = [MockStrategicAgent("odd_agent"), MockStrategicAgent("even_agent")]
 
         network = ph.Network(agents)
 

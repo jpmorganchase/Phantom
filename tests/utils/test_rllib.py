@@ -1,7 +1,7 @@
 import phantom as ph
 import pytest
 
-from .. import MockAgent, MockEnv, MockPolicy
+from .. import MockStrategicAgent, MockEnv, MockPolicy
 
 
 def test_rllib_train_rollout(tmpdir):
@@ -10,7 +10,7 @@ def test_rllib_train_rollout(tmpdir):
         env_class=MockEnv,
         env_config={},
         policies={
-            "mock_policy": MockAgent,
+            "mock_policy": MockStrategicAgent,
         },
         rllib_config={
             "disable_env_checking": True,

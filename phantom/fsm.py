@@ -10,7 +10,7 @@ from typing import (
     Tuple,
 )
 
-from .agents import RLAgent
+from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -222,12 +222,12 @@ class FiniteStateMachineEnv(PhantomEnv):
         self._dones = set()
 
         # Set initial null reward values
-        self._rewards = {aid: None for aid in self._rl_agent_ids}
+        self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
         # Initial acting agents are either those specified in stage acting agents or
         # else all acting agents
         acting_agents = (
-            self._stages[self.current_stage].acting_agents or self._rl_agent_ids
+            self._stages[self.current_stage].acting_agents or self.strategic_agent_ids
         )
 
         # Pre-generate all contexts for agents taking actions
@@ -235,7 +235,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         ctxs = [
             self.network.context_for(aid, env_view)
             for aid in acting_agents
-            if aid in self._rl_agent_ids
+            if aid in self.strategic_agent_ids
         ]
 
         # Generate initial sampled values in samplers
@@ -273,7 +273,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             for receiver_id, message in messages:
                 self.network.send(aid, receiver_id, message)
 
-        for aid in self._non_rl_agent_ids:
+        for aid in self.non_strategic_agent_ids:
             if (
                 self._stages[self.current_stage].acting_agents is None
                 or aid in self._stages[self.current_stage].acting_agents
@@ -321,13 +321,13 @@ class FiniteStateMachineEnv(PhantomEnv):
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
         if self._stages[self.current_stage].rewarded_agents is None:
-            rewarded_agents = self._rl_agent_ids
-            next_acting_agents = self._rl_agent_ids
+            rewarded_agents = self.strategic_agent_ids
+            next_acting_agents = self.strategic_agent_ids
         else:
             rewarded_agents = self._stages[self.current_stage].rewarded_agents
             next_acting_agents = self._stages[next_stage].acting_agents
 
-        for aid in self._rl_agent_ids:
+        for aid in self.strategic_agent_ids:
             if aid in self._dones:
                 continue
 
@@ -369,13 +369,3 @@ class FiniteStateMachineEnv(PhantomEnv):
         rewards = {aid: self._rewards[aid] for aid in observations}
 
         return self.Step(observations, rewards, dones, infos)
-
-    @property
-    def _rl_agent_ids(self) -> List[AgentID]:
-        """Internal Interface."""
-        return [a.id for a in self.agents.values() if isinstance(a, RLAgent)]
-
-    @property
-    def _non_rl_agent_ids(self) -> List[AgentID]:
-        """Internal Interface."""
-        return [a.id for a in self.agents.values() if not isinstance(a, RLAgent)]
