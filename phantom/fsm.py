@@ -218,7 +218,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
         }
-        
+
         # Reset network and call reset method on all agents in the network.
         self.network.reset()
         self.resolve_network()
@@ -269,7 +269,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             for aid in self.agents
             if aid not in self._dones
         }
-        
+
         # Generate views for use of the environment itself for generating it's own view
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
