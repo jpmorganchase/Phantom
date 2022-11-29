@@ -35,7 +35,7 @@ class MockEnv:
 def test_simple_env_metric_1():
     env = MockEnv()
 
-    metric = ph.logging.SimpleEnvMetric(
+    metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
         reduce_action="last",
     )
@@ -52,7 +52,7 @@ def test_simple_env_metric_1():
 def test_simple_env_metric_2():
     env = MockEnv()
 
-    metric = ph.logging.SimpleEnvMetric(
+    metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
         reduce_action="mean",
     )
@@ -69,7 +69,7 @@ def test_simple_env_metric_2():
 def test_simple_env_metric_3():
     env = MockEnv()
 
-    metric = ph.logging.SimpleEnvMetric(
+    metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
         reduce_action="sum",
     )
@@ -86,7 +86,7 @@ def test_simple_env_metric_3():
 def test_simple_agent_metric_1():
     env = MockEnv()
 
-    metric = ph.logging.SimpleAgentMetric(
+    metric = ph.metrics.SimpleAgentMetric(
         agent_id="agent1",
         agent_property="test_property",
         reduce_action="last",
@@ -104,7 +104,7 @@ def test_simple_agent_metric_1():
 def test_simple_agent_metric_2():
     env = MockEnv()
 
-    metric = ph.logging.SimpleAgentMetric(
+    metric = ph.metrics.SimpleAgentMetric(
         agent_id="agent1",
         agent_property="test_property",
         reduce_action="mean",
@@ -122,7 +122,7 @@ def test_simple_agent_metric_2():
 def test_simple_agent_metric_3():
     env = MockEnv()
 
-    metric = ph.logging.SimpleAgentMetric(
+    metric = ph.metrics.SimpleAgentMetric(
         agent_id="agent1",
         agent_property="test_property",
         reduce_action="sum",
@@ -140,7 +140,7 @@ def test_simple_agent_metric_3():
 def test_aggregated_agent_metric_1():
     env = MockEnv()
 
-    metric = ph.logging.AggregatedAgentMetric(
+    metric = ph.metrics.AggregatedAgentMetric(
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="min",
@@ -159,7 +159,7 @@ def test_aggregated_agent_metric_1():
 def test_aggregated_agent_metric_2():
     env = MockEnv()
 
-    metric = ph.logging.AggregatedAgentMetric(
+    metric = ph.metrics.AggregatedAgentMetric(
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="max",
@@ -178,7 +178,7 @@ def test_aggregated_agent_metric_2():
 def test_aggregated_agent_metric_3():
     env = MockEnv()
 
-    metric = ph.logging.AggregatedAgentMetric(
+    metric = ph.metrics.AggregatedAgentMetric(
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="mean",
@@ -197,7 +197,7 @@ def test_aggregated_agent_metric_3():
 def test_aggregated_agent_metric_4():
     env = MockEnv()
 
-    metric = ph.logging.AggregatedAgentMetric(
+    metric = ph.metrics.AggregatedAgentMetric(
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="sum",
@@ -216,7 +216,7 @@ def test_aggregated_agent_metric_4():
 def test_nested_metric():
     env = MockEnv()
 
-    metric = ph.logging.SimpleEnvMetric(
+    metric = ph.metrics.SimpleEnvMetric(
         env_property="nested_property.sub_property",
         reduce_action="last",
     )

@@ -62,7 +62,7 @@ def test_ordering():
     n.send("A", "B", Request(100.0))
     n.send("A", "C", Request(100.0))
     n.send("B", "C", Request(100.0))
-    n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
+    n.resolve({aid: n.context_for(aid, EnvView(0, 0.0)) for aid in n.agents})
 
     assert n["A"].req_time <= n["B"].req_time
     assert n["B"].req_time <= n["C"].req_time
@@ -84,7 +84,7 @@ def test_batch_resolver_round_limit():
     n.send("A", "B", Request(0))
 
     with pytest.raises(Exception):
-        n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
+        n.resolve({aid: n.context_for(aid, EnvView(0, 0.0)) for aid in n.agents})
 
 
 class _TestAgent2(Agent):
@@ -111,4 +111,4 @@ def test_invalid_response_connection():
     n.send("A", "B", True)
 
     with pytest.raises(NetworkError):
-        n.resolve({aid: n.context_for(aid, EnvView(0)) for aid in n.agents})
+        n.resolve({aid: n.context_for(aid, EnvView(0, 0.0)) for aid in n.agents})
