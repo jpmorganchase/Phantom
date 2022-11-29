@@ -27,7 +27,7 @@ from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
-from ...logging import Metric
+from ...metrics import Metric
 from ...policy import Policy
 from ...types import AgentID
 from ..rollout import Rollout, Step

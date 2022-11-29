@@ -29,11 +29,11 @@ def test_agent_ids(phantom_env):
 
 
 def test_get_agents(phantom_env):
-    assert phantom_env.rl_agents == [
+    assert phantom_env.strategic_agents == [
         phantom_env.agents["A"],
         phantom_env.agents["B"],
     ]
-    assert phantom_env.non_rl_agents == [phantom_env.agents["C"]]
+    assert phantom_env.non_strategic_agents == [phantom_env.agents["C"]]
 
 
 def test__get_item__(phantom_env):

@@ -26,7 +26,7 @@ Phantom
     api/env
     api/env_wrappers
     api/fsm
-    api/logging
+    api/metrics
     api/message
     api/network
     api/policy

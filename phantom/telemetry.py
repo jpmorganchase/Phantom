@@ -9,7 +9,7 @@ import numpy as np
 from termcolor import colored
 
 from .message import Message
-from .logging import Metric
+from .metrics import Metric
 from .types import AgentID, StageID
 
 if TYPE_CHECKING:

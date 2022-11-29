@@ -13,7 +13,7 @@ def test_telemetry(tmpdir):
         print_dones=True,
         print_infos=True,
         print_messages=True,
-        metrics={"step": ph.logging.SimpleEnvMetric("current_step")},
+        metrics={"step": ph.metrics.SimpleEnvMetric("current_step")},
     )
 
     env = MockEnv()
@@ -30,7 +30,7 @@ def test_telemetry(tmpdir):
 
     ph.telemetry.logger.configure_file_logging(
         file_path=tmpdir.join("log.json"),
-        metrics={"step": ph.logging.SimpleEnvMetric("current_step")},
+        metrics={"step": ph.metrics.SimpleEnvMetric("current_step")},
     )
 
     env = MockEnv()

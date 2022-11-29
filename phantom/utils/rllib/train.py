@@ -26,7 +26,8 @@ from ray.tune.logger import LoggerCallback
 
 from ...agents import Agent
 from ...env import PhantomEnv
-from ...logging import Metric
+from ...fsm import FiniteStateMachineEnv
+from ...metrics import Metric
 from ...policy import Policy
 from ...types import AgentID
 from .. import check_env_config, show_pythonhashseed_warning
@@ -218,7 +219,15 @@ class RLlibMetricLogger(DefaultCallbacks):
         env = base_env.envs[0]
 
         for (metric_id, metric) in self.metrics.items():
-            episode.user_data[metric_id].append(metric.extract(env))
+            if (
+                not isinstance(env, FiniteStateMachineEnv)
+                or env.current_stage in metric.fsm_stages
+            ):
+                value = metric.extract(env)
+            else:
+                value = None
+
+            episode.user_data[metric_id].append(value)
 
     def on_episode_end(self, *, episode, **kwargs) -> None:
         for (metric_id, metric) in self.metrics.items():

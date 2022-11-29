@@ -58,7 +58,7 @@ def test_getters(net):
 
 def test_call_response(net):
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve({aid: net.context_for(aid, EnvView(0)) for aid in net.agents})
+    net.resolve({aid: net.context_for(aid, EnvView(0, 0.0)) for aid in net.agents})
 
     assert net.agents["mm"].total_cash == 25.0
     assert net.agents["inv"].total_cash == 50.0
@@ -67,7 +67,7 @@ def test_call_response(net):
 def test_send_many(net):
     net.send("mm", "inv", MyMessage(100.0))
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve({aid: net.context_for(aid, EnvView(0)) for aid in net.agents})
+    net.resolve({aid: net.context_for(aid, EnvView(0, 0.0)) for aid in net.agents})
 
     assert net.agents["mm"].total_cash == 50.0
     assert net.agents["inv"].total_cash == 100.0
@@ -79,14 +79,14 @@ def test_invalid_send(net):
 
 
 def test_context_existence(net):
-    assert "inv" in net.context_for("mm", EnvView(0))
-    assert "mm" in net.context_for("inv", EnvView(0))
+    assert "inv" in net.context_for("mm", EnvView(0, 0.0))
+    assert "mm" in net.context_for("inv", EnvView(0, 0.0))
 
 
 def test_reset(net):
     net.send("mm", "inv", MyMessage(100.0))
     net.send("mm", "inv", MyMessage(100.0))
-    net.resolve({aid: net.context_for(aid, EnvView(0)) for aid in net.agents})
+    net.resolve({aid: net.context_for(aid, EnvView(0, 0.0)) for aid in net.agents})
     net.reset()
 
     assert net.agents["mm"].total_cash == 0.0
