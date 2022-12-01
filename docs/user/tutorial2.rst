@@ -1,16 +1,11 @@
 .. _tutorial2:
 
-.. TODO: check
-
 Tutorial - Part 2
 =================
 
 Part 1 of the tutorial showed how to set up a simple Phantom experiment. This next part
 covers some additional features of Phantom that will help make your experiments even
 better!
-
-The complete finished code for this tutorial can be found in the ``envs`` directory in
-the Phantom repo.
 
 
 Metrics
@@ -20,11 +15,8 @@ Metrics
    :width: 15%
    :figclass: align-center
 
-In the last part of the previous tutorial we demonstrated the use of TensorBoard for
-viewing the results of our experiment. A lot of the time we want to view additional
-plots of experiment data. Phantom provides a way to do this through the use of
-``Metrics``. These provide a way to extract data from the experiment and save it to the
-results directory so it can be loaded by TensorBoard and other offline analysis.
+In the latter part of the previous tutorial setup we demonstrated the use of metrics for
+recording data from the environment and agents.
 
 Metric values are recorded at the end of every step. When performing training, a single
 float/integer value must be returned for the whole episode so a reduction operation
@@ -36,54 +28,39 @@ When performing rollouts, every value for every step is recorded, giving fine gr
 information on each step in each episode.
 
 In our supply chain example we want to monitor the average amount of stock the shop is
-holding onto as the experiment progresses. Phantom provides a base ``Metric`` class but
-for a lot of use-cases the provided helper classes ``SimpleAgentMetric`` and
-``SimpleEnvMetric`` are enough.
+holding onto as the experiment progresses. Phantom provides a base :class:`Metric` class
+but for the majority of use-cases the provided helper classes :class:`SimpleAgentMetric`
+and :class:`SimpleEnvMetric` are enough.
 
 .. code-block:: python
 
     metrics = {
-        "stock/SHOP": SimpleAgentMetric(agent_id="SHOP", agent_property="stock", reduce_action="last"),
+        "SHOP/stock": SimpleAgentMetric(agent_id="SHOP", agent_property="stock", reduce_action="last"),
     }
 
-The ``SimpleAgentMetric`` will record the given property on the agent. Similarly the
-``SimpleEnvMetric`` records a given property that exists on the Environment instance.
+The :class:`SimpleAgentMetric` will record the given property on the agent. Similarly
+the :class:`SimpleEnvMetric` records a given property that exists on the environment
+instance.
 
-As well as the 'last' reduction operation, there is also 'sum' and 'mean'.
+As well as the ``last`` reduction operation, there is also ``sum`` and ``mean``.
 
-We register metrics using the ``metrics`` property on the ``ph.train`` function.
-The name can be whatever the user wants however it is sensible to include the name of
-the agent and the property that is being measured, eg. ``stock/SHOP``.
-
-.. code-block:: python
-
-    ph.train(
-        experiment_name="supply-chain",
-        algorithm="PPO",
-        num_workers=15,
-        num_episodes=1000,
-        env_class=SupplyChainEnv,
-        env_config=dict(n_customers=5),
-        metrics=metrics,
-    )
-
-
-If we run the experiment and go to TensorBoard we can now see our stock Metric plotted.
-TensorBoard will plot the min, mean and max values for each metric.
-
-.. figure:: /img/supply-chain-2-tb.png
-   :width: 50%
-   :figclass: align-center
-
-In the full example code there is also a ``SalesMetric`` and a ``MissedSalesMetric``
-included.
+We register metrics using the :attr:`metrics` property on the
+:func:`ph.utils.rllib.train` function. The name can be whatever the user wants however
+it is sensible to include the name of the agent and the property that is being measured,
+eg. ``SHOP/stock``.
 
 
 Shared Policies
 ---------------
 
-We will now introduce multiple competing shop agents. Our experiment structure will now
-look like the following:
+We will now introduce the feature of shared policy learning in Phantom using RLlib. To
+do this we will create two shops that will compete with each other. Both shops will use
+the same policy, for both learning and evaluation.
+
+To keep it simple the customers will choose one of the shops at random each step -- the
+shops are technically not truly competing here.
+
+Our experiment structure will now look like the following:
 
 .. figure:: /img/supply-chain-2.svg
    :width: 80%
@@ -91,86 +68,58 @@ look like the following:
 
 To do this we make several modifications to the code:
 
-* We modify the ``CustomerAgent`` to accept a list of shop IDs rather than a single
-  shop ID. The policy will be expanded to also decide which shop to allocate orders to.
-  The action space of the policy will now be of size 2: the order size and shop index.
+*   We modify the :class:`CustomerAgent` class to accept a list of shop IDs rather than
+    a single shop ID. The customer will then choose at random one of the shops to go to
+    along with the existing random generation of the order quantity.
 
 .. code-block:: python
 
     class CustomerAgent(ph.Agent):
         def __init__(self, agent_id: str, shop_ids: List[str]):
-            super().__init__(
-                agent_id,
-                policy_class=CustomerPolicy,
-                # The CustomerPolicy needs to know how many shops there are so it can
-                return a valid choice.
-                policy_config=dict(n_shops=len(shop_ids)),
-            )
+            super().__init__(agent_id)
 
             # We need to store the shop IDs so we can send order requests to them.
             self.shop_ids: List[str] = shop_ids
 
-* We change the ``decode_action`` method to pick a shop at random and place an order at
-  that shop each step.
+*   We modify the :meth:`generate_messages`: method to pick a shop at random and place an
+    order at that shop each step.
 
 .. code-block:: python
 
-        def decode_action(self, ctx: ph.Context, action: np.ndarray):
-            # At the start of each step we generate an order with a random size to
-            # send to a random shop.
-            order_size = action[0]
-            shop_id = self.shop_ids[int(action[1])]
+        def generate_messages(self, ctx: ph.Context):
+            # At the start of each step we generate an order with a random size to send
+            # to a randomly selected shop.
+            order_size = np.random.randint(CUSTOMER_MAX_ORDER_SIZE)
+
+            shop_id = np.random.choice(self.shop_ids)
 
             # We perform this action by sending a stock request message to the factory.
-            return ph.packet.Packet(messages={shop_id: [OrderRequest(order_size)]})
+            return [(shop_id, OrderRequest(order_size))]
 
     #
 
-* We modify the ``CustomerPolicy`` class to accept the list of shop ID's now given to it
-  from the ``CustomerAgent`` and make a random selection on which shop to choose:
+*   We modify the environment to create multiple shop agents like we did previously with
+    the customer agents. We make sure all customers are connected to all shops.
 
 .. code-block:: python
 
-    class CustomerPolicy(ph.FixedPolicy):
-        # The size of the order made and the choice of shop to make the order to for each
-        # customer is determined by this fixed policy.
-        def __init__(self, obs_space, action_space, config):
-            super().__init__(obs_space, action_space, config)
-
-            self.n_shops = config["n_shops"]
-
-        def compute_action(self, obs) -> Tuple[int, int]:
-            return (np.random.poisson(5), np.random.randint(self.n_shops))
-
-* We modify the environment to create multiple shop agents like we did previously with
-  the customer agents. We make sure all customers are connected to all shops.
-
-  NOTE: as the shops are active learning agents, we cannot define the number to create
-  via the environment initialisation method like we do with the customers. This is
-  because the number of learning agents must be hardcoded so the algorithm can train the
-  policy.
-
-.. code-block:: python
+    NUM_SHOPS = 2
 
     class SupplyChainEnv(ph.PhantomEnv):
-
-        env_name: str = "supply-chain-v2"
-
-        def __init__(self, n_customers: int = 5, seed: int = 0):
-            # Define actor and agent IDs
+        def __init__(self):
+            # Define agent IDs
             factory_id = "WAREHOUSE"
+            customer_ids = [f"CUST{i+1}" for i in range(NUM_CUSTOMERS)]
             shop_ids = [f"SHOP{i+1}" for i in range(NUM_SHOPS)]
-            customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
 
-            shop_agents = [ShopAgent(sid, factory_id=factory_id) for sid in shop_ids]
-            factory_actor = FactoryActor(factory_id)
-
+            factory_agent = FactoryAgent(factory_id)
             customer_agents = [CustomerAgent(cid, shop_ids=shop_ids) for cid in customer_ids]
+            shop_agents = [ShopAgent(sid, factory_id=factory_id) for sid in shop_ids]
 
-            actors = [factory_actor] + shop_agents + customer_agents
+            agents = [factory_agent] + shop_agents + customer_agents
 
-            # Define Network and create connections between Actors
-            network = ph.Network(actors)
+            # Define Network and create connections between agents
+            network = ph.Network(agents)
 
             # Connect the shops to the factory
             network.add_connections_between(shop_ids, [factory_id])
@@ -179,21 +128,19 @@ To do this we make several modifications to the code:
             network.add_connections_between(shop_ids, customer_ids)
 
 
-Now we have multiple learning shop agents, we may want them to learn a shared policy. By
-default each shop will learn it's own policy. To setup a shared policy we simply pass in
-a ``policy_grouping`` argument to the ``PhantomEnv.__init__`` method giving for each
-shared policy the name of the policy and the IDs of the agents that will learn the
-policy:
+To use a shared policy we modify the :attr:`policies` argument to the
+:func:`ph.utils.rllib.train()` function. Instead of passing the a list of IDs of the
+agents we want to train with the ``shop_policy`` we can pass the :class:`ShopAgent`
+class. This means any agent in the envrionment that belongs to this class will use share
+the policy.
 
 .. code-block:: python
 
-            super().__init__(
-                num_steps=NUM_EPISODE_STEPS,
-                network=network,
-                policy_grouping=dict(
-                    shared_SHOP_policy=shop_ids
-                ),
-            )
+    ph.utils.rllib.train(
+        ...
+        policies={"shop_policy": ShopAgent},
+        ...
+    )
     #
 
 
@@ -204,48 +151,51 @@ Modular Encoders, Decoders & Reward Functions
    :width: 15%
    :figclass: align-center
 
-So far we have used the ``decode_action``, ``encode_obs`` and ``compute_reward`` methods
-in our agent definitions. However Phantom also provides an alternative to this for more
-advanced use cases. We can create custom ``Encoder``, ``Decoder`` and ``RewardFunction``
-classes that perform the same functionality and attach them to agents.
+So far we have used the :meth:`decode_action()`, :meth:`encode_observation()` and
+:meth:`compute_reward()` methods in our :class:`ShopAgent` definition. However Phantom
+also provides an alternative set of interfaces for more advanced use cases. We can
+create custom :class:`Encoder`, :class:`Decoder` and :class:`RewardFunction` classes
+that perform the same functionality and attach them to agents.
 
 This provides two key benefits:
 
-* Code reuse - Functionality that is shared across multiple agent types only has to be
-  implemented once.
-* Composability - Using the ``ChainedEncoder`` and ``ChainedDecoder`` classes we can
-  cleanly combine multiple encoders and decoders into complex objects, whilst keeping
-  the individual functionality of each sub encoder separated.
+*   Code reuse - Functionality that is shared across multiple agent types only has to be
+    implemented once.
+*   Composability - Using the :class:`ChainedEncoder` and :class:`ChainedDecoder`
+    classes we can cleanly combine multiple encoders and decoders into complex objects,
+    whilst keeping the individual functionality of each sub encoder separated.
 
-Phantom agents will first check to see if a custom ``encode_obs``, ``decode_action`` or
-``compute_reward`` method has been implemented on the class. If not, the agent will then
-check to see if a custom ``Encoder``, ``Decoder`` or ``RewardFunction`` class has been
-provided for the agent. If neither is provided for any of the three, an exception will
-be raised!
+Phantom :class:`StrategicAgent`s will first check to see if a custom
+:meth:`decode_action()`, :meth:`encode_observation()` or :meth:`compute_reward()` method
+has been implemented on the class. If not, the agent will then check to see if a custom
+:class:`Encoder`, :class:`Decoder` or :class:`RewardFunction` class has been provided
+for the agent. If neither is provided for any of the three, an exception will be raised!
 
-Lets say we want to introduce a second type of ShopAgent, one with a different type of
-reward function - this new ShopAgent may not be concerned about the amount of missed
-sales it has.
+Lets say we want to introduce a second type of :class:`ShopAgent`, one with a different
+type of reward function -- this new :class:`ShopAgent` may not be concerned about the
+amount of missed sales it has.
 
-One option is to copy the entire ShopAgent and edit its ``compute_reward`` method.
-However a better option is to remove the ``compute_reward`` method from the ShopAgent
-and create two different ``RewardFunction`` objects and initialise each type of agent
-with one:
+One option is to copy the entire :class:`ShopAgent` and edit its
+:meth:`compute_reward()` method. However a better option is to remove the
+:meth:`compute_reward()` method from the :class:`ShopAgent` and create two different
+:class:`RewardFunction` objects and initialise each type of agent with one:
 
 .. code-block:: python
 
     class ShopRewardFunction(ph.RewardFunction):
         def reward(self, ctx: ph.Context) -> float:
-            return ctx.actor.step_sales - ctx.actor.step_missed_sales - ctx.actor.stock
+            return ctx.agent.sales - 0.1 * ctx.agent.stock
 
     class SimpleShopRewardFunction(ph.RewardFunction):
         def reward(self, ctx: ph.Context) -> float:
-            return ctx.actor.step_sales - ctx.actor.stock
+            return ctx.agent.sales
 
-Note that we now access the ``ShopAgent``'s state through the ``ctx.actor`` variable.
+Note that we now access the :class:`ShopAgent`'s state through the :attr:`ctx.agent`
+property.
 
-We modify our ``ShopAgent`` class so that it takes a ``RewardFunction`` object as an
-initialisation parameter and passes it to the underlying Phantom ``Agent`` class.
+We modify our :class:`ShopAgent` class so that it takes a :class:`RewardFunction` object
+as an initialisation parameter and passes it to the underlying Phantom
+:class:`StrategicAgent` class.
 
 .. code-block:: python
 
@@ -255,15 +205,15 @@ initialisation parameter and passes it to the underlying Phantom ``Agent`` class
 
             ...
 
-Next we modify our ``SupplyChainEnv`` to allow the creation of a mix of shop types:
+Next we modify our :class:`SupplyChainEnv` to allow the creation of a mix of shop types:
 
 .. code-block:: python
 
+    NUM_SHOPS_TYPE_1 = 1
+    NUM_SHOPS_TYPE_2 = 1
+
     class SupplyChainEnv(ph.PhantomEnv):
-
-        env_name: str = "supply-chain-v2"
-
-        def __init__(self, n_customers: int = 5,):
+        def __init__(self):
             ...
 
             shop_t1_ids = [f"SHOP_T1_{i+1}" for i in range(NUM_SHOPS_TYPE_1)]
@@ -288,61 +238,79 @@ Types & Supertypes
 
 Now let's say we want to develop a rounded policy throughout the training that works
 with a range of reward functions that all slightly modify the weight of the
-``missed_sales`` factor. Doing this manually would be cumbersome. Instead we can use the
-Phantom supertypes feature.
+:attr:`stock` factor. Doing this manually would be cumbersome. Instead we can use the
+Phantom types and supertypes feature.
 
-For the ``ShopAgent`` we define an object that inherits from the ``BaseSupertype`` class
-that defines the type of the agent. In our case this only contains the
-``missed_sales_weight`` parameter we want to vary. When defining our supertype, to
-satisfy the type system, the types of all fields should be wrapped in
-``ph.SupertypeField``.
-
-.. code-block:: python
-
-    @dataclass
-    class ShopAgentSupertype(ph.BaseSupertype):
-        missed_sales_weight: ph.SupertypeField[float]
-
-
-We no longer need to pass in a custom ``RewardFunction`` class to the ``ShopAgent``:
+For the :class:`ShopAgent` we define a class as a property of the shop named
+:attr:`Supertype` that inherits from the :class:`ph.Supertype` class that defines the
+supertype of the agent. In our case this only contains the :attr:`excess_stock_weight`
+parameter we want to vary. When defining our supertype it is good practice to give all
+fields a default value!
 
 .. code-block:: python
+
+    MAX_EXCESS_STOCK_WEIGHT = 0.2
 
     class ShopAgent(ph.Agent):
+
+        @dataclass(frozen=True)
+        class Supertype(ph.Supertype):
+            excess_stock_weight: float = 0.1
+
+
+We no longer need to pass in a custom :class:`RewardFunction` class to the
+:class:`ShopAgent`:
+
+.. code-block:: python
+
         def __init__(self, agent_id: str, factory_id: str):
             super().__init__(agent_id)
 
             ...
 
-We don't even need to provide the ``ShopAgent`` with the new supertype, this is handled
-by the ``ph.train`` and ``ph.rollout`` functions.
+    #
 
-However we do need to modify our ``ShopRewardFunction`` to take the\
-``missed_sales_weight`` parameter:
+As we are using the RLlib backend to train, we don't need to provide the
+:class:`ShopAgent` with the new supertype, this is handled by the included training and
+evaluation functions and allows the use of :class:`Sampler` s and :class:`Range` s.
+
+In this example for the sake of simplicity we go back to using the
+:meth:`compute_reward` method on the :class:`ShopAgent`. We modify it to take the
+:attr:`excess_stock_weight` value from the agent's type:
+
+.. code-block:: python
+
+        def compute_reward(self, ctx: ph.Context) -> float:
+            # We reward the agent for making sales.
+            # We penalise the agent for holding onto excess stock.
+            return self.sales - self.type.excess_stock_weight * self.stock
+    #
+
+We also need to modify the :class:`ShopAgent`'s observation space to include it's type
+values. This is key to allowing the :class:`ShopAgent` to learn a generalised policy.
 
 .. code-block:: python
 
-    class ShopRewardFunction(ph.RewardFunction):
-        def __init__(self, missed_sales_weight: float):
-            self.missed_sales_weight = missed_sales_weight
+        def __init__(self, agent_id: str, factory_id: str):
+            ...
 
-        def reward(self, ctx: ph.Context) -> float:
-            return 5 * ctx.actor.step_sales - self.missed_sales_weight * \
-                ctx.actor.step_missed_sales - ctx.actor.stock
+            # = [Stock, Sales, Missed Sales, Type.Excess Stock Weight]
+            self.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=(4,))
 
-We also need to modify the ``ShopAgent``'s observation space to include it's type values.
-This is key to allowing the ``ShopAgent`` to learn a generalised policy.
-
-.. code-block:: python
+            ...
 
         def encode_observation(self, ctx: ph.Context):
-            return [
-                # We include the agent's type in it's observation space to allow it to learn
-                # a generalised policy.
-                self.type.to_obs_space_compatible_type(),
-                # We also encode the shop's current stock in the observation.
-                self.stock,
-            ]
+            max_sales_per_step = NUM_CUSTOMERS * CUSTOMER_MAX_ORDER_SIZE
+
+            return np.array(
+                [
+                    self.stock / SHOP_MAX_STOCK,
+                    self.sales / max_sales_per_step,
+                    self.missed_sales / max_sales_per_step,
+                    self.type.excess_stock_weight / MAX_EXCESS_STOCK_WEIGHT,
+                ],
+                dtype=np.float32,
+            )
 
         @property
         def observation_space(self):
@@ -358,130 +326,25 @@ This is key to allowing the ``ShopAgent`` to learn a generalised policy.
     #
 
 
-The final step is to modify the ``ShopAgent``'s ``reset`` method to apply the supertype:
+To sample from a distribution of values for the supertypes whilst training we add the
+:attr:`agent_supertypes` argument to the train function:
 
 .. code-block:: python
 
-    class ShopAgent(ph.Agent):
-
+    ph.utils.rllib.train(
         ...
-
-        def reset(self) -> None:
-            super().reset() # self.type set here
-
-            self.reward_function = ShopRewardFunction(
-                missed_sales_weight=self.type.missed_sales_weight
-            )
-
-            ...
-
-What is happening here is that when we call ``super().reset()``, the ``Agent`` class
-generates a new type instance from the supertype that will be assigned during training
-or rollouts. We then make use of the type to setup the agent. The ``reset`` method is
-called by the environment at the start of every episode.
-
-We can then pass the following to the ``agent_supertypes`` parameter in the ``ph.train``
-function;
-
-.. code-block:: python
-
-    agent_supertypes = {
-        ShopAgentSupertype(
-            missed_sales_weight=UniformFloatSampler(0.0, 8.0)
-        )
-        for sid in shop_ids
-    })
-
-    ph.train(
-        experiment_name="supply-chain",
-        algorithm="PPO",
-        num_workers=2,
-        num_episodes=10000,
-        env_class=SupplyChainEnv,
-        env_config=dict(n_customers=5),
-        agent_supertypes=agent_supertypes,
+        agent_supertypes={
+            "SHOP1": {"excess_stock_weight": UniformFloatSampler(0.0, MAX_EXCESS_STOCK_WEIGHT)},
+            "SHOP2": {"excess_stock_weight": UniformFloatSampler(0.0, MAX_EXCESS_STOCK_WEIGHT)},
+        },
+        ...
     )
 
-At the start of each episode in training, each shop agent's missed_sales_weight type
-value will be independently sampled from a random uniform distribution between 0.0 and
-1.0.
+At the start of each episode in training, each shop agent's :attr:`excess_stock_weight`
+type value will be independently sampled from a random uniform distribution between 0.0
+and 0.2.
 
 The supertype system in Phantom is very powerful. To see a full guide to its features
 see the :ref:`supertypes` page.
 
-
-Messages & Custom Handlers
---------------------------
-
-Up until now we have sent our messages across the network in a very basic fashion - we
-have sent raw integers representing requests and responses to stock and orders. In our
-simple example this is manageable, however if we scale our experiment and increase its
-complexity things can get out of hand quickly!
-
-The first step we can take to make things more manageable is to create specific payload
-classes for each message type:
-
-.. code-block:: python
-
-    @dataclass
-    class OrderRequest:
-        """Customer --> Shop"""
-        size: int
-
-    @dataclass
-    class OrderResponse:
-        """Shop --> Customer"""
-        size: int
-
-    @dataclass
-    class StockRequest:
-        """Shop --> Factory"""
-        size: int
-
-    @dataclass
-    class StockResponse:
-        """Factory --> Shop"""
-        size: int
-
-
-This allows us to use the type system to increase the clarity of our code and reduce
-errors.
-
-To update our code we simply wrap the values in their new payload types, for example:
-
-.. code-block:: python
-
-    class FactoryActor(ph.Agent):
-        def __init__(self, actor_id: str):
-            super().__init__(actor_id)
-
-        def handle_message(self, ctx: ph.Context, msg: ph.Message):
-            # The factory receives stock request messages from shop agents. We
-            # simply reflect the amount of stock requested back to the shop as the
-            # factory has unlimited stock.
-            yield (msg.sender_id, [StockResponse(msg.payload.size)])
-
-Now it is clear to see exactly what is being returned by the ``FactoryActor``.
-
-This now allows us to use another feature of Phantom: Custom Handlers. If we have an
-actor or agent that accepts many types of message, we would need to route all these
-message types in our ``handle_message`` method so that we take the correct actions for
-each message.
-
-Custom Handlers does this automatically for us! Taking the very simple example above,
-we can replace our ``handle_message`` method of the ``FactoryActor`` with a new method
-that is prefixed with the ``@ph.agents.msg_handler`` decorator. In this decorator we pass
-the type of the message payload we want to handle:
-
-.. code-block:: python
-
-        @ph.agents.msg_handler(StockRequest)
-        def handle_stock_request(self, ctx: ph.Context, msg: ph.Message):
-            # The factory receives stock request messages from shop agents. We
-            # simply reflect the amount of stock requested back to the shop as the
-            # factory has unlimited stock.
-            yield (msg.sender_id, [StockResponse(msg.payload.size)])
-    #
-
-We can define as many of these handlers as we want. See the code example for a full
-implementation of this.
+.. TODO: FSM, debugging, policy evaluation, advanced resolvers
