@@ -267,7 +267,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         self.current_step += 1
 
         logger.log_step(self.current_step, self.num_steps)
-        
+
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
         }
@@ -282,7 +282,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         logger.log_actions(actions)
         logger.log_start_decoding_actions()
-        
+
         # Generate views for use of the environment itself for generating it's own view
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
