@@ -25,6 +25,9 @@ def load_data(file: str):
     return parse_concatenated_json(open(file, "r").read())
 
 
+if len(sys.argv) == 1:
+    raise Exception("usage: `streamlit run scripts/view_telemetry.py <JSON log file>`")
+
 file = sys.argv[1]
 
 episodes = load_data(file)
