@@ -25,21 +25,18 @@ def test_rllib_train_rollout(tmpdir):
         num_workers=1,
     )
 
-    # Without workers:
+    # Without workers, without env class:
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
         env_config={},
         num_repeats=3,
         num_workers=0,
     )
     assert len(list(results)) == 3
 
-    # With workers:
+    # With workers, with env class:
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
         env_class=MockEnv,
         env_config={},
         num_repeats=3,
@@ -51,7 +48,6 @@ def test_rllib_train_rollout(tmpdir):
 
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
         env_class=MockEnv,
         env_config={},
         custom_policy_mapping={"a1": MockPolicy},
@@ -63,8 +59,6 @@ def test_rllib_train_rollout(tmpdir):
     # Evaluate policy:
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/PPO/LATEST",
-        algorithm="PPO",
-        env_class=MockEnv,
         obs=0,
         policy_id="mock_policy",
     )
@@ -77,7 +71,6 @@ def test_rllib_rollout_bad(tmpdir):
         list(
             ph.utils.rllib.rollout(
                 directory=tmpdir,
-                algorithm="PPO",
                 env_class=MockEnv,
                 env_config={},
                 num_repeats=0,
@@ -89,7 +82,6 @@ def test_rllib_rollout_bad(tmpdir):
         list(
             ph.utils.rllib.rollout(
                 directory=tmpdir,
-                algorithm="PPO",
                 env_class=MockEnv,
                 env_config={},
                 num_workers=-1,

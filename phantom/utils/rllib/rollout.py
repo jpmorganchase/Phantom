@@ -50,8 +50,7 @@ CustomPolicyMapping = Mapping[AgentID, Type[Policy]]
 
 def rollout(
     directory: Union[str, Path],
-    algorithm: str,
-    env_class: Type[PhantomEnv],
+    env_class: Optional[Type[PhantomEnv]] = None,
     env_config: Optional[Dict[str, Any]] = None,
     custom_policy_mapping: Optional[CustomPolicyMapping] = None,
     num_repeats: int = 1,
@@ -77,7 +76,6 @@ def rollout(
             located within `~/ray_results/`. If LATEST is given as the last element of
             the path, the parent directory will be scanned for the most recent run and
             this will be used.
-        algorithm: RLlib algorithm to use.
         env_class: Optionally pass the Environment class to use. If not give will
             fallback to the copy of the environment class saved during training.
         env_config: Configuration parameters to pass to the environment init method.
@@ -171,14 +169,20 @@ def rollout(
         num_workers_,
     )
 
+    # Load configs from results directory.
+    with open(Path(directory, "params.pkl"), "rb") as params_file:
+        config = cloudpickle.load(params_file)
+
+    with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
+        ph_config = cloudpickle.load(params_file)
+
+    if env_class is None:
+        env_class = ph_config["env_class"]
+
     # Register custom environment with Ray
     register_env(
         env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
     )
-
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
 
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
@@ -191,7 +195,7 @@ def rollout(
         rollouts = _rollout_task_fn(
             deepcopy(config),
             checkpoint_path,
-            algorithm,
+            ph_config["algorithm"],
             rollout_configs,
             env_class,
             custom_policy_mapping,
@@ -221,7 +225,7 @@ def rollout(
             (
                 deepcopy(config),
                 checkpoint_path,
-                algorithm,
+                ph_config["algorithm"],
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
                 custom_policy_mapping,

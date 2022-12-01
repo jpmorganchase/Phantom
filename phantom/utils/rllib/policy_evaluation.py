@@ -19,8 +19,6 @@ from . import construct_results_paths
 
 def evaluate_policy(
     directory: Union[str, Path],
-    algorithm: str,
-    env_class: Type[PhantomEnv],
     policy_id: str,
     obs: Any,
     checkpoint: Optional[int] = None,
@@ -35,9 +33,6 @@ def evaluate_policy(
             located within `~/ray_results/`. If LATEST is given as the last element of
             the path, the parent directory will be scanned for the most recent run and
             this will be used.
-        algorithm: RLlib algorithm to use.
-        env_class: Optionally pass the Environment class to use. If not give will
-            fallback to the copy of the environment class saved during training.
         policy_id: The ID of the trained policy to evaluate.
         obs: The observation space to evaluate the policy with, of which can include
             :class:`Range` class instances to evaluate the policy over multiple
@@ -55,6 +50,11 @@ def evaluate_policy(
     with open(Path(directory, "params.pkl"), "rb") as params_file:
         config = cloudpickle.load(params_file)
 
+    with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
+        ph_config = cloudpickle.load(params_file)
+
+    env_class = ph_config["env_class"]
+
     # Set to zero as rollout workers != training workers - if > 0 will spin up
     # unnecessary additional workers.
     config["num_workers"] = 0
@@ -66,7 +66,9 @@ def evaluate_policy(
             env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
         )
 
-    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
+    algo = get_algorithm_class(ph_config["algorithm"])(
+        env=env_class.__name__, config=config
+    )
     algo.restore(str(checkpoint_path))
 
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
