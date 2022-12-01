@@ -223,7 +223,9 @@ elif sys.argv[1] == "rollout":
     shop_missed_sales = []
 
     for rollout in results:
-        shop_actions += list(int(round(x[0])) for x in rollout.actions_for_agent("SHOP"))
+        shop_actions += list(
+            int(round(x[0])) for x in rollout.actions_for_agent("SHOP")
+        )
         shop_stock += list(rollout.metrics["SHOP/stock"])
         shop_sales += list(rollout.metrics["SHOP/sales"])
         shop_missed_sales += list(rollout.metrics["SHOP/missed_sales"])
