@@ -29,6 +29,8 @@ file = sys.argv[1]
 
 episodes = load_data(file)
 
+is_fsm = any("fsm_current_stage" in step for step in episodes[0]["steps"])
+
 st.sidebar.subheader("Select Episode:")
 episode_num = st.sidebar.selectbox("Episode", list(range(1, len(episodes) + 1)))
 
@@ -41,6 +43,8 @@ show_rewards = st.sidebar.checkbox("Show Rewards", True)
 show_dones = st.sidebar.checkbox("Show Dones", False)
 show_infos = st.sidebar.checkbox("Show Infos", False)
 show_metrics = st.sidebar.checkbox("Show Metrics", False)
+
+show_fsm = is_fsm and st.sidebar.checkbox("Show FSM Transitions", True)
 
 st.sidebar.subheader("Options:")
 
@@ -114,6 +118,6 @@ for i, step in enumerate(episode["steps"]):
             df.columns = ["Metric", "Value"]
             st.table(df)
 
-        if "fsm_current_stage" in step and "fsm_next_stage" in step:
+        if show_fsm and "fsm_current_stage" in step and "fsm_next_stage" in step:
             st.subheader("FSM Transition:")
             st.code(f"{step['fsm_current_stage']} --> {step['fsm_next_stage']}")
