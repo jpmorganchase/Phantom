@@ -12,11 +12,11 @@ from phantom.views import EnvView
 
 
 @dataclass(frozen=True)
-class MyMessage(MsgPayload):
+class MockMessage(MsgPayload):
     cash: float
 
 
-class MyAgent(Agent):
+class MockAgent(Agent):
     def __init__(self, aid: AgentID) -> None:
         super().__init__(aid)
 
@@ -25,19 +25,19 @@ class MyAgent(Agent):
     def reset(self) -> None:
         self.total_cash = 0.0
 
-    @msg_handler(MyMessage)
+    @msg_handler(MockMessage)
     def handle_message(
-        self, _: Context, message: MyMessage
+        self, _: Context, message: MockMessage
     ) -> List[Tuple[AgentID, MsgPayload]]:
         if message.payload.cash > 25:
             self.total_cash += message.payload.cash / 2.0
 
-            return [(message.sender_id, MyMessage(message.payload.cash / 2.0))]
+            return [(message.sender_id, MockMessage(message.payload.cash / 2.0))]
 
 
 @pytest.fixture
 def net() -> Network:
-    net = Network([MyAgent("mm"), MyAgent("inv"), MyAgent("inv2")])
+    net = Network([MockAgent("mm"), MockAgent("inv"), MockAgent("inv2")])
     net.add_connection("mm", "inv")
 
     return net
@@ -57,7 +57,7 @@ def test_getters(net):
 
 
 def test_call_response(net):
-    net.send("mm", "inv", MyMessage(100.0))
+    net.send("mm", "inv", MockMessage(100.0))
     net.resolve({aid: net.context_for(aid, EnvView(0, 0.0)) for aid in net.agents})
 
     assert net.agents["mm"].total_cash == 25.0
@@ -65,8 +65,8 @@ def test_call_response(net):
 
 
 def test_send_many(net):
-    net.send("mm", "inv", MyMessage(100.0))
-    net.send("mm", "inv", MyMessage(100.0))
+    net.send("mm", "inv", MockMessage(100.0))
+    net.send("mm", "inv", MockMessage(100.0))
     net.resolve({aid: net.context_for(aid, EnvView(0, 0.0)) for aid in net.agents})
 
     assert net.agents["mm"].total_cash == 50.0
@@ -75,7 +75,7 @@ def test_send_many(net):
 
 def test_invalid_send(net):
     with pytest.raises(NetworkError):
-        net.send("mm", "inv2", MyMessage(100.0))
+        net.send("mm", "inv2", MockMessage(100.0))
 
 
 def test_context_existence(net):
@@ -84,8 +84,8 @@ def test_context_existence(net):
 
 
 def test_reset(net):
-    net.send("mm", "inv", MyMessage(100.0))
-    net.send("mm", "inv", MyMessage(100.0))
+    net.send("mm", "inv", MockMessage(100.0))
+    net.send("mm", "inv", MockMessage(100.0))
     net.resolve({aid: net.context_for(aid, EnvView(0, 0.0)) for aid in net.agents})
     net.reset()
 
@@ -95,7 +95,7 @@ def test_reset(net):
 
 @pytest.fixture
 def net2() -> Network:
-    return Network([MyAgent("a"), MyAgent("b"), MyAgent("c")])
+    return Network([MockAgent("a"), MockAgent("b"), MockAgent("c")])
 
 
 def test_adjacency_matrix(net2):
