@@ -15,6 +15,9 @@ Interface
 .. autoclass:: phantom.utils.samplers.Sampler
    :inherited-members:
 
+.. autoclass:: phantom.utils.samplers.ComparableSampler
+   :inherited-members:
+
 Implementations
 ^^^^^^^^^^^^^^^
 
@@ -33,6 +36,8 @@ Implementations
 .. autoclass:: phantom.utils.samplers.NormalArraySampler
    :inherited-members:
 
+.. autoclass:: phantom.utils.samplers.LambdaSampler
+   :inherited-members:
 
 Ranges
 ------
