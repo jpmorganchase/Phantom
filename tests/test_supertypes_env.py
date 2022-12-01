@@ -24,11 +24,11 @@ def test_agent_supertypes_in_env_1():
 
     assert set(env._samplers) == set([s1, s2])
 
-    assert env.agents["a1"].type == None
     assert env.agents["a1"].supertype == agent_supertypes["a1"]
+    assert env.agents["a1"].type == MockStrategicAgent.Supertype(1)
 
-    assert env.agents["a2"].type == None
     assert env.agents["a2"].supertype == agent_supertypes["a2"]
+    assert env.agents["a2"].type == MockStrategicAgent.Supertype(11)
 
     assert env.agents["a1"].supertype.type_value == s1
     assert env.agents["a2"].supertype.type_value == s2
@@ -59,10 +59,10 @@ def test_agent_supertypes_in_env_2():
 
     assert set(env._samplers) == set([s1, s2])
 
-    assert env.agents["a1"].type == None
+    assert env.agents["a1"].type == MockStrategicAgent.Supertype(1)
     assert env.agents["a1"].supertype == MockStrategicAgent.Supertype(type_value=s1)
 
-    assert env.agents["a2"].type == None
+    assert env.agents["a2"].type == MockStrategicAgent.Supertype(11)
     assert env.agents["a2"].supertype == MockStrategicAgent.Supertype(type_value=s2)
 
     assert env.agents["a1"].supertype.type_value == s1
