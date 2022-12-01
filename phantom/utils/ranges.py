@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, Sequence, TypeVar
+from typing import Generic, List, Optional, Sequence, TypeVar
 
 import numpy as np
 
@@ -78,3 +78,29 @@ class LinspaceRange(Range[float]):
 
     def values(self) -> np.ndarray:
         return np.linspace(self.start, self.end, self.n)
+
+
+class UnitArrayUniformRange(UniformRange, Range[np.ndarray]):
+    """
+    Returns a list of n shape (1,) numpy arrays with values spaced by a step between a
+    start and end value. Useful for encoding observation spaces with single element
+    boxes.
+
+    Uses :func:`np.arange` internally.
+    """
+
+    def values(self) -> List[np.ndarray]:
+        return [np.array([x]) for x in np.arange(self.start, self.end, self.step)]
+
+
+class UnitArrayLinspaceRange(LinspaceRange, Range[np.ndarray]):
+    """
+    Returns a list of n shape (1,) numpy arrays with values evenly distributed between a
+    start and end value. Useful for encoding observation spaces with single element
+    boxes.
+
+    Uses :func:`np.linspace` internally.
+    """
+
+    def values(self) -> List[np.ndarray]:
+        return [np.array([x]) for x in np.linspace(self.start, self.end, self.n)]

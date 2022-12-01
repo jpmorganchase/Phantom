@@ -52,3 +52,9 @@ Implementations
 
 .. autoclass:: phantom.utils.ranges.LinspaceRange
    :inherited-members:
+
+.. autoclass:: phantom.utils.ranges.UnitArrayUniformRange
+   :inherited-members:
+
+.. autoclass:: phantom.utils.ranges.UnitArrayLinspaceRange
+   :inherited-members:
