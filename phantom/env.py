@@ -116,6 +116,10 @@ class PhantomEnv:
         for sampler in self._samplers:
             sampler.sample()
 
+        # Apply sampled supertype values to agent types
+        for agent in self.agents.values():
+            agent.reset()
+
     @property
     def n_agents(self) -> int:
         """Return the number of agents in the environment."""
