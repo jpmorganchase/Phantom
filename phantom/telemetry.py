@@ -297,26 +297,13 @@ class TelemetryLogger:
             )
 
     def log_msg_send(self, message: Message) -> None:
-        if self._should_print_msg(message):
-            route_str = f"{message.sender_id: >10} --> {message.receiver_id: <10}"
-            msg_name = f"({message.payload.__class__.__name__})"
-
-            print(_t(2) + f"MSG SEND: {route_str} {msg_name: <20}")
+        self._print_msg(message, "SEND")
 
     def log_msg_recv(self, message: Message) -> None:
         if self._current_episode is not None:
             self._current_episode["steps"][-1]["messages"].append(asdict(message))
 
-        if self._should_print_msg(message):
-            route_str = f"{message.sender_id: >10} --> {message.receiver_id: <10}"
-            msg_name = f"({message.payload.__class__.__name__})"
-            fields = ", ".join(f"{k}: {v}" for k, v in message.payload.__dict__.items())
-
-            print(
-                _t(2)
-                + f"MSG RECV: {route_str} {msg_name: <20}"
-                + colored(fields, attrs=["dark"])
-            )
+        self._print_msg(message, "RECV")
 
     def log_metrics(self, env: "PhantomEnv") -> None:
         if self._current_episode is not None:
@@ -338,6 +325,18 @@ class TelemetryLogger:
 
         if self._enable_print:
             print(_t(1) + colored("EPISODE DONE", color="green", attrs=["bold"]))
+
+    def _print_msg(self, message: Message, string: str) -> None:
+        if self._should_print_msg(message):
+            route_str = f"{message.sender_id: >10} --> {message.receiver_id: <10}"
+            msg_name = f"({message.payload.__class__.__name__})"
+            fields = ", ".join(f"{k}: {v}" for k, v in message.payload.__dict__.items())
+
+            print(
+                _t(2)
+                + f"MSG {string}: {route_str} {msg_name: <20}"
+                + colored(fields, attrs=["dark"])
+            )
 
     def _write_episode_to_file(self) -> None:
         if self._output_file is not None and self._current_episode is not None:
