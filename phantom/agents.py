@@ -67,15 +67,18 @@ class Agent(ABC):
     ) -> None:
         self._id = agent_id
 
-        self.supertype = supertype
-
-        self.type: Optional[Supertype] = None
-
         self.__handlers: DefaultDict[Type[MsgPayload], List[Handler]] = defaultdict(
             list
         )
 
-        for name, attr in self.__class__.__dict__.items():
+        self.supertype = supertype
+
+        # This ensures that a supertype is sampled from and hence a type value is always
+        # set on the agent to prevent 'Agent.type is undefined' type errors.
+        Agent.reset(self)
+
+        for name in dir(self):
+            attr = getattr(self, name)
             if callable(attr) and hasattr(attr, "_message_type"):
                 self.__handlers[attr._message_type].append(getattr(self, name))
 
@@ -136,7 +139,7 @@ class Agent(ABC):
         ptype = type(message.payload)
 
         if ptype not in self.__handlers:
-            raise KeyError(
+            raise ValueError(
                 f"Unknown message type {ptype} in message sent from '{message.sender_id}' to '{self.id}'. Agent '{self.id}' needs a message handler function capable of receiving this mesage type."
             )
 
@@ -176,7 +179,7 @@ class Agent(ABC):
         return f"[{self.__class__.__name__} {self.id}]"
 
 
-class RLAgent(Agent):
+class StrategicAgent(Agent):
     """
     Representation of a behavioural agent in the network.
 

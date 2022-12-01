@@ -1,7 +1,7 @@
 import phantom as ph
 import pytest
 
-from .. import MockAgent, MockEnv, MockPolicy
+from .. import MockStrategicAgent, MockEnv, MockPolicy
 
 
 def test_rllib_train_rollout(tmpdir):
@@ -10,9 +10,8 @@ def test_rllib_train_rollout(tmpdir):
         env_class=MockEnv,
         env_config={},
         policies={
-            "mock_policy": MockAgent,
+            "mock_policy": MockStrategicAgent,
         },
-        policies_to_train=["mock_policy"],
         rllib_config={
             "disable_env_checking": True,
         },
@@ -70,26 +69,6 @@ def test_rllib_train_rollout(tmpdir):
         policy_id="mock_policy",
     )
     assert len(list(results)) == 1
-
-
-def test_rllib_train_bad(tmpdir):
-    # policy to train not defined
-    with pytest.raises(ValueError):
-        ph.utils.rllib.train(
-            algorithm="PPO",
-            env_class=MockEnv,
-            env_config={},
-            policies={
-                "mock_policy": MockAgent,
-            },
-            policies_to_train=["undefined_policy"],
-            rllib_config={
-                "disable_env_checking": True,
-            },
-            tune_config={
-                "local_dir": tmpdir,
-            },
-        )
 
 
 def test_rllib_rollout_bad(tmpdir):

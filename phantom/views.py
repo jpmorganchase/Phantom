@@ -35,3 +35,4 @@ class EnvView(View):
     """
 
     current_step: int
+    proportion_time_elapsed: float

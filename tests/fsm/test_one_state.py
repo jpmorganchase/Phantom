@@ -11,12 +11,12 @@ import tempfile
 import numpy as np
 import phantom as ph
 
-from .. import MockAgent
+from .. import MockStrategicAgent
 
 
 class OneStateFSMEnvWithHandler(ph.fsm.FiniteStateMachineEnv):
     def __init__(self):
-        agents = [MockAgent("agent")]
+        agents = [MockStrategicAgent("agent")]
 
         network = ph.Network(agents)
 
@@ -89,7 +89,7 @@ def test_one_state_with_handler():
 
 class OneStateFSMEnvWithoutHandler(ph.fsm.FiniteStateMachineEnv):
     def __init__(self):
-        agents = [MockAgent("agent")]
+        agents = [MockStrategicAgent("agent")]
 
         network = ph.Network(agents)
 

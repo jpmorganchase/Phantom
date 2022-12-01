@@ -209,7 +209,7 @@ class PublisherAgent(ph.Agent):
         return [(msg.payload.advertiser_id, ImpressionResult(clicked=clicked))]
 
 
-class AdvertiserAgent(ph.RLAgent):
+class AdvertiserAgent(ph.StrategicAgent):
     """
     An `AdvertiserAgent` learns to bid efficiently and within its budget limit, on an impression
     in order to maximize the number of clicks it gets.
@@ -606,7 +606,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
 #######################################
 
 
-class AdvertiserBidUser(ph.logging.Metric[float]):
+class AdvertiserBidUser(ph.metrics.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
@@ -627,7 +627,7 @@ class AdvertiserBidUser(ph.logging.Metric[float]):
         return np.nanmean(values)
 
 
-class AdvertiserAverageHitRatioUser(ph.logging.Metric[float]):
+class AdvertiserAverageHitRatioUser(ph.metrics.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
@@ -651,7 +651,7 @@ class AdvertiserAverageHitRatioUser(ph.logging.Metric[float]):
         return values[-1]
 
 
-class AdvertiserAverageWinProbaUser(ph.logging.Metric[float]):
+class AdvertiserAverageWinProbaUser(ph.metrics.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
@@ -675,7 +675,7 @@ class AdvertiserAverageWinProbaUser(ph.logging.Metric[float]):
         return values[-1]
 
 
-class AdvertiserTotalRequests(ph.logging.Metric[float]):
+class AdvertiserTotalRequests(ph.metrics.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
@@ -687,7 +687,7 @@ class AdvertiserTotalRequests(ph.logging.Metric[float]):
         return values[-1]
 
 
-class AdvertiserTotalWins(ph.logging.Metric[float]):
+class AdvertiserTotalWins(ph.metrics.Metric[float]):
     def __init__(self, agent_id: str, user_id: int) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
@@ -713,9 +713,9 @@ for aid in (
 ):
     metrics[f"{aid}/bid_user_1"] = AdvertiserBidUser(aid, 1)
     metrics[f"{aid}/bid_user_2"] = AdvertiserBidUser(aid, 2)
-    metrics[f"{aid}/budget_left"] = ph.logging.SimpleAgentMetric(aid, "left", "mean")
-    metrics[f"{aid}/wins"] = ph.logging.SimpleAgentMetric(aid, "step_wins", "mean")
-    metrics[f"{aid}/clicks"] = ph.logging.SimpleAgentMetric(aid, "step_clicks", "mean")
+    metrics[f"{aid}/budget_left"] = ph.metrics.SimpleAgentMetric(aid, "left", "mean")
+    metrics[f"{aid}/wins"] = ph.metrics.SimpleAgentMetric(aid, "step_wins", "mean")
+    metrics[f"{aid}/clicks"] = ph.metrics.SimpleAgentMetric(aid, "step_clicks", "mean")
     metrics[f"{aid}/total_requests_user_1"] = AdvertiserTotalRequests(aid, 1)
     metrics[f"{aid}/total_requests_user_2"] = AdvertiserTotalRequests(aid, 2)
     metrics[f"{aid}/total_wins_user_1"] = AdvertiserTotalWins(aid, 1)
@@ -878,11 +878,6 @@ if __name__ == "__main__":
             algorithm="PPO",
             env_class=DigitalAdsEnv,
             policies=policies,
-            policies_to_train=[
-                "adv_policy_travel",
-                "adv_policy_tech",
-                "adv_policy_sport",
-            ],
             metrics=metrics,
             env_config={
                 "agent_supertypes": agent_supertypes,

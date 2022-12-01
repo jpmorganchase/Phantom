@@ -6,7 +6,7 @@ import pytest
 from phantom import Context, Network, PhantomEnv, Policy, SingleAgentEnvAdapter
 
 
-class MockAgent(ph.RLAgent):
+class MockAgent(ph.StrategicAgent):
     def decode_action(self, ctx: Context, action: np.ndarray):
         return []
 

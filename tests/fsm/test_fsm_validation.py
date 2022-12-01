@@ -1,7 +1,7 @@
 import phantom as ph
 import pytest
 
-from .. import MockAgent
+from .. import MockStrategicAgent
 
 
 def test_no_stages_registered():
@@ -11,7 +11,7 @@ def test_no_stages_registered():
 
     class Env(ph.fsm.FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MockAgent("agent")]
+            agents = [MockStrategicAgent("agent")]
 
             network = ph.Network(agents)
 
@@ -32,7 +32,7 @@ def test_duplicate_stages():
 
     class Env(ph.fsm.FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MockAgent("agent")]
+            agents = [MockStrategicAgent("agent")]
 
             network = ph.Network(agents)
 
@@ -67,7 +67,7 @@ def test_invalid_initial_stage():
 
     class Env(ph.fsm.FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MockAgent("agent")]
+            agents = [MockStrategicAgent("agent")]
 
             network = ph.Network(agents)
 
@@ -95,7 +95,7 @@ def test_invalid_next_state():
 
     class Env(ph.fsm.FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MockAgent("agent")]
+            agents = [MockStrategicAgent("agent")]
 
             network = ph.Network(agents)
 
@@ -123,7 +123,7 @@ def test_invalid_no_handler_stage_next_stages():
 
     class Env(ph.fsm.FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MockAgent("agent")]
+            agents = [MockStrategicAgent("agent")]
 
             network = ph.Network(agents)
 
@@ -145,7 +145,7 @@ def test_invalid_next_state_runtime():
 
     class Env(ph.fsm.FiniteStateMachineEnv):
         def __init__(self):
-            agents = [MockAgent("agent")]
+            agents = [MockStrategicAgent("agent")]
 
             network = ph.Network(agents)
 

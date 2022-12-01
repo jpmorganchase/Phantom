@@ -1,6 +1,6 @@
-.. _api_logging:
+.. _api_metrics:
 
-Logging
+Metrics
 =======
 
 .. TODO: explain how to use

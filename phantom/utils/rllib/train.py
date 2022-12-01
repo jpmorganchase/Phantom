@@ -26,7 +26,8 @@ from ray.tune.logger import LoggerCallback
 
 from ...agents import Agent
 from ...env import PhantomEnv
-from ...logging import Metric
+from ...fsm import FiniteStateMachineEnv
+from ...metrics import Metric
 from ...policy import Policy
 from ...types import AgentID
 from .. import check_env_config, show_pythonhashseed_warning
@@ -55,7 +56,6 @@ def train(
     algorithm: str,
     env_class: Type[PhantomEnv],
     policies: PolicyMapping,
-    policies_to_train: List[str],
     num_workers: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
     rllib_config: Optional[Mapping[str, Any]] = None,
@@ -74,7 +74,6 @@ def train(
             be provided).
         env_class: A PhantomEnv subclass.
         policies: A mapping of policy IDs to policy configurations.
-        policies_to_train: A list of policy IDs that will be trained using RLlib.
         num_workers: Number of Ray workers to initialise (defaults to 'NUM CPU - 1').
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
@@ -124,6 +123,7 @@ def train(
 
     policy_specs: Dict[str, rllib.policy.policy.PolicySpec] = {}
     policy_mapping: Dict[AgentID, str] = {}
+    policies_to_train: List[str] = []
 
     for policy_name, params in policies.items():
         policy_class = None
@@ -131,9 +131,11 @@ def train(
 
         if isinstance(params, list):
             agent_ids = params
+            policies_to_train.append(policy_name)
 
         elif isclass(params) and issubclass(params, Agent):
             agent_ids = list(env.network.get_agents_with_type(params).keys())
+            policies_to_train.append(policy_name)
 
         elif isinstance(params, tuple):
             if len(params) == 2:
@@ -159,12 +161,6 @@ def train(
 
         for agent_id in agent_ids:
             policy_mapping[agent_id] = policy_name
-
-    for policy_id in policies_to_train:
-        if policy_id not in policy_specs:
-            raise ValueError(
-                f"Policy to train '{policy_id}' is not in the list of defined policies"
-            )
 
     def policy_mapping_fn(agent_id, *args, **kwargs):
         return policy_mapping[agent_id]
@@ -243,7 +239,15 @@ class RLlibMetricLogger(DefaultCallbacks):
         env = base_env.envs[0]
 
         for (metric_id, metric) in self.metrics.items():
-            episode.user_data[metric_id].append(metric.extract(env))
+            if (
+                not isinstance(env, FiniteStateMachineEnv)
+                or env.current_stage in metric.fsm_stages
+            ):
+                value = metric.extract(env)
+            else:
+                value = None
+
+            episode.user_data[metric_id].append(value)
 
     def on_episode_end(self, *, episode, **kwargs) -> None:
         for (metric_id, metric) in self.metrics.items():

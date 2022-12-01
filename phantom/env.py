@@ -8,13 +8,13 @@ from typing import (
     Set,
 )
 
-from .agents import Agent, RLAgent
+from .agents import Agent, StrategicAgent
 from .context import Context
 from .network import Network
 from .supertype import Supertype
 from .types import AgentID
 from .utils.samplers import Sampler
-from .views import EnvView
+from .views import AgentView, EnvView
 
 
 class PhantomEnv:
@@ -60,13 +60,17 @@ class PhantomEnv:
         self.env_supertype: Optional[Supertype] = None
         self.env_type: Optional[Supertype] = None
 
-        # Keep track of which agents are already done so we know to not continue to
-        # send back obs, rewards, etc...
+        # Keep track of which strategic agents are already done so we know to not
+        # continue to send back obs, rewards, etc...
         self._dones: Set[AgentID] = set()
 
         # Context objects are generated for all active agents once at the start of each
-        # step and stored for use across functions
+        # step and stored for use across functions.
         self._ctxs: Dict[AgentID, Context] = {}
+
+        # A view for each agent is generated every step. This should be used by only the
+        # environment for generating it's own view or metrics.
+        self._views: Dict[AgentID, AgentView] = {}
 
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the
@@ -111,6 +115,15 @@ class PhantomEnv:
         for sampler in self._samplers:
             sampler.sample()
 
+        # Apply sampled supertype values to agent types
+        for agent in self.agents.values():
+            agent.reset()
+
+    @property
+    def n_agents(self) -> int:
+        """Return the number of agents in the environment."""
+        return len(self.agent_ids)
+
     @property
     def agents(self) -> Dict[AgentID, Agent]:
         """Return a mapping of agent IDs to agents in the environment."""
@@ -122,13 +135,28 @@ class PhantomEnv:
         return list(self.network.agent_ids)
 
     @property
-    def n_agents(self) -> int:
-        """Return the number of agents in the environment."""
-        return len(self.agent_ids)
+    def strategic_agents(self) -> List[StrategicAgent]:
+        """Return a list of agents that take actions."""
+        return [a for a in self.agents.values() if isinstance(a, StrategicAgent)]
+
+    @property
+    def non_strategic_agents(self) -> List[Agent]:
+        """Return a list of agents that do not take actions."""
+        return [a for a in self.agents.values() if not isinstance(a, StrategicAgent)]
+
+    @property
+    def strategic_agent_ids(self) -> List[AgentID]:
+        """Return a list of the IDs of the agents that take actions."""
+        return [a.id for a in self.agents.values() if isinstance(a, StrategicAgent)]
+
+    @property
+    def non_strategic_agent_ids(self) -> List[AgentID]:
+        """Return a list of the IDs of the agents that do not take actions."""
+        return [a.id for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
     def view(self) -> EnvView:
         """Return an immutable view to the environment's public state."""
-        return EnvView(self.current_step)
+        return EnvView(self.current_step, self.current_step / self.num_steps)
 
     def pre_message_resolution(self) -> None:
         """Perform internal, pre-message resolution updates to the environment."""
@@ -166,23 +194,34 @@ class PhantomEnv:
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
+        # Generate views for use of the environment itself for generating it's own view
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
+
         # Reset network and call reset method on all agents in the network
         self.network.reset()
         self.resolve_network()
 
-        # Reset the agents' done statuses stored by the environment
+        # Reset the strategic agents' done statuses stored by the environment
         self._dones = set()
 
         # Pre-generate all contexts for agents taking actions
         env_view = self.view()
-        ctxs = [
-            self.network.context_for(agent.id, env_view)
-            for agent in self.agents.values()
-            if isinstance(agent, RLAgent)
-        ]
+        self._ctxs = {
+            agent.id: self.network.context_for(agent.id, env_view)
+            for agent in self.strategic_agents
+        }
+
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
 
         # Generate initial observations for agents taking actions
-        obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        obs = {
+            ctx.agent.id: ctx.agent.encode_observation(ctx)
+            for ctx in self._ctxs.values()
+        }
         return {k: v for k, v in obs.items() if v is not None}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
@@ -208,6 +247,11 @@ class PhantomEnv:
             if agent_id not in self._dones
         }
 
+        # Generate views for use of the environment itself for generating it's own view
+        self._views = {
+            agent_id: agent.view() for agent_id, agent in self.agents.items()
+        }
+
         # Decode action/generate messages for agents and send to the network
         for agent_id, ctx in self._ctxs.items():
             if agent_id in actions:
@@ -229,7 +273,7 @@ class PhantomEnv:
 
         # Pre-generate all context objects for acting agents
         for agent_id, ctx in self._ctxs.items():
-            if isinstance(ctx.agent, RLAgent):
+            if isinstance(ctx.agent, StrategicAgent):
                 obs = ctx.agent.encode_observation(ctx)
                 if obs is not None:
                     observations[agent_id] = obs
@@ -252,7 +296,7 @@ class PhantomEnv:
             self.num_steps is not None and self.current_step == self.num_steps
         )
 
-        return is_at_max_step or len(self._dones) == len(self.network.agents)
+        return is_at_max_step or len(self._dones) == len(self.strategic_agents)
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]
