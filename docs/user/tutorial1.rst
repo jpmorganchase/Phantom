@@ -1,13 +1,11 @@
 .. _tutorial1:
 
-.. TODO: check
-
 Tutorial - Part 1
 =================
 
 This tutorial will walk you through the steps of designing and running a simple Phantom
-experiment. It is based on the included ``supply-chain-1.py`` example that can be found
-in the ``envs`` directory in the Phantom repo.
+experiment. It is based on the included ``supply_chain.py`` example that can be found
+in the ``examples/environments/supply_chain`` directory in the Phantom repo.
 
 
 Experiment Goals
@@ -26,14 +24,16 @@ whole units. We do not concern ourselves with prices or profits here.
    :figclass: align-center
 
 
-Factory Actor
-^^^^^^^^^^^^^^^
+Factory Agent
+^^^^^^^^^^^^^
 
-The factory is an actor in the experiment. This is because, unlike customers or the
-shop, the factory does not need to take any actions - it is purely reactive.
+The factory is a simple agent in this environment. The shop can make unlimited requests
+for stock to the factory. The factory holds unlimited stock and will always completely
+fulfil the shop's requests.
 
-The shop can make unlimitec requests for stock to the factory. The factory holds
-unlimited stock and can dispatch unlimited stock to the shop if requested.
+It does not have a policy, or make actions and observations. It simply reacts to the
+actions of other agents via the messages (requests for stock) it receives. Because of
+this we use the :class:`Agent` class and not the :class:`StrategicAgent` class.
 
 .. figure:: /img/supply-chain-factory.svg
    :width: 60%
@@ -44,10 +44,16 @@ unlimited stock and can dispatch unlimited stock to the shop if requested.
 Customer Agent
 ^^^^^^^^^^^^^^
 
-Customers are non-learning agents. Every step they make an order to the shop for a
-variable quantity of products. We model the number of products requested with a Poisson
-random distribution. Customers receive products from the shop after making an order. We
-do not need to do anything with this when received.
+The customer agents do take an active role by creating order requests to the shop. Every
+step they make an order for a variable quantity of product. In this tutorial we sample
+a value from a random distribution to get the quantity requested. Because of this the
+customer does not need to make observations and hence we can still make use of the
+:class:`Agent` class and its :meth:`generate_messages()` method.
+
+We model the number of products requested with a Poisson random distribution. As there
+is only one shop the customers will always visit the same shop. Customers receive
+products from the shop after making an order. We do not need to do anything with this
+when received.
 
 .. figure:: /img/supply-chain-customer.svg
    :width: 55%
@@ -58,17 +64,22 @@ do not need to do anything with this when received.
 Shop Agent
 ^^^^^^^^^^
 
-The shop is the only learning agent in this experiment. It can hold infinite stock and
-can request infinite stock from the factory. It receives orders from customers and
-tries to fulfil these orders as best it can.
+The shop is the only learning agent in this experiment. It makes observations, queries
+its policy and takes actions from this. As such we use the :class:`StrategicAgent`
+class to create the shop.
+
+The shop can only hold a fixed amount of inventory and as such can only make a request
+of this size to the factory for more stock. It receives orders from customers and will
+fulfil these orders as best it can.
 
 The shop takes one action each step - the request for more stock that it sends to the
 factory. The amount it requests is decided by the policy. The policy is informed by
-one observation: the amount of stock currently held by the shop.
+several observations: TODO.
 
-The goal is for the shop to learn a policy where it makes the right amount of stock
-requests to the factory so it can fulfil all it's orders without holding onto too much
-unecessary stock. This goal is implemented in the shop agent's reward function.
+The goal is for the shop to learn a policy where it requests a suitable amount of stock
+requests to the factory each step so that it can fulfil all it's orders without holding
+onto too much unecessary stock. This goal is implemented in the shop agent's reward
+function, we reward for sales made and penalise for excess stock held.
 
 .. figure:: /img/supply-chain-shop.svg
    :width: 90%
@@ -82,6 +93,8 @@ First we import the libraries we require and define some constants.
 
 .. code-block:: python
 
+    from dataclasses import dataclass
+
     import gym
     import numpy as np
     import phantom as ph
@@ -90,15 +103,45 @@ First we import the libraries we require and define some constants.
     NUM_EPISODE_STEPS = 100
 
     NUM_CUSTOMERS = 5
-    SHOP_MAX_STOCK = 1000
-    SHOP_MAX_STOCK_REQUEST = 100
+    CUSTOMER_MAX_ORDER_SIZE = 5
+    SHOP_MAX_STOCK = 100
 
 As this experiment is simple we can easily define it entirely within one file. For more
 complex, larger experiments it is recommended to split the code into multiple files,
 making use of the modularity of Phantom.
 
-Next, for each of our agent/actor types we define a new Python class that encapsulates
-all the functionality the given agent/actor needs:
+Next we define message payload classes for each type of message. This helps to enforce
+the type of information that is sent between agents and can help reduce bugs in complex
+environments. The message payload classes are frozen, or immutable, which means once
+created they cannot be modified in transport.
+
+.. code-block:: python
+
+    @dataclass(frozen=True)
+    class OrderRequest(ph.MsgPayload):
+        """Customer --> Shop"""
+        size: int
+
+
+    @dataclass(frozen=True)
+    class OrderResponse(ph.MsgPayload):
+        """Shop --> Customer"""
+        size: int
+
+
+    @dataclass(frozen=True)
+    class StockRequest(ph.MsgPayload):
+        """Shop --> Factory"""
+        size: int
+
+
+    @dataclass(frozen=True)
+    class StockResponse(ph.MsgPayload):
+        """Factory --> Shop"""
+        size: int
+
+Next, for each of our agent types we define a new Python class that encapsulates all the
+functionality the given agent needs:
 
 
 Factory Agent
@@ -113,24 +156,29 @@ store state. We inherit from the :class:`Agent` class:
 
 .. code-block:: python
 
-    class FactoryActor(ph.Agent):
-        def __init__(self, actor_id: str):
-            super().__init__(actor_id)
+    class FactoryAgent(ph.Agent):
+        def __init__(self, agent_id: str):
+            super().__init__(agent_id)
 
-
-The :class:`Agent` class requires that we implement a :meth:`handle_message` method in
-our sub-class. Here we take any stock request we receive from the shop (the
-:attr:`payload` of the message) and reflect it back to the shop as the factory will
-always fulfils stock requests.
+We define the functionality for handling messages with ``ph.agents.msg_handler``
+decorated methods. Each method handles a different type of message as given to the
+decorator:
 
 .. code-block:: python
 
-        def handle_message(self, ctx: ph.Context, msg: ph.Message):
-            # The factory receives stock request messages from shop agents. We
-            # simply reflect the amount of stock requested back to the shop as the
-            # factory has unlimited stock.
-            return [(msg.sender_id, msg.payload)]
+        @ph.agents.msg_handler(StockRequest)
+        def handle_stock_request(self, ctx: ph.Context, message: ph.Message):
+            # The factory receives stock request messages from shop agents. We simply
+            # reflect the amount of stock requested back to the shop as the factory can
+            # produce unlimited stock.
+            return [(message.sender_id, StockResponse(message.payload.size))]
+
     #
+
+Here we take any stock request we receive from the shop (the :attr:`payload` of the
+message) and reflect it back to the shop as the factory will always completely fulfil
+any stock request it receives.
+
 
 Customer Agent
 ^^^^^^^^^^^^^^
@@ -140,66 +188,38 @@ Customer Agent
    :figclass: align-center
 
 The implementation of the customer agent class takes more work as it stores state and
-takes actions. For any agent to be able to interact with the RLlib framework we need to
-define methods to decode actions, encode observations, compute reward functions. Our
-customer agent takes actions according to a pre-defined policy - it does not actively
-learn - and so we can use a :class:`Policy` derived class to define this simple policy:
-
-.. code-block:: python
-
-    class CustomerPolicy(ph.Policy):
-        # The size of the order made for each customer is determined by this fixed policy.
-        def compute_action(self, obs) -> int:
-            return np.random.uniform(5)
-
-Next we define the customer agent class.
-
-.. TODO: change to generate_messages
-
-.. code-block:: python
-
-    class CustomerAgent(ph.Agent):
-        def __init__(self, agent_id: str, shop_id: str):
-            super().__init__(agent_id)
-
-            # We need to store the shop's ID so we can send order requests to it.
-            self.shop_id: str = shop_id
+generates its own messages.
 
 We take the ID of the shop as an initialisation parameter and store it as local state.
 It is recommended to always handle IDs this way rather than hard-coding them.
 
-We define a :meth:`decode_action` method. This is called every step and allows the
-customer agent to make orders to the shop. We use a random number generator to create
-varying order sizes.
-
 .. code-block:: python
 
-        def decode_action(self, ctx: ph.Context, action: np.ndarray):
-            # At the start of each step we generate an order with a random size to
-            # send to the shop.
-            order_size = action
+    class CustomerAgent(ph.Agent):
+        def __init__(self, agent_id: ph.AgentID, shop_id: ph.AgentID):
+            super().__init__(agent_id)
+
+            # We need to store the shop's ID so we know who to send order requests to.
+            self.shop_id: str = shop_id
+
+        @ph.agents.msg_handler(OrderResponse)
+        def handle_order_response(self, ctx: ph.Context, message: ph.Message):
+            # The customer will receive it's order from the shop but we do not need to
+            # take any actions on it.
+            return
+
+        def generate_messages(self, ctx: ph.Context):
+            # At the start of each step we generate an order with a random size to send
+            # to the shop.
+            order_size = np.random.randint(CUSTOMER_MAX_ORDER_SIZE)
 
             # We perform this action by sending a stock request message to the factory.
-            return [(self.shop_id, order_size)]
-    #
+            return [(self.shop_id, OrderRequest(order_size))]
 
-The ``messages`` parameter of the ``Packet`` object is a mapping of recipient IDs to a
-list of message payloads. This allows multiple messages to be send to a single
-agent/actor. In our case we are sending a single message containing a numeric value
-(the order size) to the shop.
-
-As before with the factory actor, we have to define a ``handle_message`` method. The
-customer receives messages from the shop containing the products the customer requested.
-The customer does not need to take any action with these messages and so we return an
-empty iterator using the ``yield from ()`` syntactic sugar.
-
-.. code-block:: python
-
-        def handle_message(self, ctx: ph.Context, msg: ph.Message):
-            # The customer will receive it's order from the shop but we do not need
-            # to take any actions on it.
-            return
-    #
+The :meth:`generate_messages()`, :meth:`decode_action()` and any message handler method
+can all return new messages to deliver. These can be to any other agent that the agent
+is connected to. This is done by optionally returning a list of tuples with each tuple
+containing the ID of the agent to send to and the message contents.
 
 
 Shop Agent
@@ -211,13 +231,14 @@ Shop Agent
 
 As the learning agent in our experiment, the shop agent is the most complex and
 introduces some new features of Phantom. As seen below, we store more local state than
+before. Note that we inherit from :class:`StrategicAgent` and not :class:`Agent` as
 before.
 
 We keep track of sales and missed sales for each step.
 
 .. code-block:: python
 
-    class ShopAgent(ph.Agent):
+    class ShopAgent(ph.StrategicAgent):
         def __init__(self, agent_id: str, factory_id: str):
             super().__init__(agent_id)
 
@@ -234,117 +255,117 @@ We keep track of sales and missed sales for each step.
             # stock.
             self.missed_sales: int = 0
 
+            # = [Stock, Sales, Missed Sales]
+            self.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=(3,))
+
+            # = [Restock Quantity]
+            self.action_space = gym.spaces.Box(low=0.0, high=SHOP_MAX_STOCK, shape=(1,))
+
 
 We want to keep track of how many sales and missed sales we made in the step. When
 messages are sent, the shop will start taking orders. So before this happens we want to
-reset our counters. We can do this by defining a ``pre_resolution`` method. This is
-called directly before messages are sent across the network in each step.
+reset our counters. We can do this by defining a :meth:`pre_message_resolution()`
+method. This is called directly before messages are sent across the network in each
+step.
 
 .. code-block:: python
 
-        def pre_resolution(self, ctx: ph.Context):
+        def pre_message_resolution(self, ctx: ph.Context):
             # At the start of each step we reset the number of missed orders to 0.
             self.sales = 0
             self.missed_sales = 0
     #
 
-The ``handle_message`` method is logically split into two parts: handling messages
-received from the factory and handling messages received from the customer.
+We define two message handler methods: one for handling order requests from customers
+and one for handling stock deliveries from the factory.
 
 .. code-block:: python
 
-        def handle_message(self, ctx: ph.Context, msg: ph.Message):
-            if msg.sender_id == self.factory_id:
-                # Messages received from the factory contain stock.
-                self.stock = min(self.stock + msg.payload, SHOP_MAX_STOCK)
+        @ph.agents.msg_handler(StockResponse)
+        def handle_stock_response(self, ctx: ph.Context, message: ph.Message):
+            # Messages received from the factory contain stock.
+            self.delivered_stock = message.payload.size
 
-                # We do not need to respond to these messages.
-                yield from ()
+            self.stock = min(self.stock + self.delivered_stock, SHOP_MAX_STOCK)
+
+        @ph.agents.msg_handler(OrderRequest)
+        def handle_order_request(self, ctx: ph.Context, message: ph.Message):
+            amount_requested = message.payload.size
+
+            # If the order size is more than the amount of stock, partially fill the order.
+            if amount_requested > self.stock:
+                self.missed_sales += amount_requested - self.stock
+                stock_to_sell = self.stock
+                self.stock = 0
+            # ... Otherwise completely fill the order.
             else:
-                # All other messages are from customers and contain orders.
-                amount_requested = msg.payload
+                stock_to_sell = amount_requested
+                self.stock -= amount_requested
 
-                if amount_requested > self.stock:
-                    self.missed_sales += amount_requested - self.stock
-                    stock_to_sell = self.stock
-                    self.stock = 0
-                else:
-                    stock_to_sell = amount_requested
-                    self.stock -= amount_requested
+            self.sales += stock_to_sell
 
-                self.sales += stock_to_sell
+            # Send the customer their order.
+            return [(message.sender_id, OrderResponse(stock_to_sell))]
 
-                # Send the customer their order.
-                yield (msg.sender_id, [stock_to_sell])
     #
 
-
-The observation we send to the policy on each step is the shop's amount of stock it
-currently holds. We allow this information to be sent by defining an ``encode_obs``
-method:
+We encode the shop's observation with the :meth:`encode_observation()` method. In this
+we apply some simple scaling to the values.
 
 .. code-block:: python
 
         def encode_observation(self, ctx: ph.Context):
-            # We encode the shop's current stock as the observation.
-            return self.stock
+            max_sales_per_step = NUM_CUSTOMERS * CUSTOMER_MAX_ORDER_SIZE
+
+            return np.array(
+                [
+                    self.stock / SHOP_MAX_STOCK,
+                    self.sales / max_sales_per_step,
+                    self.missed_sales / max_sales_per_step,
+                ],
+                dtype=np.float32,
+            )
     #
 
-We define a ``decode_action`` method for taking the action from the policy and
+We define a :meth:`decode_action()` method for taking the action from the policy and
 translating it into messages to send in the environment. Here the action taken is making
-requests to the factory for more stock. We place the messages we want to send in a
-``Packet`` container.
+requests to the factory for more stock. As we have set the action space to be continuous
+we need to convert the action to an integer value as we only deal with whole units of
+stock.
 
 .. code-block:: python
 
-        def decode_action(self, ctx: ph.Context, action: int):
+        def decode_action(self, ctx: ph.Context, action: np.ndarray):
             # The action the shop takes is the amount of new stock to request from
-            # the factory.
-            stock_to_request = action
+        # the factory, clipped so the shop never requests more stock than it can hold.
+        stock_to_request = min(int(round(action[0])), SHOP_MAX_STOCK - self.stock)
 
             # We perform this action by sending a stock request message to the factory.
-            return ph.packet.Packet(messages={self.factory_id: [stock_to_request]})
+            return [(self.factory_id, StockRequest(stock_to_request))]
     #
 
-Next we define a ``compute_reward`` method. Every step we calculate a reward based on
-the agents current state in the environment and send it to the policy so it can learn.
+Next we define a :meth:`compute_reward()` method. Every step we calculate a reward based
+on the agents current state in the environment and send it to the policy so it can learn
+a good policy.
 
 .. code-block:: python
 
         def compute_reward(self, ctx: ph.Context) -> float:
             # We reward the agent for making sales.
-            # We penalise the agent for holding onto stock and for missing orders.
-            return self.step_sales - self.step_missed_sales - self.stock
+            # We penalise the agent for holding onto excess stock.
+            return self.sales - 0.1 * self.stock
     #
 
 Each episode can be thought of as a completely independent trial for the environment.
-However creating a new environment each time with a new network, actors and agents could
+However creating a new environment each time with a new network, agents could
 potentially slow our simulations down a lot. Instead we can reset our objects back to an
-initial state. This is done with the ``reset`` method:
+initial state. This is done with the :meth:`reset()` method:
 
 .. code-block:: python
 
         def reset(self):
             self.stock = 0
     #
-
-Finally we need to let RLlib know the sizes of our observation space and action space so
-it can construct the correct neural network for the agent's policy. This is done by
-defining a ``observation_space`` method and a ``action_space`` method:
-
-.. code-block:: python
-
-        @property
-        def observation_space(self):
-            return gym.spaces.Discrete(SHOP_MAX_STOCK + 1)
-
-        @property
-        def action_space(self):
-            return gym.spaces.Discrete(SHOP_MAX_STOCK_REQUEST)
-    #
-
-Here we state that we can observe between 0 and infinite stock and we can also take an
-action to get between 0 and infinite stock (see constant values defined at the start).
 
 
 Environment
@@ -354,11 +375,11 @@ Environment
    :width: 15%
    :figclass: align-center
 
-Now we have defined all our actors and agents and their behaviours we can describe how
-they will all interact by defining our environment. Phantom provides a base
-``PhantomEnv`` class that the user should create their own class and inherit from. The
-``PhantomEnv`` class provides a default set of required methods such as ``step`` which
-coordinates the evolution of the environment for each episodes.
+Now we have defined all our agents and their behaviours we can describe how they will
+all interact by defining our environment. Phantom provides a base :class:`PhantomEnv`
+class that the user should create their own class and inherit from. The
+:class:`PhantomEnv` class provides a default set of required methods such as
+:meth:`step()` which coordinates the evolution of the environment for each episodes.
 
 Advanced users of Phantom may want to implement advanced functionality and write their
 own methods, but for most simple use cases the provided methods are fine. The minimum a
@@ -368,42 +389,38 @@ the number of episode steps.
 .. code-block:: python
 
     class SupplyChainEnv(ph.PhantomEnv):
+        def __init__(self):
 
-        env_name: str = "supply-chain-v1"
-
-        def __init__(self, n_customers: int = 5):
-
-The recommended design pattern when creating your environment is to define all the actor
-and agent IDs up-front and not use hard-coded values:
+The recommended design pattern when creating your environment is to define all the agent
+IDs up-front and not use hard-coded values:
 
 .. code-block:: python
 
-            # Define actor and agent IDs
-            shop_id = "SHOP"
+            # Define agent IDs
             factory_id = "WAREHOUSE"
-            customer_ids = [f"CUST{i+1}" for i in range(n_customers)]
+            customer_ids = [f"CUST{i+1}" for i in range(NUM_CUSTOMERS)]
+            shop_id = "SHOP"
     #
 
-Next we define our agents and actors by creating instances of the classes we previously
-wrote:
+Next we define our agents by creating instances of the classes we previously wrote:
 
 .. code-block:: python
 
-            shop_agent = ShopAgent(shop_id, factory_id=factory_id)
-            factory_actor = FactoryActor(factory_id)
-
+            factory_agent = FactoryAgent(factory_id)
             customer_agents = [CustomerAgent(cid, shop_id=shop_id) for cid in customer_ids]
+            shop_agent = ShopAgent(shop_id, factory_id=factory_id)
+
     #
 
-Then we accumulate all our agents and actors in one list so we can add them to the
-network. We then use the IDs to create the connections between our agents:
+Then we accumulate all our agents into one list so we can add them to the network. We
+then use the IDs to create the connections between our agents:
 
 .. code-block:: python
 
-            actors = [shop_agent, factory_actor] + customer_agents
+            agents = [shop_agent, factory_agent] + customer_agents
 
             # Define Network and create connections between Actors
-            network = ph.Network(actors)
+            network = ph.Network(agents)
 
             # Connect the shop to the factory
             network.add_connection(shop_id, factory_id)
@@ -412,11 +429,11 @@ network. We then use the IDs to create the connections between our agents:
             network.add_connections_between([shop_id], customer_ids)
     #
 
-Finally we make sure to initialise the parent ``PhantomEnv`` class:
+Finally we make sure to initialise the parent :class:`PhantomEnv` class:
 
 .. code-block:: python
 
-            super().__init__(network=network, n_steps=NUM_EPISODE_STEPS)
+            super().__init__(num_steps=NUM_EPISODE_STEPS, network=network)
     #
 
 
@@ -428,10 +445,11 @@ These will be described in more detail in the second part of the tutorial.
 
 .. code-block:: python
 
-    metrics = {}
-    metrics["SHOP/stock"] = ph.logging.SimpleAgentMetric("SHOP", "stock", "mean")
-    metrics["SHOP/sales"] = ph.logging.SimpleAgentMetric("SHOP", "sales", "mean")
-    metrics["SHOP/missed_sales"] = ph.logging.SimpleAgentMetric("SHOP", "missed_sales", "mean")
+    metrics = {
+        "SHOP/stock": ph.metrics.SimpleAgentMetric("SHOP", "stock", "mean"),
+        "SHOP/sales": ph.metrics.SimpleAgentMetric("SHOP", "sales", "mean"),
+        "SHOP/missed_sales": ph.metrics.SimpleAgentMetric("SHOP", "missed_sales", "mean"),
+    }
 
 
 Training the Agents
@@ -444,27 +462,33 @@ Training the Agents
 Training the agents is done by making use of one of RLlib's many reinforcement learning
 algorithms. Phantom provides a wrapper around RLlib that hides much of the complexity.
 
-Training in Phantom is initiated by calling the ``ph.train`` function, passing in the
-parameters of the experiment. Any items given in the ``env_config`` dictionary will be
-passed to the initialisation method of the environment.
+Training in Phantom is initiated by calling the :func:`ph.utils.rllib.train` function,
+passing in the parameters of the experiment. Any items given in the :attr:`env_config`
+dictionary will be passed to the initialisation method of the environment.
 
 The experiment name is important as this determines where the experiment results will be
-stored. By default experiment results are stored in a directory named `phantom-results`
-in the current user's home directory. 
+stored. By default experiment results are stored in a directory named ``ray_results``
+in the current user's home directory.
 
-There are more fields available in ``ph.train`` function than what is shown here. See
-:ref:`api_utils` for full documentation.
+There are more fields available in :func:`ph.utils.rllib.train` function than what is
+shown here. See :ref:`api_utils` for full documentation.
 
 .. code-block:: python
 
-    ph.train(
-        experiment_name="supply-chain",
+    ph.utils.rllib.train(
         algorithm="PPO",
-        num_workers=10,
-        num_episodes=5000,
         env_class=SupplyChainEnv,
-        env_config=dict(n_customers=NUM_CUSTOMERS),
+        env_config={},
+        policies={"shop_policy": ["SHOP"]},
         metrics=metrics,
+        rllib_config={"seed": 0},
+        tune_config={
+            "name": "supply_chain_1",
+            "checkpoint_freq": 50,
+            "stop": {
+                "training_iteration": 200,
+            },
+        },
     )
 
 
@@ -485,14 +509,14 @@ command:
 Where we substitute ``path/to/config`` for the correct path.
 
 The ``phantom`` command is a simple wrapper around the default python interpreter but
-makes sure the ``PYHTONHASHSEED`` environment variable is set which can improve
+makes sure the ``PYTHONHASHSEED`` environment variable is set which can improve
 reproducibility.
 
 In a new terminal we can monitor the progress of the experiment live with TensorBoard:
 
 .. code-block:: bash
 
-    tensorboard --logdir ~/phantom-results/supply-chain
+    tensorboard --logdir ~/ray_results/supply-chain
 
 Note the last element of the path matches the name we gave to our experiment in the
 ``ph.train`` function.
@@ -519,16 +543,13 @@ the rollout data can be accessed and analysed:
 
 .. code-block:: python
 
-    results = ph.rollout(
-        directory="supply-chain-1/LATEST",
-        algorithm="PPO",
-        num_workers=1,
-        num_repeats=10,
-        env_config=dict(n_customers=NUM_CUSTOMERS),
+    results = ph.utils.rllib.rollout(
+        directory="supply_chain/LATEST",
+        num_repeats=100,
         metrics=metrics,
-        save_trajectories=True,
-        save_messages=True,
     )
+
+    results = list(results)
 
 
 Here we show some basic examples of how the rollout episode data can be used to perform
@@ -547,7 +568,7 @@ all rollouts:
     shop_missed_sales = []
 
     for rollout in results:
-        shop_actions += list(rollout.actions_for_agent("SHOP"))
+        shop_actions += list(int(round(x[0])) for x in rollout.actions_for_agent("SHOP"))
         shop_stock += list(rollout.metrics["SHOP/stock"])
         shop_sales += list(rollout.metrics["SHOP/sales"])
         shop_missed_sales += list(rollout.metrics["SHOP/missed_sales"])
@@ -561,13 +582,14 @@ gives an average order rate of 25.
 .. code-block:: python
 
     # Plot distribution of shop action (stock request) per step for all rollouts
-    plt.hist(shop_actions, bins=10)
+    plt.hist(shop_actions, bins=20)
     plt.title("Distribution of Shop Action Values (Stock Requested Per Step)")
     plt.xlabel("Shop Action (Stock Requested Per Step)")
     plt.ylabel("Frequency")
-    plt.show()
+    plt.savefig("supply_chain_shop_action_values.png")
+    plt.close()
 
-.. figure:: /img/tut-plot-0.png
+.. figure:: /img/supply_chain_shop_action_values.png
    :width: 70%
    :figclass: align-center
 
@@ -582,9 +604,10 @@ Depending on the variation in size of recent orders it may be less or more.
     plt.title("Distribution of Shop Held Stock")
     plt.xlabel("Shop Held Stock (Per Step)")
     plt.ylabel("Frequency")
-    plt.show()
+    plt.savefig("supply_chain_shop_held_stock.png")
+    plt.close()
 
-.. figure:: /img/tut-plot-1.png
+.. figure:: /img/supply_chain_shop_held_stock.png
    :width: 70%
    :figclass: align-center
 
@@ -601,18 +624,20 @@ which the shop fails to fulfil all orders.
     plt.title("Distribution of Shop Sales Made")
     plt.xlabel("Shop Sales Made (Per Step)")
     plt.ylabel("Frequency")
-    plt.show()
+    plt.savefig("supply_chain_shop_sales_made.png")
+    plt.close()
 
     plt.hist(shop_missed_sales, bins=20)
     plt.title("Distribution of Shop Missed Sales")
     plt.xlabel("Shop Missed Sales (Per Step)")
     plt.ylabel("Frequency")
-    plt.show()
+    plt.savefig("supply_chain_shop_missed_sales.png")
+    plt.close()
 
-.. figure:: /img/tut-plot-2.png
+.. figure:: /img/supply_chain_shop_sales_made.png
    :width: 70%
    :figclass: align-center
 
-.. figure:: /img/tut-plot-3.png
+.. figure:: /img/supply_chain_shop_missed_sales.png
    :width: 70%
    :figclass: align-center

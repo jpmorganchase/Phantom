@@ -81,6 +81,26 @@ def train(
         metrics: Optional set of metrics to record and log.
         local_mode: Use RLlib's local mode option for training (default is False).
 
+    The ``policies`` parameter defines which agents will use which policy. This is key
+    to performing shared policy learning. The function expects a mapping of
+    ``{<policy_id> : <policy_setup>}``. The policy setup values can take one of the
+    following forms:
+
+    *   ``Type[Agent]``: All agents that are an instance of this class will learn the
+        same RLlib policy.
+    *   ``List[AgentID]``: All agents that have IDs in this list will learn the same
+        RLlib policy.
+    *   ``Tuple[PolicyClass, Type[Agent]]``: All agents that are an instance of this
+        class will use the same fixed/learnt policy.
+    *   ``Tuple[PolicyClass, Type[Agent], Mapping[str, Any]]``: All agents that are an
+        instance of this class will use the same fixed/learnt policy configured with the
+        given options.
+    *   ``Tuple[PolicyClass, List[AgentID]]``: All agents that have IDs in this list use
+        the same fixed/learnt policy.
+    *   ``Tuple[PolicyClass, List[AgentID], Mapping[str, Any]]``: All agents that have
+        IDs in this list use the same fixed/learnt policy configured with the given
+        options.
+
     Returns:
         The Ray Tune experiment results object.
 

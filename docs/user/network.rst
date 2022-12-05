@@ -117,6 +117,8 @@ are created or destroyed randomly, weighted by the connection's strength.
    :figclass: align-center
 
 
+.. _message_resolution_ref:
+
 Message Resolution
 ------------------
 
