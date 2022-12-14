@@ -1,19 +1,10 @@
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-)
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
-from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
+from .telemetry import logger
 from .types import AgentID, PolicyID, StageID
 from .views import EnvView
 
@@ -203,6 +194,9 @@ class FiniteStateMachineEnv(PhantomEnv):
             A dictionary mapping AgentIDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
+
+        logger.log_reset()
+
         # Reset clock and stage
         self.current_step = 0
         self.current_stage = self.initial_stage
@@ -241,18 +235,24 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Pre-generate all contexts for agents taking actions
         env_view = self.view()
-        ctxs = [
-            self.network.context_for(aid, env_view)
+        self._ctxs = {
+            aid: self.network.context_for(aid, env_view)
             for aid in acting_agents
             if aid in self.strategic_agent_ids
-        ]
+        }
 
         # Generate initial sampled values in samplers
         for sampler in self._samplers:
             sampler.sample()
 
         # Generate initial observations for agents taking actions
-        obs = {ctx.agent.id: ctx.agent.encode_observation(ctx) for ctx in ctxs}
+        obs = {
+            ctx.agent.id: ctx.agent.encode_observation(ctx)
+            for ctx in self._ctxs.values()
+        }
+
+        logger.log_observations(obs)
+
         return {k: v for k, v in obs.items() if v is not None}
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
@@ -266,6 +266,8 @@ class FiniteStateMachineEnv(PhantomEnv):
         # Increment clock
         self.current_step += 1
 
+        logger.log_step(self.current_step, self.num_steps)
+
         self._views = {
             agent_id: agent.view() for agent_id, agent in self.agents.items()
         }
@@ -277,6 +279,9 @@ class FiniteStateMachineEnv(PhantomEnv):
             for aid in self.agents
             if aid not in self._dones
         }
+
+        logger.log_actions(actions)
+        logger.log_start_decoding_actions()
 
         # Generate views for use of the environment itself for generating it's own view
         self._views = {
@@ -365,13 +370,20 @@ class FiniteStateMachineEnv(PhantomEnv):
             if dones[aid]:
                 self._dones.add(aid)
 
+        logger.log_step_values(observations, rewards, dones, infos)
+        logger.log_metrics(self)
+
         self._observations.update(observations)
         self._rewards.update(rewards)
         self._infos.update(infos)
 
+        logger.log_fsm_transition(self.current_stage, next_stage)
+
         self.previous_stage, self.current_stage = self.current_stage, next_stage
 
         if self.current_stage is None or self.is_done():
+            logger.log_episode_done()
+
             # This is the terminal stage, return most recent observations, rewards and
             # infos from all agents.
             dones["__all__"] = True
