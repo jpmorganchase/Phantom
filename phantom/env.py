@@ -204,6 +204,7 @@ class PhantomEnv:
 
         # Reset network and call reset method on all agents in the network
         self.network.reset()
+        self.resolve_network()
 
         # Reset the strategic agents' done statuses stored by the environment
         self._dones = set()
