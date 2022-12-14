@@ -19,7 +19,8 @@ Phantom provides functionality to record and store metrics through three methods
    be stored in the returned :class:`Rollout` objects.
 -  When debugging or evaluating environments manually by calling ``env.step()`` in a
    loop (see :ref:`env_execution`) the logging of metrics, to the terminal and/or to a
-   log file can be enabled with the :class:`Telemetry` class configuration methods.
+   log file can be enabled with the :class:`TelemetryLogger` class configuration
+   methods.
 -  When using a custom Phantom :class:`Trainer` class, metrics can be provided to the
    :meth:`train()` method.
 

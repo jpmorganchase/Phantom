@@ -104,10 +104,11 @@ def train(
     Returns:
         The Ray Tune experiment results object.
 
-    NOTE: It is the users responsibility to invoke training via the provided ``phantom``
-    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
-    the Python interpreter to run this code. Not setting this may lead to
-    reproducibility issues.
+    .. note::
+        It is the users responsibility to invoke rollouts via the provided ``phantom``
+        command or ensure the ``PYTHONHASHSEED`` environment variable is set before
+        starting the Python interpreter to run this code. Not setting this may lead to
+        reproducibility issues.
     """
     show_pythonhashseed_warning()
 

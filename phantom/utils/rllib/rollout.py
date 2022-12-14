@@ -93,10 +93,11 @@ def rollout(
     Returns:
         A Generator of Rollouts.
 
-    NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
-    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
-    the Python interpreter to run this code. Not setting this may lead to
-    reproducibility issues.
+    .. note::
+        It is the users responsibility to invoke rollouts via the provided ``phantom``
+        command or ensure the ``PYTHONHASHSEED`` environment variable is set before
+        starting the Python interpreter to run this code. Not setting this may lead to
+        reproducibility issues.
     """
     assert num_repeats > 0, "num_repeats must be at least 1"
 
