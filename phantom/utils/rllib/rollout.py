@@ -304,8 +304,16 @@ def _rollout_task_fn(
             new_observation, reward, done, info = env.step(step_actions)
 
             if tracked_metrics is not None:
-                for name, metric in tracked_metrics.items():
-                    metrics[name].append(metric.extract(env))
+                for (metric_id, metric) in tracked_metrics.items():
+                    if (
+                        not isinstance(env, FiniteStateMachineEnv)
+                        or env.current_stage in metric.fsm_stages
+                    ):
+                        value = metric.extract(env)
+                    else:
+                        value = None
+
+                    metrics[metric_id].append(value)
 
             if record_messages:
                 messages = deepcopy(env.network.resolver.tracked_messages)
