@@ -39,7 +39,7 @@ def test_simple_env_metric_1():
     metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
         train_reduce_action="last",
-        evaluate_reduce_action="none",
+        eval_reduce_action="none",
     )
 
     values = []

@@ -85,7 +85,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
     def __init__(
         self,
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
-        evaluate_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
+        eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
         fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -94,13 +94,13 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
                 f"train_reduce_action field of {self.__class__} metric must be one of: 'last', 'mean' or 'sum'. Got '{train_reduce_action}'."
             )
 
-        if evaluate_reduce_action not in ("last", "mean", "sum", "none"):
+        if eval_reduce_action not in ("last", "mean", "sum", "none"):
             raise ValueError(
-                f"evaluate_reduce_action field of {self.__class__} metric class must be one of: 'last', 'mean', 'sum' or 'none'. Got '{evaluate_reduce_action}'."
+                f"eval_reduce_action field of {self.__class__} metric class must be one of: 'last', 'mean', 'sum' or 'none'. Got '{eval_reduce_action}'."
             )
 
         self.train_reduce_action = train_reduce_action
-        self.evaluate_reduce_action = evaluate_reduce_action
+        self.eval_reduce_action = eval_reduce_action
 
         super().__init__(fsm_stages, description)
 
@@ -108,7 +108,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
         self, values: Sequence[SimpleMetricValue], mode: Literal["train", "evaluate"]
     ) -> SimpleMetricValue:
         reduce_action = (
-            self.train_reduce_action if mode == "train" else self.evaluate_reduce_action
+            self.train_reduce_action if mode == "train" else self.eval_reduce_action
         )
 
         if reduce_action == "none":
@@ -147,7 +147,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             (e.g. ``Agent.property.sub_property``).
         train_reduce_action: The operation to perform on all the per-step recorded
             values at the end of the episode ('last', 'mean' or 'sum').
-        evaluate_reduce_action: The operation to perform on all the per-step recorded
+        eval_reduce_action: The operation to perform on all the per-step recorded
             values at the end of the episode ('last', 'mean' or 'sum', 'none').
         description: Optional description string for use in data exploration tools.
     """
@@ -157,7 +157,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_id: str,
         agent_property: str,
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
-        evaluate_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
+        eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
         fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -165,7 +165,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self.agent_property = agent_property
 
         super().__init__(
-            train_reduce_action, evaluate_reduce_action, fsm_stages, description
+            train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
@@ -190,7 +190,7 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
             (e.g. ``Agent.property.sub_property``).
         train_reduce_action: The operation to perform on all the per-step recorded
             values at the end of the episode ('last', 'mean' or 'sum').
-        evaluate_reduce_action: The operation to perform on all the per-step recorded
+        eval_reduce_action: The operation to perform on all the per-step recorded
             values at the end of the episode ('last', 'mean' or 'sum', 'none').
         description: Optional description string for use in data exploration tools.
     """
@@ -199,14 +199,14 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self,
         env_property: str,
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
-        evaluate_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
+        eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
         fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.env_property = env_property
 
         super().__init__(
-            train_reduce_action, evaluate_reduce_action, fsm_stages, description
+            train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
@@ -240,7 +240,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             (e.g. ``Agent.property.sub_property``).
         train_reduce_action: The operation to perform on all the per-step recorded
             values at the end of the episode ('last', 'mean' or 'sum').
-        evaluate_reduce_action: The operation to perform on all the per-step recorded
+        eval_reduce_action: The operation to perform on all the per-step recorded
             values at the end of the episode ('last', 'mean' or 'sum', 'none').
         description: Optional description string for use in data exploration tools.
     """
@@ -251,7 +251,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_property: str,
         group_reduce_action: Literal["min", "max", "mean", "sum"] = "mean",
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
-        evaluate_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
+        eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
         fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
@@ -265,7 +265,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self.group_reduce_action = group_reduce_action
 
         super().__init__(
-            train_reduce_action, evaluate_reduce_action, fsm_stages, description
+            train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
     def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
