@@ -1,11 +1,21 @@
 from abc import abstractmethod, ABC
 from functools import reduce
-from typing import Generic, Iterable, Literal, Optional, Sequence, TypeVar
+from typing import (
+    Generic,
+    Iterable,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    TYPE_CHECKING,
+)
 
 import numpy as np
 
-from .env import PhantomEnv
-from .fsm import FSMStage
+
+if TYPE_CHECKING:
+    from .env import PhantomEnv
+    from .fsm import FSMStage
 
 
 MetricValue = TypeVar("MetricValue")
@@ -24,14 +34,14 @@ class Metric(Generic[MetricValue], ABC):
 
     def __init__(
         self,
-        fsm_stages: Optional[Sequence[FSMStage]] = None,
+        fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.fsm_stages = fsm_stages or []
         self.description = description
 
     @abstractmethod
-    def extract(self, env: PhantomEnv) -> MetricValue:
+    def extract(self, env: "PhantomEnv") -> MetricValue:
         """Extract and return the current metric value from `env`.
 
         Arguments:
@@ -59,7 +69,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
     def __init__(
         self,
         reduce_action: Literal["last", "mean", "sum"] = "last",
-        fsm_stages: Optional[Sequence[FSMStage]] = None,
+        fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
         if reduce_action not in ["last", "mean", "sum"]:
@@ -110,7 +120,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_id: str,
         agent_property: str,
         reduce_action: Literal["last", "mean", "sum"] = "last",
-        fsm_stages: Optional[Sequence[FSMStage]] = None,
+        fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.agent_id = agent_id
@@ -118,7 +128,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
         super().__init__(reduce_action, fsm_stages, description)
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return _rgetattr(env.agents[self.agent_id], self.agent_property)
 
 
@@ -144,14 +154,14 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
         self,
         env_property: str,
         reduce_action: Literal["last", "mean", "sum"] = "last",
-        fsm_stages: Optional[Sequence[FSMStage]] = None,
+        fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.env_property = env_property
 
         super().__init__(reduce_action, fsm_stages, description)
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         return _rgetattr(env, self.env_property)
 
 
@@ -190,7 +200,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_property: str,
         group_reduce_action: Literal["min", "max", "mean", "sum"] = "mean",
         reduce_action: Literal["last", "mean", "sum"] = "last",
-        fsm_stages: Optional[Sequence[FSMStage]] = None,
+        fsm_stages: Optional[Sequence["FSMStage"]] = None,
         description: Optional[str] = None,
     ) -> None:
         if group_reduce_action not in ["min", "max", "mean", "sum"]:
@@ -204,7 +214,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
         super().__init__(reduce_action, fsm_stages, description)
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
         values = [
             _rgetattr(env.agents[agent_id], self.agent_property)
             for agent_id in self.agent_ids

@@ -780,8 +780,6 @@ if __name__ == "__main__":
         path = sys.argv[2]
         results = ph.utils.rllib.rollout(
             directory=path,
-            algorithm="PPO",
-            env_class=DigitalAdsEnv,
             num_repeats=50,
             num_workers=40,
             metrics=metrics,

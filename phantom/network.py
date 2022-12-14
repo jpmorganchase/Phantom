@@ -22,6 +22,7 @@ from .agents import Agent
 from .context import Context
 from .message import Message, MsgPayload
 from .resolvers import BatchResolver, Resolver
+from .telemetry import logger
 from .types import AgentID
 from .views import EnvView
 
@@ -243,6 +244,8 @@ class Network:
         Arguments:
             contexts: The current contexts for all agents for the current step.
         """
+        logger.log_start_resolving_msgs()
+
         self.resolver.resolve(self, contexts)
         self.resolver.reset()
 
