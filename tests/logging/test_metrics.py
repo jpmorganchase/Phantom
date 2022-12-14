@@ -1,3 +1,4 @@
+import numpy as np
 import phantom as ph
 
 
@@ -38,6 +39,7 @@ def test_simple_env_metric_1():
     metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
         train_reduce_action="last",
+        evaluate_reduce_action="none",
     )
 
     values = []
@@ -47,6 +49,7 @@ def test_simple_env_metric_1():
         values.append(metric.extract(env))
 
     assert metric.reduce(values, mode="train") == 5.0
+    assert np.all(metric.reduce(values, mode="evaluate") == np.arange(1.0, 6.0))
 
 
 def test_simple_env_metric_2():
