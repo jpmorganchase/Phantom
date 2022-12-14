@@ -47,14 +47,14 @@ class Metric(Generic[MetricValue], ABC):
 
     def __init__(
         self,
-        fsm_stages: Optional[Sequence["FSMStage"]] = None,
+        fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
-        self.fsm_stages = fsm_stages or []
+        self.fsm_stages = fsm_stages
         self.description = description
 
     @abstractmethod
-    def extract(self, env: "PhantomEnv") -> MetricValue:
+    def extract(self, env: PhantomEnv) -> MetricValue:
         """Extract and return the current metric value from `env`.
 
         Arguments:
@@ -86,7 +86,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
         self,
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
         eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
-        fsm_stages: Optional[Sequence["FSMStage"]] = None,
+        fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
         if train_reduce_action not in ("last", "mean", "sum"):
@@ -158,7 +158,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         agent_property: str,
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
         eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
-        fsm_stages: Optional[Sequence["FSMStage"]] = None,
+        fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.agent_id = agent_id
@@ -168,7 +168,7 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
-    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
+    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
         return _rgetattr(env.agents[self.agent_id], self.agent_property)
 
 
@@ -200,7 +200,7 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
         env_property: str,
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
         eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
-        fsm_stages: Optional[Sequence["FSMStage"]] = None,
+        fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.env_property = env_property
@@ -209,7 +209,7 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
             train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
-    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
+    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
         return _rgetattr(env, self.env_property)
 
 
@@ -252,7 +252,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
         group_reduce_action: Literal["min", "max", "mean", "sum"] = "mean",
         train_reduce_action: Literal["last", "mean", "sum"] = "mean",
         eval_reduce_action: Literal["last", "mean", "sum", "none"] = "none",
-        fsm_stages: Optional[Sequence["FSMStage"]] = None,
+        fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
         if group_reduce_action not in ["min", "max", "mean", "sum"]:
@@ -268,7 +268,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
-    def extract(self, env: "PhantomEnv") -> SimpleMetricValue:
+    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
         values = [
             _rgetattr(env.agents[agent_id], self.agent_property)
             for agent_id in self.agent_ids
@@ -292,13 +292,14 @@ def _rgetattr(obj, attr, *args):
 
 
 def logging_helper(
-    env: "PhantomEnv",
+    env: PhantomEnv,
     metrics: Dict[str, Metric],
     metric_values: DefaultDict[str, List[float]],
 ) -> None:
     for (metric_id, metric) in metrics.items():
         if (
             not isinstance(env, FiniteStateMachineEnv)
+            or metric.fsm_stages is None
             or env.current_stage in metric.fsm_stages
         ):
             value = metric.extract(env)
