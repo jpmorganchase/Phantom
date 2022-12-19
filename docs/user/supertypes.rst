@@ -51,7 +51,8 @@ fixed values or :class:`Sampler` classes. Each time the supertype is sampled, a 
 'type' object is created containing the sampled values, and is attached to the
 respective agent.
 
-.. TODO: add general example of initing env
+Initialising supertypes in this scenario can be done in one of two ways. The first is
+passing in a Supertype instance:
 
 .. code-block:: python
     
@@ -64,6 +65,25 @@ respective agent.
                     # will be uniformly sampled from the range 0.0 to 1.0:
                     skill_weight: UniformFloatSampler(0.0, 1.0)
                 )
+            }
+        }
+        ...
+    )
+
+The second is to pass in a dict that is used to populate the supertype, this relies on
+the agent that the supertype is intended for having a Supertype sub class defined in it:
+
+.. code-block:: python
+    
+    ph.utils.rllib.train(
+        ...
+        env_config={
+            "agent_supertypes": {
+                "SIMPLE_AGENT": {
+                    # When training is run, for each episode the 'skill_weight' parameter
+                    # will be uniformly sampled from the range 0.0 to 1.0:
+                    "skill_weight" : UniformFloatSampler(0.0, 1.0)
+                }
             }
         }
         ...

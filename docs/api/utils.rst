@@ -6,12 +6,16 @@ Utilities
 Samplers
 --------
 
-.. TODO: link to supertypes
+Samplers are designed to be used with supertypes. See the :doc:`/user/supertypes` page
+for examples on how they are used.
 
 Interface
 ^^^^^^^^^
 
 .. autoclass:: phantom.utils.samplers.Sampler
+   :inherited-members:
+
+.. autoclass:: phantom.utils.samplers.ComparableSampler
    :inherited-members:
 
 Implementations
@@ -32,11 +36,14 @@ Implementations
 .. autoclass:: phantom.utils.samplers.NormalArraySampler
    :inherited-members:
 
+.. autoclass:: phantom.utils.samplers.LambdaSampler
+   :inherited-members:
 
 Ranges
 ------
 
-.. TODO: link to supertypes
+Ranges are designed to be used with supertypes. See the :doc:`/user/supertypes` page for
+examples on how they are used.
 
 Interface
 ^^^^^^^^^

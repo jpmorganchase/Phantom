@@ -31,13 +31,15 @@ class TelemetryLogger:
     :meth:`configure_print_logging` and :meth:`configure_file_logging` methods. Both
     print and file logging are turned off by default.
 
-    WARNING: this feature will not produce desired results when using any form of
-    multiprocessing! This feature is designed for debugging purposes when using manual
-    episode invocation.
+    .. warning::
+        This feature will not produce desired results when using any form of
+        multiprocessing / multiple workers! This feature is intended for debugging and
+        testing purposes when using manual episode invocation.
 
-    NOTE: any custom derived environments that modify the :meth:`reset` and :meth:`step`
-    methods should take care to call the required class methods to enable telemetry
-    logging.
+    .. note::
+        Any custom derived environments that modify the :meth:`reset` and :meth:`step`
+        methods should take care to call the required class methods to enable telemetry
+        logging.
     """
 
     def __init__(self) -> None:
@@ -71,6 +73,7 @@ class TelemetryLogger:
         """Configures logging to the terminal/stdout.
 
         All options except :attr:`metrics` will log for:
+
             - All agents if True is given.
             - No agents if False is given.
             - A subset of agents if a list of :type:`AgentID`s is given.

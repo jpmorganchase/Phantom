@@ -8,7 +8,7 @@ PYTEST			:=$(PYTHON) -m pytest
 MYPY			:=$(PYTHON) -m mypy
 PIP				:=$(PYTHON) -m pip
 BLACK			:=$(PYTHON) -m black
-SPHINXBUILD     :=sphinx-build
+SPHINXBUILD     :=$(PYTHON) -m sphinx
 
 
 install-deps:  ## Install dependencies
