@@ -9,11 +9,11 @@ import numpy as np
 from termcolor import colored
 
 from .message import Message
-from .metrics import Metric
 from .types import AgentID, StageID
 
 if TYPE_CHECKING:
     from .env import PhantomEnv
+    from .metrics import Metric
 
 
 Action = TypeVar("Action")
@@ -49,8 +49,8 @@ class TelemetryLogger:
         self._print_infos: Union[bool, Sequence[AgentID]] = False
         self._print_messages: Union[bool, Sequence[AgentID]] = False
 
-        self._print_metrics: Optional[Mapping[str, Metric]] = None
-        self._file_metrics: Optional[Mapping[str, Metric]] = None
+        self._print_metrics: Optional[Mapping[str, "Metric"]] = None
+        self._file_metrics: Optional[Mapping[str, "Metric"]] = None
 
         self._output_file: Optional[io.TextIOBase] = None
         self._human_readable: bool = False
@@ -66,7 +66,7 @@ class TelemetryLogger:
         print_dones: Union[bool, Sequence[AgentID], None] = None,
         print_infos: Union[bool, Sequence[AgentID], None] = None,
         print_messages: Union[bool, Sequence[AgentID], None] = None,
-        metrics: Optional[Mapping[str, Metric]] = None,
+        metrics: Optional[Mapping[str, "Metric"]] = None,
     ) -> None:
         """Configures logging to the terminal/stdout.
 
@@ -115,7 +115,7 @@ class TelemetryLogger:
         file_path: Union[str, Path, None],
         append: bool = True,
         human_readable: Optional[bool] = None,
-        metrics: Optional[Mapping[str, Metric]] = None,
+        metrics: Optional[Mapping[str, "Metric"]] = None,
     ) -> None:
         """
         Configures logging to the a file in the JSON stream format (each episode is a

@@ -1,3 +1,4 @@
+import numpy as np
 import phantom as ph
 
 
@@ -37,7 +38,8 @@ def test_simple_env_metric_1():
 
     metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
-        reduce_action="last",
+        train_reduce_action="last",
+        eval_reduce_action="none",
     )
 
     values = []
@@ -46,7 +48,8 @@ def test_simple_env_metric_1():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 5.0
+    assert metric.reduce(values, mode="train") == 5.0
+    assert np.all(metric.reduce(values, mode="evaluate") == np.arange(1.0, 6.0))
 
 
 def test_simple_env_metric_2():
@@ -54,7 +57,7 @@ def test_simple_env_metric_2():
 
     metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
-        reduce_action="mean",
+        train_reduce_action="mean",
     )
 
     values = []
@@ -63,7 +66,7 @@ def test_simple_env_metric_2():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 3.0
+    assert metric.reduce(values, mode="train") == 3.0
 
 
 def test_simple_env_metric_3():
@@ -71,7 +74,7 @@ def test_simple_env_metric_3():
 
     metric = ph.metrics.SimpleEnvMetric(
         env_property="test_property",
-        reduce_action="sum",
+        train_reduce_action="sum",
     )
 
     values = []
@@ -80,7 +83,7 @@ def test_simple_env_metric_3():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 15.0
+    assert metric.reduce(values, mode="train") == 15.0
 
 
 def test_simple_agent_metric_1():
@@ -89,7 +92,7 @@ def test_simple_agent_metric_1():
     metric = ph.metrics.SimpleAgentMetric(
         agent_id="agent1",
         agent_property="test_property",
-        reduce_action="last",
+        train_reduce_action="last",
     )
 
     values = []
@@ -98,7 +101,7 @@ def test_simple_agent_metric_1():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 5.0
+    assert metric.reduce(values, mode="train") == 5.0
 
 
 def test_simple_agent_metric_2():
@@ -107,7 +110,7 @@ def test_simple_agent_metric_2():
     metric = ph.metrics.SimpleAgentMetric(
         agent_id="agent1",
         agent_property="test_property",
-        reduce_action="mean",
+        train_reduce_action="mean",
     )
 
     values = []
@@ -116,7 +119,7 @@ def test_simple_agent_metric_2():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 3.0
+    assert metric.reduce(values, mode="train") == 3.0
 
 
 def test_simple_agent_metric_3():
@@ -125,7 +128,7 @@ def test_simple_agent_metric_3():
     metric = ph.metrics.SimpleAgentMetric(
         agent_id="agent1",
         agent_property="test_property",
-        reduce_action="sum",
+        train_reduce_action="sum",
     )
 
     values = []
@@ -134,7 +137,7 @@ def test_simple_agent_metric_3():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 15.0
+    assert metric.reduce(values, mode="train") == 15.0
 
 
 def test_aggregated_agent_metric_1():
@@ -144,7 +147,7 @@ def test_aggregated_agent_metric_1():
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="min",
-        reduce_action="last",
+        train_reduce_action="last",
     )
 
     values = []
@@ -153,7 +156,7 @@ def test_aggregated_agent_metric_1():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 5.0
+    assert metric.reduce(values, mode="train") == 5.0
 
 
 def test_aggregated_agent_metric_2():
@@ -163,7 +166,7 @@ def test_aggregated_agent_metric_2():
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="max",
-        reduce_action="last",
+        train_reduce_action="last",
     )
 
     values = []
@@ -172,7 +175,7 @@ def test_aggregated_agent_metric_2():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 10.0
+    assert metric.reduce(values, mode="train") == 10.0
 
 
 def test_aggregated_agent_metric_3():
@@ -182,7 +185,7 @@ def test_aggregated_agent_metric_3():
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="mean",
-        reduce_action="last",
+        train_reduce_action="last",
     )
 
     values = []
@@ -191,7 +194,7 @@ def test_aggregated_agent_metric_3():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 7.5
+    assert metric.reduce(values, mode="train") == 7.5
 
 
 def test_aggregated_agent_metric_4():
@@ -201,7 +204,7 @@ def test_aggregated_agent_metric_4():
         agent_ids=["agent1", "agent2"],
         agent_property="test_property",
         group_reduce_action="sum",
-        reduce_action="last",
+        train_reduce_action="last",
     )
 
     values = []
@@ -210,7 +213,7 @@ def test_aggregated_agent_metric_4():
         env.step()
         values.append(metric.extract(env))
 
-    assert metric.reduce(values) == 15.0
+    assert metric.reduce(values, mode="train") == 15.0
 
 
 def test_nested_metric():
@@ -218,7 +221,7 @@ def test_nested_metric():
 
     metric = ph.metrics.SimpleEnvMetric(
         env_property="nested_property.sub_property",
-        reduce_action="last",
+        train_reduce_action="last",
     )
 
     env.step()
