@@ -1,5 +1,4 @@
 cloudpickle>=2.2.0
-coloredlogs>=15.0.0
 ray[rllib]==2.1.0
 tensorboardX>=2.5.0
 tensorflow>=2.10.0

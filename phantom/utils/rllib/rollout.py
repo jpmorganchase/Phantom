@@ -27,7 +27,7 @@ from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
-from ...metrics import Metric
+from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
 from ..rollout import Rollout, Step
@@ -93,10 +93,11 @@ def rollout(
     Returns:
         A Generator of Rollouts.
 
-    NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
-    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
-    the Python interpreter to run this code. Not setting this may lead to
-    reproducibility issues.
+    .. note::
+        It is the users responsibility to invoke rollouts via the provided ``phantom``
+        command or ensure the ``PYTHONHASHSEED`` environment variable is set before
+        starting the Python interpreter to run this code. Not setting this may lead to
+        reproducibility issues.
     """
     assert num_repeats > 0, "num_repeats must be at least 1"
 
@@ -304,8 +305,7 @@ def _rollout_task_fn(
             new_observation, reward, done, info = env.step(step_actions)
 
             if tracked_metrics is not None:
-                for name, metric in tracked_metrics.items():
-                    metrics[name].append(metric.extract(env))
+                logging_helper(env, tracked_metrics, metrics)
 
             if record_messages:
                 messages = deepcopy(env.network.resolver.tracked_messages)
@@ -330,7 +330,10 @@ def _rollout_task_fn(
 
             observation = new_observation
 
-        condensed_metrics = {k: np.array(v) for k, v in metrics.items()}
+        reduced_metrics = {
+            metric_id: tracked_metrics[metric_id].reduce(metrics[metric_id], "evaluate")
+            for metric_id in tracked_metrics
+        }
 
         yield Rollout(
             rollout_config.rollout_id,
@@ -338,7 +341,7 @@ def _rollout_task_fn(
             rollout_config.env_config,
             rollout_config.rollout_params,
             steps,
-            condensed_metrics,
+            reduced_metrics,
         )
 
 

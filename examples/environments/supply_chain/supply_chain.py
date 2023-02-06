@@ -191,7 +191,7 @@ metrics = {
 }
 
 
-if len(sys.argv) > 1 and sys.argv[1] == "train":
+if sys.argv[1] == "train":
     ph.utils.rllib.train(
         algorithm="PPO",
         env_class=SupplyChainEnv,
@@ -208,7 +208,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "train":
         },
     )
 
-elif len(sys.argv) > 1 and sys.argv[1] == "rollout":
+elif sys.argv[1] == "rollout":
     results = ph.utils.rllib.rollout(
         directory="supply_chain/LATEST",
         num_repeats=100,
