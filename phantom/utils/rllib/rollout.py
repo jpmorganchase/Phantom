@@ -20,10 +20,9 @@ from typing import (
 import cloudpickle
 import numpy as np
 import ray
-from ray.rllib.algorithms.registry import get_algorithm_class
+import rich.progress
 from ray.tune.registry import register_env
 from ray.util.queue import Queue
-from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
@@ -185,10 +184,6 @@ def rollout(
         env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
     )
 
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
     # Start the rollouts
     if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
@@ -196,7 +191,6 @@ def rollout(
         rollouts = _rollout_task_fn(
             deepcopy(config),
             checkpoint_path,
-            ph_config["algorithm"],
             rollout_configs,
             env_class,
             custom_policy_mapping,
@@ -205,7 +199,7 @@ def rollout(
         )
 
         if show_progress_bar:
-            yield from tqdm(rollouts, total=len(rollout_configs))
+            yield from rich.progress.track(rollouts, total=len(rollout_configs))
         else:
             yield from rollouts
 
@@ -226,7 +220,6 @@ def rollout(
             (
                 deepcopy(config),
                 checkpoint_path,
-                ph_config["algorithm"],
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
                 custom_policy_mapping,
@@ -239,16 +232,18 @@ def rollout(
         for payload in worker_payloads:
             remote_rollout_task_fn.remote(*payload)
 
-        range_ = trange if show_progress_bar else range
+        range_iter = range(len(rollout_configs))
 
-        for _ in range_(len(rollout_configs)):
+        if show_progress_bar:
+            range_iter = rich.progress.track(range_iter)
+
+        for _ in range_iter:
             yield q.get()
 
 
 def _rollout_task_fn(
     config: Dict,
     checkpoint_path: Path,
-    algorithm: str,
     configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
     custom_policy_mapping: CustomPolicyMapping,
@@ -256,10 +251,7 @@ def _rollout_task_fn(
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
     """Internal function"""
-    config["env_config"] = configs[0].env_config
-
-    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
-    algo.restore(str(checkpoint_path))
+    algo = ray.rllib.algorithms.Algorithm.from_checkpoint(checkpoint_path)
 
     for rollout_config in configs:
         # Create environment instance from config from results directory

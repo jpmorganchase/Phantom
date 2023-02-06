@@ -3,11 +3,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import cloudpickle
-from ray.rllib.algorithms.registry import get_algorithm_class
+import ray
 from ray.tune.registry import register_env
 from tqdm import tqdm
 
-from ...env import PhantomEnv
 from .. import (
     collect_instances_of_type_with_paths,
     update_val,
@@ -55,10 +54,6 @@ def evaluate_policy(
 
     env_class = ph_config["env_class"]
 
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
     if isinstance(env_class, RLlibEnvWrapper):
         register_env(env_class.__name__, lambda config: env_class(**config))
     else:
@@ -66,10 +61,7 @@ def evaluate_policy(
             env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
         )
 
-    algo = get_algorithm_class(ph_config["algorithm"])(
-        env=env_class.__name__, config=config
-    )
-    algo.restore(str(checkpoint_path))
+    algo = ray.rllib.algorithms.Algorithm.from_checkpoint(checkpoint_path)
 
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
 
