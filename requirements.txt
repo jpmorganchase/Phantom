@@ -1,6 +1,6 @@
 cloudpickle>=2.2.0
 # Temporary version fix due to RLlib issue:
-numpy<=1.24
+numpy<1.24
 ray[rllib]==2.2.0
 rich>=13.0
 tensorboardX>=2.5.0
