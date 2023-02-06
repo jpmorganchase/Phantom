@@ -92,7 +92,7 @@ def evaluate_policy(
         variations = variations2
 
     if show_progress_bar:
-        variations = rich.progress.track(range(variations))
+        variations = rich.progress.track(variations)
 
     return [
         (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))
