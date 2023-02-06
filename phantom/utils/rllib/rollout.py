@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
+    Callable,
     DefaultDict,
     Dict,
     Generator,
@@ -21,7 +22,7 @@ import cloudpickle
 import numpy as np
 import ray
 import rich.progress
-from ray.tune.registry import register_env
+from ray.rllib.policy import Policy as RLlibPolicy
 from ray.util.queue import Queue
 
 from ...env import PhantomEnv
@@ -173,23 +174,20 @@ def rollout(
     with open(Path(directory, "params.pkl"), "rb") as params_file:
         config = cloudpickle.load(params_file)
 
+    policy_mapping_fn = config["multiagent"]["policy_mapping_fn"]
+
     with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
         ph_config = cloudpickle.load(params_file)
 
     if env_class is None:
         env_class = ph_config["env_class"]
 
-    # Register custom environment with Ray
-    register_env(
-        env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
-    )
-
     # Start the rollouts
     if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
 
         rollouts = _rollout_task_fn(
-            deepcopy(config),
+            policy_mapping_fn,
             checkpoint_path,
             rollout_configs,
             env_class,
@@ -218,7 +216,7 @@ def rollout(
 
         worker_payloads = [
             (
-                deepcopy(config),
+                policy_mapping_fn,
                 checkpoint_path,
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
@@ -242,7 +240,7 @@ def rollout(
 
 
 def _rollout_task_fn(
-    config: Dict,
+    policy_mapping_fn: Callable[[], str],
     checkpoint_path: Path,
     configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
@@ -251,7 +249,8 @@ def _rollout_task_fn(
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
     """Internal function"""
-    algo = ray.rllib.algorithms.Algorithm.from_checkpoint(checkpoint_path)
+    # Lazily load checkpointed policy objects
+    saved_policies: Dict[str, RLlibPolicy] = {}
 
     for rollout_config in configs:
         # Create environment instance from config from results directory
@@ -284,13 +283,18 @@ def _rollout_task_fn(
                 if agent_id in initted_policy_mapping:
                     action = initted_policy_mapping[agent_id].compute_action(agent_obs)
                 else:
-                    policy_id = config["multiagent"]["policy_mapping_fn"](
+                    policy_id = policy_mapping_fn(
                         agent_id, rollout_config.rollout_id, 0
                     )
 
-                    action = algo.compute_single_action(
-                        agent_obs, policy_id=policy_id, explore=False
-                    )
+                    if policy_id not in saved_policies:
+                        saved_policies[policy_id] = RLlibPolicy.from_checkpoint(
+                            checkpoint_path / "policies" / policy_id
+                        )
+
+                    action = saved_policies[policy_id].compute_single_action(
+                        agent_obs, explore=False
+                    )[0]
 
                 step_actions[agent_id] = action
 
