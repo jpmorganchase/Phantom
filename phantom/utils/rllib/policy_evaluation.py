@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import cloudpickle
 import ray
+import rich.progress
 from ray.tune.registry import register_env
-from tqdm import tqdm
 
 from .. import (
     collect_instances_of_type_with_paths,
@@ -92,7 +92,7 @@ def evaluate_policy(
         variations = variations2
 
     if show_progress_bar:
-        variations = tqdm(variations)
+        variations = rich.progress.track(range(variations))
 
     return [
         (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))

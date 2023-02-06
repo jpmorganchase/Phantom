@@ -4,4 +4,3 @@ rich>=13.0
 tensorboardX>=2.5.0
 torch>=1.13.0
 termcolor>=2.0.0
-tqdm>=4.64.0
