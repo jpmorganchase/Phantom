@@ -13,6 +13,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Tuple,
     Type,
     Union,
 )
@@ -21,7 +22,9 @@ import cloudpickle
 import numpy as np
 import ray
 import rich.progress
+from ray.rllib.models.preprocessors import get_preprocessor, Preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
+from ray.rllib.utils.spaces.space_utils import unsquash_action
 from ray.util.queue import Queue
 
 from ...env import PhantomEnv
@@ -184,6 +187,8 @@ def rollout(
     with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
         ph_config = cloudpickle.load(params_file)
 
+    policy_specs = ph_config["policy_specs"]
+
     if env_class is None:
         env_class = ph_config["env_class"]
 
@@ -196,6 +201,7 @@ def rollout(
             checkpoint_path,
             rollout_configs,
             env_class,
+            policy_specs,
             custom_policy_mapping,
             vectorized_env_batch_size,
             metrics,
@@ -226,6 +232,7 @@ def rollout(
                 checkpoint_path,
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
+                policy_specs,
                 custom_policy_mapping,
                 vectorized_env_batch_size,
                 metrics,
@@ -251,6 +258,7 @@ def _rollout_task_fn(
     checkpoint_path: Path,
     all_configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
+    policy_specs,
     custom_policy_mapping: CustomPolicyMapping,
     vectorized_env_batch_size: int,
     metric_objects: Optional[Mapping[str, Metric]] = None,
@@ -262,7 +270,7 @@ def _rollout_task_fn(
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     # Lazily load checkpointed policy objects
-    saved_policies: Dict[str, RLlibPolicy] = {}
+    saved_policies: Dict[str, Tuple[RLlibPolicy, Preprocessor]] = {}
 
     # Setting seed needs to come after algo setup
     np.random.seed(all_configs[0].rollout_id)
@@ -309,13 +317,27 @@ def _rollout_task_fn(
                     policy_id = policy_mapping_fn(agent_id, 0, 0)
 
                     if policy_id not in saved_policies:
-                        saved_policies[policy_id] = RLlibPolicy.from_checkpoint(
+                        policy = RLlibPolicy.from_checkpoint(
                             checkpoint_path / "policies" / policy_id
                         )
 
-                    actions[agent_id] = saved_policies[policy_id].compute_actions(
-                        vec_agent_obs, explore=False
+                        obs_s = policy_specs[policy_id].observation_space
+                        preprocessor = get_preprocessor(obs_s)(obs_s)
+
+                        saved_policies[policy_id] = (policy, preprocessor)
+                    else:
+                        policy, preprocessor = saved_policies[policy_id]
+
+                    processed_obs = [preprocessor.transform(ob) for ob in vec_agent_obs]
+
+                    squashed_actions = policy.compute_actions(
+                        processed_obs, explore=False
                     )[0]
+
+                    actions[agent_id] = [
+                        unsquash_action(action, policy.action_space_struct)
+                        for action in squashed_actions
+                    ]
 
             # hack for no agent acting step in Ops
             if len(dict_observations) == 0:

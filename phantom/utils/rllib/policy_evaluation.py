@@ -2,8 +2,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
+import cloudpickle
 import rich.progress
+from ray.rllib.models.preprocessors import get_preprocessor
 from ray.rllib.policy import Policy
+from ray.rllib.utils.spaces.space_utils import unsquash_action
 
 from .. import (
     collect_instances_of_type_with_paths,
@@ -46,6 +49,14 @@ def evaluate_policy(
 
     policy = Policy.from_checkpoint(checkpoint_path / "policies" / policy_id)
 
+    with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
+        ph_config = cloudpickle.load(params_file)
+
+    policy_specs = ph_config["policy_specs"]
+
+    obs_s = policy_specs[policy_id].observation_space
+    preprocessor = get_preprocessor(obs_s)(obs_s)
+
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
 
     # This 'variations' list is where we build up every combination of the expanded
@@ -84,7 +95,15 @@ def evaluate_policy(
 
     for variation_batch in batched_variations:
         params, obs = zip(*variation_batch)
-        actions = policy.compute_actions(list(obs), explore=False)[0]
+
+        processed_obs = [preprocessor.transform(ob) for ob in obs]
+
+        squashed_actions = policy.compute_actions(processed_obs, explore=False)[0]
+
+        actions = [
+            unsquash_action(action, policy.action_space_struct)
+            for action in squashed_actions
+        ]
 
         for p, o, a in zip(params, obs, actions):
             yield (p, o, a)

@@ -1,4 +1,5 @@
 import os
+import random
 import tempfile
 from datetime import datetime
 from inspect import isclass
@@ -224,6 +225,12 @@ def train(
     }
 
     config.update(rllib_config)
+
+    random.seed(config["seed"])
+    np.random.seed(config["seed"])
+    if config["framework"] == "torch":
+        import torch
+        torch.manual_seed(config["seed"])
 
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
