@@ -3,7 +3,7 @@ from typing import Any, Dict, Mapping
 import gym
 from ray import rllib
 
-from ...agents import AgentID, StrategicAgent
+from ...agents import AgentID
 from ...env import PhantomEnv
 
 

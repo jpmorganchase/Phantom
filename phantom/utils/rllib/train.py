@@ -22,7 +22,6 @@ import rich.pretty
 import rich.progress
 from ray import rllib
 from ray.rllib.algorithms import Algorithm
-from ray.rllib.algorithms.registry import ALGORITHMS
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.evaluation import Episode, MultiAgentEpisode
 from ray.rllib.policy.sample_batch import SampleBatch
@@ -176,7 +175,7 @@ def train(
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
     timestr = datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
-    logdir_prefix = "{}_{}_{}".format(algorithm, env.__class__.__name__, timestr)
+    logdir_prefix = f"{algorithm}_{env.__class__.__name__}_{timestr}"
 
     results_dir = os.path.expanduser(results_dir)
 
@@ -248,9 +247,8 @@ def train(
                 "metrics": metrics,
             }
 
-            cloudpickle.dump(
-                config, open(Path(algo.logdir, "phantom-training-params.pkl"), "wb")
-            )
+            with open(Path(algo.logdir, "phantom-training-params.pkl"), "wb") as f:
+                cloudpickle.dump(config, f)
 
         if checkpoint_freq is not None and i % checkpoint_freq == 0:
             algo.save()

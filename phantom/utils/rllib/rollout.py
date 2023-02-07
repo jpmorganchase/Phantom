@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import (
     Any,
     Callable,
-    DefaultDict,
     Dict,
     Generator,
     List,
@@ -39,7 +38,6 @@ from .. import (
     Range,
     Sampler,
 )
-from .wrapper import RLlibEnvWrapper
 from . import construct_results_paths
 
 
@@ -334,8 +332,8 @@ def _rollout_task_fn(
                     logging_helper(vec_envs[j], metric_objects, vec_metrics[j])
 
                 if record_messages:
-                    messages = deepcopy(env.network.resolver.tracked_messages)
-                    env.network.resolver.clear_tracked_messages()
+                    messages = deepcopy(vec_envs[j].network.resolver.tracked_messages)
+                    vec_envs[j].network.resolver.clear_tracked_messages()
                 else:
                     messages = None
 
