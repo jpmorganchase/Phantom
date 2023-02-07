@@ -210,6 +210,7 @@ def train(
     np.random.seed(config["seed"])
     if config["framework"] == "torch":
         import torch
+
         torch.manual_seed(config["seed"])
 
     if algorithm == "PPO":
