@@ -209,7 +209,12 @@ def train(
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
-    algo = ALGORITHMS[algorithm]()[0].get_default_config().from_dict(config).build()
+    algo = (
+        ray.tune.registry.get_trainable_cls(algorithm)
+        .get_default_config()
+        .from_dict(config)
+        .build()
+    )
 
     ray.init(ignore_reinit_error=True)
 
