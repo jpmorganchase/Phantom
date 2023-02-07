@@ -1,6 +1,6 @@
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import rich.progress
 from ray.rllib.policy import Policy
@@ -17,9 +17,10 @@ def evaluate_policy(
     directory: Union[str, Path],
     policy_id: str,
     obs: Any,
+    batch_size: int = 100,
     checkpoint: Optional[int] = None,
     show_progress_bar: bool = True,
-) -> List[Tuple[Dict[str, Any], Any]]:
+) -> Generator[Tuple[Dict[str, Any], Any, Any], None, None]:
     """
     Evaluates a given pre-trained RLlib policy over a one of more dimensional
     observation space.
@@ -34,11 +35,12 @@ def evaluate_policy(
             :class:`Range` class instances to evaluate the policy over multiple
             dimensions in a similar fashion to the :func:`ph.utils.rllib.rollout`
             function.
+        batch_size: Number of observations to evaluate at a time.
         checkpoint: Checkpoint to use (defaults to most recent).
         show_progress_bar: If True shows a progress bar in the terminal output.
 
     Returns:
-        A list of tuples of the form (observation, action).
+        A generator of tuples of the form (params, obs, action).
     """
     directory, checkpoint_path = construct_results_paths(directory, checkpoint)
 
@@ -72,10 +74,17 @@ def evaluate_policy(
 
         variations = variations2
 
-    if show_progress_bar:
-        variations = rich.progress.track(variations)
+    def chunker(seq, size):
+        return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    return [
-        (params, policy.compute_single_action(obs, explore=False)[0])
-        for (params, obs) in variations
-    ]
+    batched_variations = chunker(variations, batch_size)
+
+    if show_progress_bar:
+        batched_variations = rich.progress.track(batched_variations)
+
+    for variation_batch in batched_variations:
+        params, obs = zip(*variation_batch)
+        actions = policy.compute_actions(list(obs), explore=False)[0]
+
+        for p, o, a in zip(params, obs, actions):
+            yield (p, o, a)
