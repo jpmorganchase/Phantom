@@ -104,6 +104,7 @@ def test_digital_ads_market(tmpdir, digital_ads_market):
         rllib_config={
             "batch_mode": "complete_episodes",
             "disable_env_checking": True,
+            "num_rollout_workers": 0,
         },
         iterations=1,
         checkpoint_freq=1,
@@ -147,6 +148,7 @@ def test_digital_ads_market(tmpdir, digital_ads_market):
     rollouts = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/LATEST",
         num_repeats=5,
+        num_workers=0,
         metrics=dam.metrics,
         env_config={
             "agent_supertypes": agent_supertypes,

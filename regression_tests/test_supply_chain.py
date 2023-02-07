@@ -16,6 +16,9 @@ def test_supply_chain(tmpdir, supply_chain):
         policies={
             "shop_policy": supply_chain.ShopAgent,
         },
+        rllib_config={
+            "num_rollout_workers": 0,
+        },
         iterations=10,
         checkpoint_freq=10,
         results_dir=tmpdir,
@@ -24,6 +27,7 @@ def test_supply_chain(tmpdir, supply_chain):
     rollouts = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/LATEST",
         num_repeats=5,
+        num_workers=0,
         metrics=supply_chain.metrics,
     )
 
