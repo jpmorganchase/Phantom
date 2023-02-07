@@ -1,11 +1,7 @@
-import json
-
-import numpy as np
-import pandas as pd
 import phantom as ph
 import pytest
 
-from . import import_file, RolloutJSONEncoder
+from . import compare_rollouts, import_file
 
 
 @pytest.fixture
@@ -20,39 +16,25 @@ def test_supply_chain(tmpdir, supply_chain):
         policies={
             "shop_policy": supply_chain.ShopAgent,
         },
-        rllib_config={
-            "seed": 1,
-            "disable_env_checking": True,
-        },
-        tune_config={
-            "checkpoint_freq": 10,
-            "local_dir": tmpdir,
-            "stop": {
-                "training_iteration": 10,
-            },
-        },
+        iterations=10,
+        checkpoint_freq=10,
+        results_dir=tmpdir,
     )
 
     rollouts = ph.utils.rllib.rollout(
-        directory=f"{tmpdir}/PPO/LATEST",
+        directory=f"{tmpdir}/LATEST",
         num_repeats=5,
         metrics=supply_chain.metrics,
     )
 
     rollouts = list(sorted(rollouts, key=lambda r: r.rollout_id))
 
-    file_path = "regression_tests/data/supply-chain-2022-12-05.json"
+    file_path = f"regression_tests/data/supply-chain-2023-02-07.json"
 
-    # # TO GENERATE FILE:
+    # TO GENERATE FILE:
+    # import json
+    # from . import RolloutJSONEncoder
     # with open(file_path, "w") as file:
     #     json.dump(rollouts, file, cls=RolloutJSONEncoder, indent=4)
 
-    with open(file_path, "r") as file:
-        previous_rollouts_str = file.read().split("\n")
-
-    rollouts_str = json.dumps(rollouts, cls=RolloutJSONEncoder, indent=4).split("\n")
-
-    assert len(rollouts_str) == len(previous_rollouts_str)
-
-    for i, (old, new) in enumerate(zip(previous_rollouts_str, rollouts_str)):
-        assert old == new, (i + 1, old, new)
+    compare_rollouts(file_path, rollouts)
