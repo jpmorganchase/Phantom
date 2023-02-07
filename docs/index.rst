@@ -35,6 +35,7 @@ Phantom
     api/reward_functions
     api/rllib
     api/supertypes
+    api/telemetry
     api/trainer
     api/utils
     api/views

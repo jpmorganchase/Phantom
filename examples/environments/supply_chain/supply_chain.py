@@ -190,28 +190,23 @@ metrics = {
     "SHOP/missed_sales": ph.metrics.SimpleAgentMetric("SHOP", "missed_sales", "mean"),
 }
 
-
 if len(sys.argv) > 1 and sys.argv[1] == "train":
     ph.utils.rllib.train(
         algorithm="PPO",
         env_class=SupplyChainEnv,
         env_config={},
+        iterations=500,
+        checkpoint_freq=50,
         policies={"shop_policy": ["SHOP"]},
         metrics=metrics,
-        rllib_config={"seed": 0},
-        tune_config={
-            "name": "supply_chain",
-            "checkpoint_freq": 100,
-            "stop": {
-                "training_iteration": 300,
-            },
-        },
+        results_dir="~/ray_results/supply_chain",
     )
 
-elif len(sys.argv) > 1 and sys.argv[1] == "rollout":
+elif sys.argv[1] == "rollout":
     results = ph.utils.rllib.rollout(
-        directory="supply_chain/LATEST",
+        directory="~/ray_results/supply_chain/LATEST",
         num_repeats=100,
+        num_workers=1,
         metrics=metrics,
     )
 

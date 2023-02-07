@@ -1,4 +1,5 @@
 from phantom import FiniteStateMachineEnv, FSMStage, Network
+from phantom.metrics import NotRecorded
 from phantom.utils.rllib.train import RLlibMetricLogger
 
 from . import MockBaseEnv, MockEpisode, MockMetric
@@ -28,7 +29,7 @@ def test_fsm_logging():
     )
     assert episode.user_data == {
         "stage_0_metric": [0],
-        "stage_1_metric": [None],
+        "stage_1_metric": [NotRecorded()],
     }
 
     base_env.step()
@@ -37,8 +38,8 @@ def test_fsm_logging():
         worker=None, base_env=base_env, episode=episode, env_index=0
     )
     assert episode.user_data == {
-        "stage_0_metric": [0, None],
-        "stage_1_metric": [None, 1],
+        "stage_0_metric": [0, NotRecorded()],
+        "stage_1_metric": [NotRecorded(), 1],
     }
 
     callback.on_episode_end(

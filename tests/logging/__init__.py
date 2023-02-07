@@ -11,8 +11,8 @@ class MockEpisode:
 
 
 class MockMetric(SimpleMetric):
-    def __init__(self, value: int, reduce_action="last", fsm_stages=None):
-        super().__init__(reduce_action, fsm_stages)
+    def __init__(self, value: int, train_reduce_action="last", fsm_stages=None):
+        super().__init__(train_reduce_action, fsm_stages=fsm_stages)
         self.value = value
 
     def extract(self, _env) -> int:

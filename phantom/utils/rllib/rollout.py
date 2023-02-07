@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    DefaultDict,
+    Callable,
     Dict,
     Generator,
     List,
@@ -20,14 +20,13 @@ from typing import (
 import cloudpickle
 import numpy as np
 import ray
-from ray.rllib.algorithms.registry import get_algorithm_class
-from ray.tune.registry import register_env
+import rich.progress
+from ray.rllib.policy import Policy as RLlibPolicy
 from ray.util.queue import Queue
-from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
-from ...metrics import Metric
+from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
 from ..rollout import Rollout, Step
@@ -39,7 +38,6 @@ from .. import (
     Range,
     Sampler,
 )
-from .wrapper import RLlibEnvWrapper
 from . import construct_results_paths
 
 
@@ -59,6 +57,7 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
     show_progress_bar: bool = True,
+    vectorized_env_batch_size: int = 1,
 ) -> Generator[Rollout, None, None]:
     """Performs rollouts for a previously trained Phantom experiment.
 
@@ -89,16 +88,23 @@ def rollout(
         record_messages: If True the full list of episode messages for each of the
             rollouts will be recorded. Only applies if `save_trajectories` is also True.
         show_progress_bar: If True shows a progress bar in the terminal output.
+        vectorized_env_batch_size: TODO
 
     Returns:
         A Generator of Rollouts.
 
-    NOTE: It is the users responsibility to invoke rollouts via the provided ``phantom``
-    command or ensure the ``PYTHONHASHSEED`` environment variable is set before starting
-    the Python interpreter to run this code. Not setting this may lead to
-    reproducibility issues.
+    .. note::
+        It is the users responsibility to invoke rollouts via the provided ``phantom``
+        command or ensure the ``PYTHONHASHSEED`` environment variable is set before
+        starting the Python interpreter to run this code. Not setting this may lead to
+        reproducibility issues.
     """
     assert num_repeats > 0, "num_repeats must be at least 1"
+
+    assert vectorized_env_batch_size > 0, "vectorized_env_batch_size must be at least 1"
+
+    if vectorized_env_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
+        raise ValueError("Cannot use FSM env when vectorized_env_batch_size > 1")
 
     if num_workers is not None:
         assert num_workers >= 0, "num_workers must be at least 0"
@@ -173,38 +179,31 @@ def rollout(
     with open(Path(directory, "params.pkl"), "rb") as params_file:
         config = cloudpickle.load(params_file)
 
+    policy_mapping_fn = config["multiagent"]["policy_mapping_fn"]
+
     with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
         ph_config = cloudpickle.load(params_file)
 
     if env_class is None:
         env_class = ph_config["env_class"]
 
-    # Register custom environment with Ray
-    register_env(
-        env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
-    )
-
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
     # Start the rollouts
     if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
 
         rollouts = _rollout_task_fn(
-            deepcopy(config),
+            policy_mapping_fn,
             checkpoint_path,
-            ph_config["algorithm"],
             rollout_configs,
             env_class,
             custom_policy_mapping,
+            vectorized_env_batch_size,
             metrics,
             record_messages,
         )
 
         if show_progress_bar:
-            yield from tqdm(rollouts, total=len(rollout_configs))
+            yield from rich.progress.track(rollouts, total=len(rollout_configs))
         else:
             yield from rollouts
 
@@ -223,12 +222,12 @@ def rollout(
 
         worker_payloads = [
             (
-                deepcopy(config),
+                policy_mapping_fn,
                 checkpoint_path,
-                ph_config["algorithm"],
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
                 custom_policy_mapping,
+                vectorized_env_batch_size,
                 metrics,
                 record_messages,
             )
@@ -238,108 +237,139 @@ def rollout(
         for payload in worker_payloads:
             remote_rollout_task_fn.remote(*payload)
 
-        range_ = trange if show_progress_bar else range
+        range_iter = range(len(rollout_configs))
 
-        for _ in range_(len(rollout_configs)):
+        if show_progress_bar:
+            range_iter = rich.progress.track(range_iter)
+
+        for _ in range_iter:
             yield q.get()
 
 
 def _rollout_task_fn(
-    config: Dict,
+    policy_mapping_fn: Callable[[], str],
     checkpoint_path: Path,
-    algorithm: str,
-    configs: List["_RolloutConfig"],
+    all_configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
     custom_policy_mapping: CustomPolicyMapping,
-    tracked_metrics: Optional[Mapping[str, Metric]] = None,
+    vectorized_env_batch_size: int,
+    metric_objects: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
     """Internal function"""
-    config["env_config"] = configs[0].env_config
 
-    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
-    algo.restore(str(checkpoint_path))
+    def chunker(seq, size):
+        return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    for rollout_config in configs:
-        # Create environment instance from config from results directory
-        env = env_class(**rollout_config.env_config)
+    # Lazily load checkpointed policy objects
+    saved_policies: Dict[str, RLlibPolicy] = {}
+
+    # Setting seed needs to come after algo setup
+    np.random.seed(all_configs[0].rollout_id)
+
+    for configs in chunker(all_configs, vectorized_env_batch_size):
+        batch_size = len(configs)
+
+        vec_envs = [
+            env_class(**rollout_config.env_config) for rollout_config in configs
+        ]
 
         if record_messages:
-            env.network.resolver.enable_tracking = True
+            for env in vec_envs:
+                env.network.resolver.enable_tracking = True
 
-        # Setting seed needs to come after algo setup
-        np.random.seed(rollout_config.rollout_id)
+        vec_metrics = [defaultdict(list) for _ in range(batch_size)]
+        vec_all_steps = [[] for _ in range(batch_size)]
 
-        metrics: DefaultDict[str, List[float]] = defaultdict(list)
-
-        steps: List[Step] = []
-
-        observation = env.reset()
+        vec_observations = [env.reset() for env in vec_envs]
 
         initted_policy_mapping = {
             agent_id: policy(
-                env[agent_id].observation_space, env[agent_id].action_space
+                vec_envs[0][agent_id].observation_space,
+                vec_envs[0][agent_id].action_space,
             )
             for agent_id, policy in custom_policy_mapping.items()
         }
 
         # Run rollout steps.
-        for i in range(env.num_steps):
-            step_actions = {}
+        for i in range(vec_envs[0].num_steps):
+            actions = {}
 
-            for agent_id, agent_obs in observation.items():
+            dict_observations = {
+                k: [dic[k] for dic in vec_observations] for k in vec_observations[0]
+            }
+
+            for agent_id, vec_agent_obs in dict_observations.items():
                 if agent_id in initted_policy_mapping:
-                    action = initted_policy_mapping[agent_id].compute_action(agent_obs)
+                    actions[agent_id] = [
+                        initted_policy_mapping[agent_id].compute_action(agent_obs)
+                        for agent_obs in vec_agent_obs
+                    ]
                 else:
-                    policy_id = config["multiagent"]["policy_mapping_fn"](
-                        agent_id, rollout_config.rollout_id, 0
-                    )
+                    policy_id = policy_mapping_fn(agent_id, 0, 0)
 
-                    action = algo.compute_single_action(
-                        agent_obs, policy_id=policy_id, explore=False
-                    )
+                    if policy_id not in saved_policies:
+                        saved_policies[policy_id] = RLlibPolicy.from_checkpoint(
+                            checkpoint_path / "policies" / policy_id
+                        )
 
-                step_actions[agent_id] = action
+                    actions[agent_id] = saved_policies[policy_id].compute_actions(
+                        vec_agent_obs, explore=False
+                    )[0]
 
-            new_observation, reward, done, info = env.step(step_actions)
-
-            if tracked_metrics is not None:
-                for name, metric in tracked_metrics.items():
-                    metrics[name].append(metric.extract(env))
-
-            if record_messages:
-                messages = deepcopy(env.network.resolver.tracked_messages)
-                env.network.resolver.clear_tracked_messages()
+            # hack for no agent acting step in Ops
+            if len(dict_observations) == 0:
+                vec_actions = [{}] * batch_size
             else:
-                messages = None
+                vec_actions = [dict(zip(actions, t)) for t in zip(*actions.values())]
 
-            steps.append(
-                Step(
-                    i,
-                    observation,
-                    reward,
-                    done,
-                    info,
-                    step_actions,
-                    messages,
-                    env.previous_stage
-                    if isinstance(env, FiniteStateMachineEnv)
-                    else None,
+            vec_steps = [
+                env.step(actions) for env, actions in zip(vec_envs, vec_actions)
+            ]
+
+            for j in range(batch_size):
+                if metric_objects is not None:
+                    logging_helper(vec_envs[j], metric_objects, vec_metrics[j])
+
+                if record_messages:
+                    messages = deepcopy(vec_envs[j].network.resolver.tracked_messages)
+                    vec_envs[j].network.resolver.clear_tracked_messages()
+                else:
+                    messages = None
+
+                vec_all_steps[j].append(
+                    Step(
+                        i,
+                        vec_observations[j],
+                        vec_steps[j].rewards,
+                        vec_steps[j].dones,
+                        vec_steps[j].infos,
+                        vec_actions[j],
+                        messages,
+                        vec_envs[j].previous_stage
+                        if isinstance(vec_envs[j], FiniteStateMachineEnv)
+                        else None,
+                    )
                 )
+
+            vec_observations = [step.observations for step in vec_steps]
+
+        for j in range(batch_size):
+            reduced_metrics = {
+                metric_id: metric_objects[metric_id].reduce(
+                    vec_metrics[j][metric_id], "evaluate"
+                )
+                for metric_id in metric_objects
+            }
+
+            yield Rollout(
+                configs[j].rollout_id,
+                configs[j].repeat_id,
+                configs[j].env_config,
+                configs[j].rollout_params,
+                vec_all_steps[j],
+                reduced_metrics,
             )
-
-            observation = new_observation
-
-        condensed_metrics = {k: np.array(v) for k, v in metrics.items()}
-
-        yield Rollout(
-            rollout_config.rollout_id,
-            rollout_config.repeat_id,
-            rollout_config.env_config,
-            rollout_config.rollout_params,
-            steps,
-            condensed_metrics,
-        )
 
 
 @dataclass(frozen=True)

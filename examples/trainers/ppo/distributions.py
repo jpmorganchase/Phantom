@@ -11,6 +11,7 @@ Modify standard PyTorch distributions so they are compatible with this code.
 # Standardize distribution interfaces
 #
 
+
 # Categorical
 class FixedCategorical(torch.distributions.Categorical):
     def sample(self):
