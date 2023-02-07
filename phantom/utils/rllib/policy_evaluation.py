@@ -1,18 +1,15 @@
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import cloudpickle
-import ray
 import rich.progress
-from ray.tune.registry import register_env
+from ray.rllib.policy import Policy
 
 from .. import (
     collect_instances_of_type_with_paths,
     update_val,
     Range,
 )
-from .wrapper import RLlibEnvWrapper
 from . import construct_results_paths
 
 
@@ -45,23 +42,7 @@ def evaluate_policy(
     """
     directory, checkpoint_path = construct_results_paths(directory, checkpoint)
 
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
-
-    with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
-        ph_config = cloudpickle.load(params_file)
-
-    env_class = ph_config["env_class"]
-
-    if isinstance(env_class, RLlibEnvWrapper):
-        register_env(env_class.__name__, lambda config: env_class(**config))
-    else:
-        register_env(
-            env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
-        )
-
-    algo = ray.rllib.algorithms.Algorithm.from_checkpoint(checkpoint_path)
+    policy = Policy.from_checkpoint(checkpoint_path / "policies" / policy_id)
 
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
 
@@ -95,6 +76,6 @@ def evaluate_policy(
         variations = rich.progress.track(variations)
 
     return [
-        (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))
+        (params, policy.compute_single_action(obs, explore=False)[0])
         for (params, obs) in variations
     ]

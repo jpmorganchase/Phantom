@@ -58,7 +58,7 @@ def test_rllib_train_rollout(tmpdir):
         obs=0,
         policy_id="mock_policy",
     )
-    assert len(list(results)) == 1
+    assert list(results) == [({}, 0)]
 
 
 def test_rllib_rollout_bad(tmpdir):
