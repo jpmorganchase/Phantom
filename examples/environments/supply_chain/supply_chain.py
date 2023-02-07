@@ -190,7 +190,7 @@ metrics = {
     "SHOP/missed_sales": ph.metrics.SimpleAgentMetric("SHOP", "missed_sales", "mean"),
 }
 
-if len(sys.argv) > 1 and sys.argv[1] == "train":
+if sys.argv[1] == "train":
     ph.utils.rllib.train(
         algorithm="PPO",
         env_class=SupplyChainEnv,
