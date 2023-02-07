@@ -38,6 +38,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONHASHSEED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.8

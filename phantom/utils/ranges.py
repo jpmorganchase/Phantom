@@ -46,15 +46,17 @@ class UniformRange(Range[float]):
         end: float,
         step: float = 1.0,
         name: Optional[str] = None,
+        dtype=None,
     ) -> None:
         self.start = start
         self.end = end
         self.step = step
+        self.dtype = dtype
 
         super().__init__(name)
 
     def values(self) -> np.ndarray:
-        return np.arange(self.start, self.end, self.step)
+        return np.arange(self.start, self.end, self.step, dtype=self.dtype)
 
 
 class LinspaceRange(Range[float]):
@@ -69,15 +71,17 @@ class LinspaceRange(Range[float]):
         end: float,
         n: int,
         name: Optional[str] = None,
+        dtype=None,
     ) -> None:
         self.n = n
         self.start = start
         self.end = end
+        self.dtype = dtype
 
         super().__init__(name)
 
     def values(self) -> np.ndarray:
-        return np.linspace(self.start, self.end, self.n)
+        return np.linspace(self.start, self.end, self.n, dtype=self.dtype)
 
 
 class UnitArrayUniformRange(UniformRange, Range[np.ndarray]):
@@ -90,7 +94,10 @@ class UnitArrayUniformRange(UniformRange, Range[np.ndarray]):
     """
 
     def values(self) -> List[np.ndarray]:
-        return [np.array([x]) for x in np.arange(self.start, self.end, self.step)]
+        return [
+            np.array([x])
+            for x in np.arange(self.start, self.end, self.step, dtype=self.dtype)
+        ]
 
 
 class UnitArrayLinspaceRange(LinspaceRange, Range[np.ndarray]):
@@ -103,4 +110,7 @@ class UnitArrayLinspaceRange(LinspaceRange, Range[np.ndarray]):
     """
 
     def values(self) -> List[np.ndarray]:
-        return [np.array([x]) for x in np.linspace(self.start, self.end, self.n)]
+        return [
+            np.array([x])
+            for x in np.linspace(self.start, self.end, self.n, dtype=self.dtype)
+        ]
