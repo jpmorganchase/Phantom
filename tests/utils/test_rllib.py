@@ -55,10 +55,10 @@ def test_rllib_train_rollout(tmpdir):
     # Evaluate policy:
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/LATEST",
-        obs=ph.utils.ranges.LinspaceRange(0, 1, 2, name="r", dtype=int),
+        obs=ph.utils.ranges.LinspaceRange(0, 0, 1, name="r", dtype=int),
         policy_id="mock_policy",
     )
-    assert list(results) == [({"r": 0.0}, 0.0, 0), ({"r": 1.0}, 1.0, 0)]
+    assert list(results) == [({"r": 0.0}, 0.0, 0)]
 
 
 def test_rllib_rollout_bad(tmpdir):

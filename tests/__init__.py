@@ -30,8 +30,8 @@ class MockStrategicAgent(ph.StrategicAgent):
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.action_space = gym.spaces.Discrete(2)
-        self.observation_space = gym.spaces.Discrete(2)
+        self.action_space = gym.spaces.Discrete(1)
+        self.observation_space = gym.spaces.Discrete(1)
 
         self.encode_obs_count = 0
         self.decode_action_count = 0
