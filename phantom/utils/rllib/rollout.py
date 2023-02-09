@@ -60,7 +60,7 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
     show_progress_bar: bool = True,
-    vectorized_env_batch_size: int = 1,
+    policy_inference_batch_size: int = 1,
 ) -> Generator[Rollout, None, None]:
     """Performs rollouts for a previously trained Phantom experiment.
 
@@ -91,7 +91,7 @@ def rollout(
         record_messages: If True the full list of episode messages for each of the
             rollouts will be recorded. Only applies if `save_trajectories` is also True.
         show_progress_bar: If True shows a progress bar in the terminal output.
-        vectorized_env_batch_size: TODO
+        policy_inference_batch_size: Number of policy inferences to perform in one go.
 
     Returns:
         A Generator of Rollouts.
@@ -104,10 +104,12 @@ def rollout(
     """
     assert num_repeats > 0, "num_repeats must be at least 1"
 
-    assert vectorized_env_batch_size > 0, "vectorized_env_batch_size must be at least 1"
+    assert (
+        policy_inference_batch_size > 0
+    ), "policy_inference_batch_size must be at least 1"
 
-    if vectorized_env_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
-        raise ValueError("Cannot use FSM env when vectorized_env_batch_size > 1")
+    if policy_inference_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
+        raise ValueError("Cannot use FSM env when policy_inference_batch_size > 1")
 
     if num_workers is not None:
         assert num_workers >= 0, "num_workers must be at least 0"
@@ -203,7 +205,7 @@ def rollout(
             env_class,
             policy_specs,
             custom_policy_mapping,
-            vectorized_env_batch_size,
+            policy_inference_batch_size,
             metrics,
             record_messages,
         )
@@ -234,7 +236,7 @@ def rollout(
                 env_class,
                 policy_specs,
                 custom_policy_mapping,
-                vectorized_env_batch_size,
+                policy_inference_batch_size,
                 metrics,
                 record_messages,
             )
@@ -260,7 +262,7 @@ def _rollout_task_fn(
     env_class: Type[PhantomEnv],
     policy_specs,
     custom_policy_mapping: CustomPolicyMapping,
-    vectorized_env_batch_size: int,
+    policy_inference_batch_size: int,
     metric_objects: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
@@ -275,7 +277,7 @@ def _rollout_task_fn(
     # Setting seed needs to come after algo setup
     np.random.seed(all_configs[0].rollout_id)
 
-    for configs in chunker(all_configs, vectorized_env_batch_size):
+    for configs in chunker(all_configs, policy_inference_batch_size):
         batch_size = len(configs)
 
         vec_envs = [
