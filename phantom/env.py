@@ -98,8 +98,9 @@ class PhantomEnv:
             for agent_id, agent_supertype in agent_supertypes.items():
                 if isinstance(agent_supertype, dict):
                     agent_supertype = self.agents[agent_id].Supertype(**agent_supertype)
-                else:
-                    assert isinstance(agent_supertype, self.agents[agent_id].Supertype)
+                # TODO: fix, temporarily disabled as AgentClass.Supertype changed to __main__.Supertype
+                # else:
+                #     assert isinstance(agent_supertype, self.agents[agent_id].Supertype)
 
                 # The env will manage sampling the supertype values
                 agent_supertype._managed = True

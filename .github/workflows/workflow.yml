@@ -38,6 +38,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONHASHSEED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.8
@@ -62,6 +64,35 @@ jobs:
     - name: Run Phantom tests
       run: |
         make test
+
+  # regression_test:
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     PYTHONHASHSEED: 1
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: Set up Python 3.8
+  #     uses: actions/setup-python@v2
+  #     with:
+  #       python-version: 3.8
+
+  #   - name: Update Pip
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       pip install wheel
+
+  #   - name: Install Phantom dependencies
+  #     run: |
+  #       make install-deps
+  #       make install-dev-deps
+
+  #   - name: Install Phantom
+  #     run: |
+  #       make install
+
+  #   - name: Run Phantom tests
+  #     run: |
+  #       pytest regression_tests
 
   build-docs-phantom:
     runs-on: ubuntu-latest

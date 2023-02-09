@@ -1,19 +1,18 @@
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import cloudpickle
-from ray.rllib.algorithms.registry import get_algorithm_class
-from ray.tune.registry import register_env
-from tqdm import tqdm
+import rich.progress
+from ray.rllib.models.preprocessors import get_preprocessor
+from ray.rllib.policy import Policy
+from ray.rllib.utils.spaces.space_utils import unsquash_action
 
-from ...env import PhantomEnv
 from .. import (
     collect_instances_of_type_with_paths,
     update_val,
     Range,
 )
-from .wrapper import RLlibEnvWrapper
 from . import construct_results_paths
 
 
@@ -21,9 +20,10 @@ def evaluate_policy(
     directory: Union[str, Path],
     policy_id: str,
     obs: Any,
+    batch_size: int = 100,
     checkpoint: Optional[int] = None,
     show_progress_bar: bool = True,
-) -> List[Tuple[Dict[str, Any], Any]]:
+) -> Generator[Tuple[Dict[str, Any], Any, Any], None, None]:
     """
     Evaluates a given pre-trained RLlib policy over a one of more dimensional
     observation space.
@@ -38,38 +38,24 @@ def evaluate_policy(
             :class:`Range` class instances to evaluate the policy over multiple
             dimensions in a similar fashion to the :func:`ph.utils.rllib.rollout`
             function.
+        batch_size: Number of observations to evaluate at a time.
         checkpoint: Checkpoint to use (defaults to most recent).
         show_progress_bar: If True shows a progress bar in the terminal output.
 
     Returns:
-        A list of tuples of the form (observation, action).
+        A generator of tuples of the form (params, obs, action).
     """
     directory, checkpoint_path = construct_results_paths(directory, checkpoint)
 
-    # Load config from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
+    policy = Policy.from_checkpoint(checkpoint_path / "policies" / policy_id)
 
     with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
         ph_config = cloudpickle.load(params_file)
 
-    env_class = ph_config["env_class"]
+    policy_specs = ph_config["policy_specs"]
 
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
-    if isinstance(env_class, RLlibEnvWrapper):
-        register_env(env_class.__name__, lambda config: env_class(**config))
-    else:
-        register_env(
-            env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
-        )
-
-    algo = get_algorithm_class(ph_config["algorithm"])(
-        env=env_class.__name__, config=config
-    )
-    algo.restore(str(checkpoint_path))
+    obs_s = policy_specs[policy_id].observation_space
+    preprocessor = get_preprocessor(obs_s)(obs_s)
 
     ranges = collect_instances_of_type_with_paths(Range, ({}, obs))
 
@@ -99,10 +85,25 @@ def evaluate_policy(
 
         variations = variations2
 
-    if show_progress_bar:
-        variations = tqdm(variations)
+    def chunker(seq, size):
+        return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    return [
-        (params, algo.compute_single_action(obs, policy_id=policy_id, explore=False))
-        for (params, obs) in variations
-    ]
+    batched_variations = chunker(variations, batch_size)
+
+    if show_progress_bar:
+        batched_variations = rich.progress.track(batched_variations)
+
+    for variation_batch in batched_variations:
+        params, obs = zip(*variation_batch)
+
+        processed_obs = [preprocessor.transform(ob) for ob in obs]
+
+        squashed_actions = policy.compute_actions(processed_obs, explore=False)[0]
+
+        actions = [
+            unsquash_action(action, policy.action_space_struct)
+            for action in squashed_actions
+        ]
+
+        for p, o, a in zip(params, obs, actions):
+            yield (p, o, a)

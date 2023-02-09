@@ -296,7 +296,7 @@ def logging_helper(
     metrics: Dict[str, Metric],
     metric_values: DefaultDict[str, List[float]],
 ) -> None:
-    for (metric_id, metric) in metrics.items():
+    for metric_id, metric in metrics.items():
         if (
             not isinstance(env, FiniteStateMachineEnv)
             or metric.fsm_stages is None

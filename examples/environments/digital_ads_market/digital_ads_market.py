@@ -137,7 +137,7 @@ class PublisherPolicy(ph.Policy):
         return np.array([0])
 
 
-class PublisherAgent(ph.Agent):
+class PublisherAgent(ph.StrategicAgent):
     """
     A `PublisherAgent` generates `ImpressionRequest` which corresponds to
     real-estate on their website rented to advertisers to display their ads.
@@ -229,7 +229,7 @@ class AdvertiserAgent(ph.StrategicAgent):
     @dataclass
     class Supertype(ph.Supertype):
         # The overall budget to spend during the episode
-        budget: float
+        budget: float = 0
 
     def __init__(self, agent_id: str, exchange_id: str, theme: str = "generic"):
         self.exchange_id = exchange_id
@@ -419,7 +419,7 @@ class AdExchangeAgent(ph.Agent):
         advertiser needs to access the information explicitely via the `ctx`
         object if it wants to use it.
         """
-        if neighbour_id.startswith("ADV"):
+        if neighbour_id is not None and neighbour_id.startswith("ADV"):
             return self.AdExchangeView(
                 agent_id=self.id,
                 users_info={
@@ -607,9 +607,10 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
 
 
 class AdvertiserBidUser(ph.metrics.Metric[float]):
-    def __init__(self, agent_id: str, user_id: int) -> None:
+    def __init__(self, agent_id: str, user_id: int, **kwargs) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
+        super().__init__(**kwargs)
 
     def extract(self, env: ph.PhantomEnv) -> float:
         """@override
@@ -619,7 +620,7 @@ class AdvertiserBidUser(ph.metrics.Metric[float]):
             return env[self.agent_id].bid
         return np.nan
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode) -> float:
         """@override
         The default logic returns the last step value,
         here we are interested in the average bid value
@@ -628,9 +629,10 @@ class AdvertiserBidUser(ph.metrics.Metric[float]):
 
 
 class AdvertiserAverageHitRatioUser(ph.metrics.Metric[float]):
-    def __init__(self, agent_id: str, user_id: int) -> None:
+    def __init__(self, agent_id: str, user_id: int, **kwargs) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
+        super().__init__(**kwargs)
 
     def extract(self, env: ph.PhantomEnv) -> float:
         """@override
@@ -643,7 +645,7 @@ class AdvertiserAverageHitRatioUser(ph.metrics.Metric[float]):
             )
         return np.nan
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode) -> float:
         """@override
         The default logic returns the last step value,
         here we are interested in the average bid value
@@ -652,9 +654,10 @@ class AdvertiserAverageHitRatioUser(ph.metrics.Metric[float]):
 
 
 class AdvertiserAverageWinProbaUser(ph.metrics.Metric[float]):
-    def __init__(self, agent_id: str, user_id: int) -> None:
+    def __init__(self, agent_id: str, user_id: int, **kwargs) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
+        super().__init__(**kwargs)
 
     def extract(self, env: ph.PhantomEnv) -> float:
         """@override
@@ -667,7 +670,7 @@ class AdvertiserAverageWinProbaUser(ph.metrics.Metric[float]):
             )
         return np.nan
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode) -> float:
         """@override
         The default logic returns the last step value,
         here we are interested in the average bid value
@@ -676,26 +679,28 @@ class AdvertiserAverageWinProbaUser(ph.metrics.Metric[float]):
 
 
 class AdvertiserTotalRequests(ph.metrics.Metric[float]):
-    def __init__(self, agent_id: str, user_id: int) -> None:
+    def __init__(self, agent_id: str, user_id: int, **kwargs) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
+        super().__init__(**kwargs)
 
     def extract(self, env: ph.PhantomEnv) -> float:
         return env[self.agent_id].total_requests[self.user_id]
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode) -> float:
         return values[-1]
 
 
 class AdvertiserTotalWins(ph.metrics.Metric[float]):
-    def __init__(self, agent_id: str, user_id: int) -> None:
+    def __init__(self, agent_id: str, user_id: int, **kwargs) -> None:
         self.agent_id: str = agent_id
         self.user_id: int = user_id
+        super().__init__(**kwargs)
 
     def extract(self, env: ph.PhantomEnv) -> float:
         return env[self.agent_id].total_wins[self.user_id]
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode) -> float:
         return values[-1]
 
 
@@ -781,7 +786,6 @@ if __name__ == "__main__":
         results = ph.utils.rllib.rollout(
             directory=path,
             num_repeats=50,
-            num_workers=40,
             metrics=metrics,
             record_messages=False,
             env_config={
@@ -885,16 +889,11 @@ if __name__ == "__main__":
                     "sport": NUM_SPORT_ADVERTISERS,
                 },
             },
+            iterations=1e4,
+            checkpoint_freq=50,
             rllib_config={
                 "seed": 0,
                 "batch_mode": "complete_episodes",
                 "disable_env_checking": True,
-            },
-            tune_config={
-                "name": "simple",
-                "checkpoint_freq": 50,
-                "stop": {
-                    "training_iteration": 1e4,
-                },
             },
         )

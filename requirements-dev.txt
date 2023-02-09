@@ -1,12 +1,12 @@
-black>=22.10.0
+black>=23.00.0
 flake8>=6.0.0
 # https://stackoverflow.com/questions/72191560/importerror-cannot-import-name-soft-unicode-from-markupsafe
 markupsafe==2.0.1
 mypy>=0.990
-pre-commit>=2.20.0
-pylint>=2.15.0
+pre-commit>=3.0.0
+pylint>=2.16.0
 pytest>=7.2.0
 pytest-cov>=4.0.0
 sphinx>=5.3.0
-sphinx-autodoc-typehints>=1.19.0
+sphinx-autodoc-typehints>=1.22
 sphinx_rtd_theme>=1.1.0
