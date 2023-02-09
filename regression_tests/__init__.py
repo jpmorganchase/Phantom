@@ -25,7 +25,7 @@ def compare_rollouts(file_path: str, rollouts: List[ph.utils.rollout.Rollout]) -
     assert len(rollouts_str) == len(previous_rollouts_str)
 
     for i, (old, new) in enumerate(zip(previous_rollouts_str, rollouts_str)):
-        assert old == new, (i + 1, old, new)
+        assert old == new, f"Line {i+1} doesn't match -- Existing: '{old.strip()}' -- New: '{new.strip()}'"
 
 
 class RolloutJSONEncoder(json.JSONEncoder):
