@@ -117,7 +117,9 @@ def train(
     show_pythonhashseed_warning()
 
     assert iterations > 0, "'iterations' parameter must be > 0"
-    assert num_workers >= 0, "'num_workers' parameter must be >= 0"
+
+    if num_workers is not None:
+        assert num_workers >= 0, "'num_workers' parameter must be >= 0"
 
     env_config = env_config or {}
     rllib_config = rllib_config or {}
