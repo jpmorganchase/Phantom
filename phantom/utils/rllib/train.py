@@ -136,11 +136,18 @@ def train(
     """
     show_pythonhashseed_warning()
 
+    assert iterations > 0, "'iterations' parameter must be > 0"
+
+    if num_workers is not None:
+        assert num_workers >= 0, "'num_workers' parameter must be >= 0"
+
     env_config = env_config or {}
     rllib_config = rllib_config or {}
     metrics = metrics or {}
 
     check_env_config(env_config)
+
+    ray.init(ignore_reinit_error=True)
 
     env = env_class(**env_config)
     env.reset()
@@ -218,20 +225,13 @@ def train(
             "policies_to_train": policies_to_train,
         },
         "num_sgd_iter": 10,
-        "num_workers": num_workers_,
+        "num_rollout_workers": num_workers_,
         "rollout_fragment_length": env.num_steps,
         "seed": 0,
         "train_batch_size": env.num_steps * max(1, num_workers_),
     }
 
     config.update(rllib_config)
-
-    random.seed(config["seed"])
-    np.random.seed(config["seed"])
-    if config["framework"] == "torch":
-        import torch
-
-        torch.manual_seed(config["seed"])
 
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
