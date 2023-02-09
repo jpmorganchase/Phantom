@@ -104,8 +104,8 @@ def test_digital_ads_market(tmpdir, digital_ads_market):
         rllib_config={
             "batch_mode": "complete_episodes",
             "disable_env_checking": True,
-            "num_rollout_workers": 0,
         },
+        num_workers=0,
         iterations=1,
         checkpoint_freq=1,
         results_dir=tmpdir,
@@ -162,7 +162,7 @@ def test_digital_ads_market(tmpdir, digital_ads_market):
 
     rollouts = list(sorted(rollouts, key=lambda r: r.rollout_id))
 
-    file_path = f"regression_tests/data/digital-ads-market-2023-02-07.json"
+    file_path = f"regression_tests/data/digital-ads-market-2023-02-09.json"
 
     # TO GENERATE FILE:
     # import json

@@ -31,7 +31,7 @@ def test_supply_chain(tmpdir, supply_chain):
 
     rollouts = list(sorted(rollouts, key=lambda r: r.rollout_id))
 
-    file_path = f"regression_tests/data/supply-chain-2023-02-07.json"
+    file_path = f"regression_tests/data/supply-chain-2023-02-09.json"
 
     # TO GENERATE FILE:
     # import json
