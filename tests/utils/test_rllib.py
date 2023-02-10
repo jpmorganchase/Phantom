@@ -43,6 +43,12 @@ def test_rllib_train_rollout(tmpdir):
     assert len(results) == 3
     assert results[0].actions_for_agent("a1") == [np.array([0.5])] * 5
 
+    # Data export:
+    ph.utils.rollout.rollouts_to_dataframe(results, avg_over_repeats=False)
+
+    with open(f"{tmpdir}/rollouts.json", "w") as f:
+        ph.utils.rollout.rollouts_to_jsonl(results, f)
+
     # With batched inference:
     results2 = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/LATEST",

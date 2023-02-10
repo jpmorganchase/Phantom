@@ -1,5 +1,7 @@
+import io
+import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import (
     Any,
     Dict,
@@ -266,7 +268,52 @@ def rollouts_to_dataframe(
         for col in index_cols:
             df[col] = df[col].round(index_value_precision).astype(str)
 
-    if avg_over_repeats:
-        df = df.groupby(index_cols).mean().reset_index()
+    if len(index_cols) > 0:
+        if avg_over_repeats:
+            df = df.groupby(index_cols).mean().reset_index()
 
-    return df.set_index(index_cols)
+        df = df.set_index(index_cols)
+
+    return df
+
+
+def rollouts_to_jsonl(
+    rollouts: Iterable[Rollout],
+    file_obj: io.TextIOBase,
+    human_readable: bool = False,
+) -> None:
+    """
+    Writes multiple rollouts to a file using the JSONL (JSON Lines) format.
+
+    Arguments:
+        rollouts: The list/iterator of Phantom Rollout objects to use.
+        file_obj: A writable file object to output to.
+        human_readable: If True the output will be 'pretty printed'.
+    """
+    for rollout in rollouts:
+        json.dump(
+            rollout,
+            file_obj,
+            indent=2 if human_readable else None,
+            cls=RolloutJSONEncoder,
+        )
+        file_obj.write("\n")
+        file_obj.flush()
+
+
+class RolloutJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.number):
+            return int(obj)
+        if isinstance(obj, Rollout):
+            return asdict(obj)
+        if isinstance(obj, Step):
+            return asdict(obj)
+
+        return json.JSONEncoder.default(self, obj)
