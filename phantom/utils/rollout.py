@@ -17,7 +17,7 @@ from ..message import Message
 from ..types import AgentID, StageID
 
 
-@dataclass
+@dataclass(frozen=True)
 class AgentStep:
     """Describes a step taken by a single agent in an episode."""
 
@@ -30,7 +30,7 @@ class AgentStep:
     stage: Optional[StageID] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class Step:
     """Describes a step taken in an episode."""
 
@@ -44,22 +44,14 @@ class Step:
     stage: Optional[StageID] = None
 
 
+@dataclass(frozen=True)
 class Rollout:
-    def __init__(
-        self,
-        rollout_id: int,
-        repeat_id: int,
-        env_config: Mapping[str, Any],
-        rollout_params: Dict[str, Any],
-        steps: List[Step],
-        metrics: Dict[str, np.ndarray],
-    ) -> None:
-        self.rollout_id = rollout_id
-        self.repeat_id = repeat_id
-        self.env_config = env_config
-        self.rollout_params = rollout_params
-        self.steps = steps
-        self.metrics = metrics
+    rollout_id: int
+    repeat_id: int
+    env_config: Mapping[str, Any]
+    rollout_params: Dict[str, Any]
+    steps: List[Step]
+    metrics: Dict[str, np.ndarray]
 
     def observations_for_agent(
         self,

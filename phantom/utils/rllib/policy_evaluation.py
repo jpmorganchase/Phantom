@@ -20,6 +20,7 @@ def evaluate_policy(
     directory: Union[str, Path],
     policy_id: str,
     obs: Any,
+    explore: bool,
     batch_size: int = 100,
     checkpoint: Optional[int] = None,
     show_progress_bar: bool = True,
@@ -38,6 +39,7 @@ def evaluate_policy(
             :class:`Range` class instances to evaluate the policy over multiple
             dimensions in a similar fashion to the :func:`ph.utils.rllib.rollout`
             function.
+        explore: Parameter passed to the policy.
         batch_size: Number of observations to evaluate at a time.
         checkpoint: Checkpoint to use (defaults to most recent).
         show_progress_bar: If True shows a progress bar in the terminal output.
@@ -98,7 +100,7 @@ def evaluate_policy(
 
         processed_obs = [preprocessor.transform(ob) for ob in obs]
 
-        squashed_actions = policy.compute_actions(processed_obs, explore=False)[0]
+        squashed_actions = policy.compute_actions(processed_obs, explore=explore)[0]
 
         actions = [
             unsquash_action(action, policy.action_space_struct)
