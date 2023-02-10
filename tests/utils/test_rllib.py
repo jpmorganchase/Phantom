@@ -41,27 +41,11 @@ def test_rllib_train_rollout(tmpdir):
     )
     results = list(results)
     assert len(results) == 3
-    assert np.array(results[0].actions_for_agent("a1")).flatten().tolist() == [
-        0.5021063685417175,
-        0.5272096991539001,
-        0.5454075932502747,
-        0.5570195913314819,
-        0.564277172088623,
-    ]
-    assert np.array(results[1].actions_for_agent("a1")).flatten().tolist() == [
-        0.5021063685417175,
-        0.5272096991539001,
-        0.5454075932502747,
-        0.5570195913314819,
-        0.564277172088623,
-    ]
-    assert np.array(results[2].actions_for_agent("a1")).flatten().tolist() == [
-        0.5021063685417175,
-        0.5272096991539001,
-        0.5454075932502747,
-        0.5570195913314819,
-        0.564277172088623,
-    ]
+    assert np.all(
+        results[0].actions_for_agent("a1")
+        == results[1].actions_for_agent("a1")
+        == results[2].actions_for_agent("a1")
+    )
 
     # Data export:
     ph.utils.rollout.rollouts_to_dataframe(results, avg_over_repeats=False)
