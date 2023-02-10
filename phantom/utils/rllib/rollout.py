@@ -1,4 +1,3 @@
-import logging
 import math
 import os
 from collections import defaultdict
@@ -7,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
     Dict,
     Generator,
     List,
@@ -19,9 +17,7 @@ from typing import (
 )
 
 import cloudpickle
-import numpy as np
 import ray
-import rich.progress
 from ray.rllib.models.preprocessors import get_preprocessor, Preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
 from ray.rllib.utils.spaces.space_utils import unsquash_action
@@ -36,6 +32,7 @@ from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
     contains_type,
+    rich_progress,
     show_pythonhashseed_warning,
     update_val,
     Range,
@@ -43,8 +40,6 @@ from .. import (
 )
 from . import construct_results_paths
 
-
-logger = logging.getLogger(__name__)
 
 CustomPolicyMapping = Mapping[AgentID, Type[Policy]]
 
@@ -174,10 +169,8 @@ def rollout(
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
-    logger.info(
-        "Starting %s rollout(s) using %s worker process(es)",
-        len(rollout_configs),
-        num_workers_,
+    print(
+        f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
     )
 
     # Load configs from results directory.
@@ -207,7 +200,8 @@ def rollout(
         )
 
         if show_progress_bar:
-            yield from rich.progress.track(rollouts, total=len(rollout_configs))
+            with rich_progress("Rollouts...") as progress:
+                yield from progress.track(rollouts, total=len(rollout_configs))
         else:
             yield from rollouts
 
@@ -242,13 +236,14 @@ def rollout(
         for payload in worker_payloads:
             remote_rollout_task_fn.remote(*payload)
 
-        range_iter = range(len(rollout_configs))
-
         if show_progress_bar:
-            range_iter = rich.progress.track(range_iter)
+            with rich_progress("Rollouts...") as progress:
+                for _ in progress.track(range(len(rollout_configs))):
+                    yield q.get()
 
-        for _ in range_iter:
-            yield q.get()
+        else:
+            for _ in range(len(rollout_configs)):
+                yield q.get()
 
 
 def _rollout_task_fn(

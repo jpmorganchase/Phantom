@@ -20,7 +20,6 @@ import gym
 import numpy as np
 import ray
 import rich.pretty
-import rich.progress
 from ray import rllib
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
@@ -33,7 +32,7 @@ from ...env import PhantomEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
-from .. import check_env_config, show_pythonhashseed_warning
+from .. import check_env_config, rich_progress, show_pythonhashseed_warning
 from .wrapper import RLlibEnvWrapper
 
 
@@ -225,41 +224,42 @@ def train(
 
     ray.init(ignore_reinit_error=True)
 
-    for i in rich.progress.track(range(iterations), description="Training..."):
-        result = algo.train()
+    with rich_progress("Training...") as progress:
+        for i in progress.track(range(iterations)):
+            result = algo.train()
 
-        if show_training_metrics:
-            rich.pretty.pprint(
-                {
-                    "iteration": i + 1,
-                    "metrics": result["custom_metrics"],
-                    "rewards": {
-                        "policy_reward_min": result["policy_reward_min"],
-                        "policy_reward_max": result["policy_reward_max"],
-                        "policy_reward_mean": result["policy_reward_mean"],
-                    },
+            if show_training_metrics:
+                rich.pretty.pprint(
+                    {
+                        "iteration": i + 1,
+                        "metrics": result["custom_metrics"],
+                        "rewards": {
+                            "policy_reward_min": result["policy_reward_min"],
+                            "policy_reward_max": result["policy_reward_max"],
+                            "policy_reward_mean": result["policy_reward_mean"],
+                        },
+                    }
+                )
+
+            if i == 0:
+                config = {
+                    "algorithm": algorithm,
+                    "env_class": env_class,
+                    "iterations": iterations,
+                    "checkpoint_freq": checkpoint_freq,
+                    "policy_specs": policy_specs,
+                    "policy_mapping": policy_mapping,
+                    "policies_to_train": policies_to_train,
+                    "env_config": env_config,
+                    "rllib_config": rllib_config,
+                    "metrics": metrics,
                 }
-            )
 
-        if i == 0:
-            config = {
-                "algorithm": algorithm,
-                "env_class": env_class,
-                "iterations": iterations,
-                "checkpoint_freq": checkpoint_freq,
-                "policy_specs": policy_specs,
-                "policy_mapping": policy_mapping,
-                "policies_to_train": policies_to_train,
-                "env_config": env_config,
-                "rllib_config": rllib_config,
-                "metrics": metrics,
-            }
+                with open(Path(algo.logdir, "phantom-training-params.pkl"), "wb") as f:
+                    cloudpickle.dump(config, f)
 
-            with open(Path(algo.logdir, "phantom-training-params.pkl"), "wb") as f:
-                cloudpickle.dump(config, f)
-
-        if checkpoint_freq is not None and i % checkpoint_freq == 0:
-            algo.save()
+            if checkpoint_freq is not None and i % checkpoint_freq == 0:
+                algo.save()
 
     print(f"Logs & checkpoints saved to: {algo.logdir}")
 
