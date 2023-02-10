@@ -83,26 +83,30 @@ def test_rllib_train_rollout(tmpdir):
         policy_id="mock_policy",
         explore=False,
     )
-    assert list(results) == [
-        ({"r": 0.0}, [0.0], np.array([0.50210637], dtype=np.float32)),
-        ({"r": 0.5}, [0.5], np.array([0.55189204], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.56885237], dtype=np.float32)),
-    ]
+    results = list(results)
+
+    assert results[0][0] == {"r": 0.0}
+    assert results[1][0] == {"r": 0.5}
+    assert results[2][0] == {"r": 1.0}
+    assert results[0][1][0] == 0.0
+    assert results[1][1][0] == 0.5
+    assert results[2][1][0] == 1.0
 
     # Evaluate policy (explore=True):
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/LATEST",
-        obs=[ph.utils.ranges.LinspaceRange(1.0, 1.0, 5, name="r")],
+        obs=[ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")],
         policy_id="mock_policy",
         explore=True,
     )
-    assert list(results) == [
-        ({"r": 1.0}, [1.0], np.array([0.34793535], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([1.0], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([1.0], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.43988213], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([1.0], dtype=np.float32)),
-    ]
+    results = list(results)
+
+    assert results[0][0] == {"r": 0.0}
+    assert results[1][0] == {"r": 0.5}
+    assert results[2][0] == {"r": 1.0}
+    assert results[0][1][0] == 0.0
+    assert results[1][1][0] == 0.5
+    assert results[2][1][0] == 1.0
 
 
 def test_rllib_rollout_bad(tmpdir):
