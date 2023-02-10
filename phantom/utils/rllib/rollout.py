@@ -184,12 +184,8 @@ def rollout(
     with open(Path(directory, "params.pkl"), "rb") as params_file:
         config = cloudpickle.load(params_file)
 
-    policy_mapping_fn = config["multiagent"]["policy_mapping_fn"]
-
     with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
         ph_config = cloudpickle.load(params_file)
-
-    policy_specs = ph_config["policy_specs"]
 
     if env_class is None:
         env_class = ph_config["env_class"]
@@ -199,11 +195,11 @@ def rollout(
         # If num_workers is 0, run all the rollouts in this thread.
 
         rollouts = _rollout_task_fn(
-            policy_mapping_fn,
+            config,
             checkpoint_path,
             rollout_configs,
             env_class,
-            policy_specs,
+            ph_config["policy_specs"],
             custom_policy_mapping,
             policy_inference_batch_size,
             metrics,
@@ -230,11 +226,11 @@ def rollout(
 
         worker_payloads = [
             (
-                policy_mapping_fn,
+                config,
                 checkpoint_path,
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
-                policy_specs,
+                ph_config["policy_specs"],
                 custom_policy_mapping,
                 policy_inference_batch_size,
                 metrics,
@@ -256,7 +252,7 @@ def rollout(
 
 
 def _rollout_task_fn(
-    policy_mapping_fn: Callable[[], str],
+    config,
     checkpoint_path: Path,
     all_configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
@@ -275,7 +271,9 @@ def _rollout_task_fn(
     saved_policies: Dict[str, Tuple[RLlibPolicy, Preprocessor]] = {}
 
     # Setting seed needs to come after algo setup
-    np.random.seed(all_configs[0].rollout_id)
+    ray.rllib.utils.debug.update_global_seed_if_necessary(
+        config.framework_str, all_configs[0].rollout_id
+    )
 
     for configs in chunker(all_configs, policy_inference_batch_size):
         batch_size = len(configs)
@@ -316,7 +314,7 @@ def _rollout_task_fn(
                         for agent_obs in vec_agent_obs
                     ]
                 else:
-                    policy_id = policy_mapping_fn(agent_id, 0, 0)
+                    policy_id = config.policy_mapping_fn(agent_id, 0, 0)
 
                     if policy_id not in saved_policies:
                         policy = RLlibPolicy.from_checkpoint(

@@ -41,7 +41,27 @@ def test_rllib_train_rollout(tmpdir):
     )
     results = list(results)
     assert len(results) == 3
-    assert results[0].actions_for_agent("a1") == [np.array([0.5])] * 5
+    assert np.array(results[0].actions_for_agent("a1")).flatten().tolist() == [
+        0.5021063685417175,
+        0.5272096991539001,
+        0.5454075932502747,
+        0.5570195913314819,
+        0.564277172088623,
+    ]
+    assert np.array(results[1].actions_for_agent("a1")).flatten().tolist() == [
+        0.5021063685417175,
+        0.5272096991539001,
+        0.5454075932502747,
+        0.5570195913314819,
+        0.564277172088623,
+    ]
+    assert np.array(results[2].actions_for_agent("a1")).flatten().tolist() == [
+        0.5021063685417175,
+        0.5272096991539001,
+        0.5454075932502747,
+        0.5570195913314819,
+        0.564277172088623,
+    ]
 
     # Data export:
     ph.utils.rollout.rollouts_to_dataframe(results, avg_over_repeats=False)
@@ -80,9 +100,9 @@ def test_rllib_train_rollout(tmpdir):
         explore=False,
     )
     assert list(results) == [
-        ({"r": 0.0}, [0.0], np.array([0.5], dtype=np.float32)),
-        ({"r": 0.5}, [0.5], np.array([0.49430978], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.49243963], dtype=np.float32)),
+        ({"r": 0.0}, [0.0], np.array([0.50210637], dtype=np.float32)),
+        ({"r": 0.5}, [0.5], np.array([0.55189204], dtype=np.float32)),
+        ({"r": 1.0}, [1.0], np.array([0.56885237], dtype=np.float32)),
     ]
 
     # Evaluate policy (explore=True):
@@ -93,11 +113,11 @@ def test_rllib_train_rollout(tmpdir):
         explore=True,
     )
     assert list(results) == [
-        ({"r": 1.0}, [1.0], np.array([0.93560493], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.0], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.0], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.17727578], dtype=np.float32)),
-        ({"r": 1.0}, [1.0], np.array([0.18336618], dtype=np.float32)),
+        ({"r": 1.0}, [1.0], np.array([0.34793535], dtype=np.float32)),
+        ({"r": 1.0}, [1.0], np.array([1.0], dtype=np.float32)),
+        ({"r": 1.0}, [1.0], np.array([1.0], dtype=np.float32)),
+        ({"r": 1.0}, [1.0], np.array([0.43988213], dtype=np.float32)),
+        ({"r": 1.0}, [1.0], np.array([1.0], dtype=np.float32)),
     ]
 
 

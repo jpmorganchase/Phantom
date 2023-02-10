@@ -41,7 +41,7 @@ class MockStrategicAgent(ph.StrategicAgent):
 
     def encode_observation(self, ctx: ph.Context):
         self.encode_obs_count += 1
-        return np.array([0])
+        return np.array([ctx.env_view.proportion_time_elapsed])
 
     def decode_action(self, ctx: ph.Context, action: np.ndarray):
         self.decode_action_count += 1
