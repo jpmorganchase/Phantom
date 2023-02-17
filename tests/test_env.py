@@ -52,7 +52,7 @@ def test_is_done(phantom_env):
     assert phantom_env.is_done()
 
     phantom_env._dones = []
-    phantom_env.current_step = phantom_env.num_steps
+    phantom_env._current_step = phantom_env.num_steps
     assert phantom_env.is_done()
 
 

@@ -6,15 +6,13 @@ The agent takes actions and returns rewards on each step.
 The episode duration is two steps.
 """
 
-import tempfile
-
 import numpy as np
 import phantom as ph
 
 from .. import MockStrategicAgent
 
 
-class OneStateFSMEnvWithHandler(ph.fsm.FiniteStateMachineEnv):
+class OneStateFSMEnvWithHandler(ph.FiniteStateMachineEnv):
     def __init__(self):
         agents = [MockStrategicAgent("agent")]
 
@@ -28,7 +26,7 @@ class OneStateFSMEnvWithHandler(ph.fsm.FiniteStateMachineEnv):
             initial_stage="UNIT",
         )
 
-    @ph.fsm.FSMStage(stage_id="UNIT", next_stages=["UNIT"])
+    @ph.FSMStage(stage_id="UNIT", acting_agents=["agent"], next_stages=["UNIT"])
     def handle(self):
         return "UNIT"
 
@@ -87,7 +85,7 @@ def test_one_state_with_handler():
 #         )
 
 
-class OneStateFSMEnvWithoutHandler(ph.fsm.FiniteStateMachineEnv):
+class OneStateFSMEnvWithoutHandler(ph.FiniteStateMachineEnv):
     def __init__(self):
         agents = [MockStrategicAgent("agent")]
 
@@ -100,7 +98,12 @@ class OneStateFSMEnvWithoutHandler(ph.fsm.FiniteStateMachineEnv):
             network=network,
             initial_stage="UNIT",
             stages=[
-                ph.fsm.FSMStage(stage_id="UNIT", next_stages=["UNIT"], handler=None)
+                ph.FSMStage(
+                    stage_id="UNIT",
+                    acting_agents=["agent"],
+                    next_stages=["UNIT"],
+                    handler=None,
+                )
             ],
         )
 

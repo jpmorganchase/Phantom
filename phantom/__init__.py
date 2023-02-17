@@ -12,6 +12,7 @@ from .message import Message, MsgPayload
 from .network import Network, StochasticNetwork
 from .policy import Policy
 from .reward_functions import RewardFunction
+from .stackelberg import StackelbergEnv
 from .supertype import Supertype
 from .trainer import Trainer
 from .types import AgentID

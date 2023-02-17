@@ -7,7 +7,10 @@ from . import MockBaseEnv, MockEpisode, MockMetric
 
 def test_fsm_logging():
     env = FiniteStateMachineEnv(
-        2, Network(), 0, stages=[FSMStage(0, [1]), FSMStage(1, [0])]
+        num_steps=2,
+        network=Network(),
+        initial_stage=0,
+        stages=[FSMStage(0, [], None, [1]), FSMStage(1, [], None, [0])],
     )
 
     episode = MockEpisode()

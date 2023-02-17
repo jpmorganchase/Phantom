@@ -12,7 +12,7 @@ import phantom as ph
 from .. import MockStrategicAgent
 
 
-class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
+class MockFSMEnv(ph.FiniteStateMachineEnv):
     def __init__(self):
         agents = [MockStrategicAgent("agent")]
 
@@ -23,12 +23,14 @@ class MockFSMEnv(ph.fsm.FiniteStateMachineEnv):
             network=network,
             initial_stage="ODD",
             stages=[
-                ph.fsm.FSMStage(
+                ph.FSMStage(
                     stage_id="ODD",
+                    acting_agents=["agent"],
                     next_stages=["EVEN"],
                 ),
-                ph.fsm.FSMStage(
+                ph.FSMStage(
                     stage_id="EVEN",
+                    acting_agents=["agent"],
                     next_stages=["ODD"],
                 ),
             ],

@@ -70,7 +70,7 @@ environment class is initialised (eg. lists of agent IDs).
          # Perform any post-resolve tasks
 
 Environment
-===========
+-----------
 
 .. autoclass:: phantom.fsm.FiniteStateMachineEnv
    :inherited-members:
@@ -81,14 +81,14 @@ Environment
 
 
 Stages
-======
+------
 
 .. autoclass:: phantom.fsm.FSMStage
    :inherited-members:
 
 
 Errors
-======
+------
 
 .. autoclass:: phantom.fsm.FSMValidationError
    :inherited-members:
