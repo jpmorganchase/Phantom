@@ -1,8 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
 
-from .types import AgentID
-
 
 @dataclass(frozen=True)
 class View(ABC):
@@ -24,8 +22,6 @@ class AgentView(View):
     """
     Immutable references to public :class:`phantom.Agent` state.
     """
-
-    agent_id: AgentID
 
 
 @dataclass(frozen=True)

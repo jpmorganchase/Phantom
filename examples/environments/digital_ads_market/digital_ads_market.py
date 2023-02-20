@@ -421,7 +421,6 @@ class AdExchangeAgent(ph.Agent):
         """
         if neighbour_id.startswith("ADV"):
             return self.AdExchangeView(
-                agent_id=self.id,
                 users_info={
                     1: {"age": 18, "zipcode": 94025},
                     2: {"age": 40, "zipcode": 90250},
