@@ -27,7 +27,7 @@ def test_stackelberg_env():
 
     step = env.step({"leader": np.array([0])})
 
-    assert step.observations == {"follower": np.array([1/3])}
+    assert step.observations == {"follower": np.array([1 / 3])}
     assert step.rewards == {}
     assert step.dones == {"__all__": False, "leader": False, "follower": False}
     assert step.infos == {"follower": {}}
@@ -42,7 +42,7 @@ def test_stackelberg_env():
 
     step = env.step({"follower": np.array([0])})
 
-    assert step.observations == {"leader": np.array([2/3])}
+    assert step.observations == {"leader": np.array([2 / 3])}
     assert step.rewards == {"leader": 0.0}
     assert step.dones == {"__all__": False, "leader": False, "follower": False}
     assert step.infos == {"leader": {}}
