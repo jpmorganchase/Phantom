@@ -1,4 +1,3 @@
-import logging
 import math
 import os
 from collections import defaultdict
@@ -7,23 +6,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    DefaultDict,
     Dict,
     Generator,
     List,
     Mapping,
     Optional,
+    Tuple,
     Type,
     Union,
 )
 
 import cloudpickle
-import numpy as np
 import ray
-from ray.rllib.algorithms.registry import get_algorithm_class
-from ray.tune.registry import register_env
+from ray.rllib.models.preprocessors import get_preprocessor, Preprocessor
+from ray.rllib.policy import Policy as RLlibPolicy
+from ray.rllib.utils.spaces.space_utils import unsquash_action
 from ray.util.queue import Queue
-from tqdm import tqdm, trange
 
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
@@ -34,16 +32,14 @@ from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
     contains_type,
+    rich_progress,
     show_pythonhashseed_warning,
     update_val,
     Range,
     Sampler,
 )
-from .wrapper import RLlibEnvWrapper
 from . import construct_results_paths
 
-
-logger = logging.getLogger(__name__)
 
 CustomPolicyMapping = Mapping[AgentID, Type[Policy]]
 
@@ -59,6 +55,7 @@ def rollout(
     metrics: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
     show_progress_bar: bool = True,
+    policy_inference_batch_size: int = 1,
 ) -> Generator[Rollout, None, None]:
     """Performs rollouts for a previously trained Phantom experiment.
 
@@ -89,6 +86,7 @@ def rollout(
         record_messages: If True the full list of episode messages for each of the
             rollouts will be recorded. Only applies if `save_trajectories` is also True.
         show_progress_bar: If True shows a progress bar in the terminal output.
+        policy_inference_batch_size: Number of policy inferences to perform in one go.
 
     Returns:
         A Generator of Rollouts.
@@ -100,6 +98,13 @@ def rollout(
         reproducibility issues.
     """
     assert num_repeats > 0, "num_repeats must be at least 1"
+
+    assert (
+        policy_inference_batch_size > 0
+    ), "policy_inference_batch_size must be at least 1"
+
+    if policy_inference_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
+        raise ValueError("Cannot use FSM env when policy_inference_batch_size > 1")
 
     if num_workers is not None:
         assert num_workers >= 0, "num_workers must be at least 0"
@@ -164,10 +169,8 @@ def rollout(
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
-    logger.info(
-        "Starting %s rollout(s) using %s worker process(es)",
-        len(rollout_configs),
-        num_workers_,
+    print(
+        f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
     )
 
     # Load configs from results directory.
@@ -180,32 +183,25 @@ def rollout(
     if env_class is None:
         env_class = ph_config["env_class"]
 
-    # Register custom environment with Ray
-    register_env(
-        env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
-    )
-
-    # Set to zero as rollout workers != training workers - if > 0 will spin up
-    # unnecessary additional workers.
-    config["num_workers"] = 0
-
     # Start the rollouts
     if num_workers_ == 0:
         # If num_workers is 0, run all the rollouts in this thread.
 
         rollouts = _rollout_task_fn(
-            deepcopy(config),
+            config,
             checkpoint_path,
-            ph_config["algorithm"],
             rollout_configs,
             env_class,
+            ph_config["policy_specs"],
             custom_policy_mapping,
+            policy_inference_batch_size,
             metrics,
             record_messages,
         )
 
         if show_progress_bar:
-            yield from tqdm(rollouts, total=len(rollout_configs))
+            with rich_progress("Rollouts...") as progress:
+                yield from progress.track(rollouts, total=len(rollout_configs))
         else:
             yield from rollouts
 
@@ -224,12 +220,13 @@ def rollout(
 
         worker_payloads = [
             (
-                deepcopy(config),
+                config,
                 checkpoint_path,
-                ph_config["algorithm"],
                 rollout_configs[i : i + rollouts_per_worker],
                 env_class,
+                ph_config["policy_specs"],
                 custom_policy_mapping,
+                policy_inference_batch_size,
                 metrics,
                 record_messages,
             )
@@ -239,110 +236,157 @@ def rollout(
         for payload in worker_payloads:
             remote_rollout_task_fn.remote(*payload)
 
-        range_ = trange if show_progress_bar else range
+        if show_progress_bar:
+            with rich_progress("Rollouts...") as progress:
+                for _ in progress.track(range(len(rollout_configs))):
+                    yield q.get()
 
-        for _ in range_(len(rollout_configs)):
-            yield q.get()
+        else:
+            for _ in range(len(rollout_configs)):
+                yield q.get()
 
 
 def _rollout_task_fn(
-    config: Dict,
+    config,
     checkpoint_path: Path,
-    algorithm: str,
-    configs: List["_RolloutConfig"],
+    all_configs: List["_RolloutConfig"],
     env_class: Type[PhantomEnv],
+    policy_specs,
     custom_policy_mapping: CustomPolicyMapping,
-    tracked_metrics: Optional[Mapping[str, Metric]] = None,
+    policy_inference_batch_size: int,
+    metric_objects: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
     """Internal function"""
-    config["env_config"] = configs[0].env_config
 
-    algo = get_algorithm_class(algorithm)(env=env_class.__name__, config=config)
-    algo.restore(str(checkpoint_path))
+    def chunker(seq, size):
+        return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
-    for rollout_config in configs:
-        # Create environment instance from config from results directory
-        env = env_class(**rollout_config.env_config)
+    # Lazily load checkpointed policy objects
+    saved_policies: Dict[str, Tuple[RLlibPolicy, Preprocessor]] = {}
+
+    # Setting seed needs to come after algo setup
+    ray.rllib.utils.debug.update_global_seed_if_necessary(
+        config.framework_str, all_configs[0].rollout_id
+    )
+
+    for configs in chunker(all_configs, policy_inference_batch_size):
+        batch_size = len(configs)
+
+        vec_envs = [
+            env_class(**rollout_config.env_config) for rollout_config in configs
+        ]
 
         if record_messages:
-            env.network.resolver.enable_tracking = True
+            for env in vec_envs:
+                env.network.resolver.enable_tracking = True
 
-        # Setting seed needs to come after algo setup
-        np.random.seed(rollout_config.rollout_id)
+        vec_metrics = [defaultdict(list) for _ in range(batch_size)]
+        vec_all_steps = [[] for _ in range(batch_size)]
 
-        metrics: DefaultDict[str, List[float]] = defaultdict(list)
-
-        steps: List[Step] = []
-
-        observation = env.reset()
+        vec_observations = [env.reset() for env in vec_envs]
 
         initted_policy_mapping = {
             agent_id: policy(
-                env[agent_id].observation_space, env[agent_id].action_space
+                vec_envs[0][agent_id].observation_space,
+                vec_envs[0][agent_id].action_space,
             )
             for agent_id, policy in custom_policy_mapping.items()
         }
 
         # Run rollout steps.
-        for i in range(env.num_steps):
-            step_actions = {}
+        for i in range(vec_envs[0].num_steps):
+            actions = {}
 
-            for agent_id, agent_obs in observation.items():
+            dict_observations = {
+                k: [dic[k] for dic in vec_observations] for k in vec_observations[0]
+            }
+
+            for agent_id, vec_agent_obs in dict_observations.items():
                 if agent_id in initted_policy_mapping:
-                    action = initted_policy_mapping[agent_id].compute_action(agent_obs)
+                    actions[agent_id] = [
+                        initted_policy_mapping[agent_id].compute_action(agent_obs)
+                        for agent_obs in vec_agent_obs
+                    ]
                 else:
-                    policy_id = config["multiagent"]["policy_mapping_fn"](
-                        agent_id, rollout_config.rollout_id, 0
-                    )
+                    policy_id = config.policy_mapping_fn(agent_id, 0, 0)
 
-                    action = algo.compute_single_action(
-                        agent_obs, policy_id=policy_id, explore=False
-                    )
+                    if policy_id not in saved_policies:
+                        policy = RLlibPolicy.from_checkpoint(
+                            checkpoint_path / "policies" / policy_id
+                        )
 
-                step_actions[agent_id] = action
+                        obs_s = policy_specs[policy_id].observation_space
+                        preprocessor = get_preprocessor(obs_s)(obs_s)
 
-            new_observation, reward, done, info = env.step(step_actions)
+                        saved_policies[policy_id] = (policy, preprocessor)
+                    else:
+                        policy, preprocessor = saved_policies[policy_id]
 
-            if tracked_metrics is not None:
-                logging_helper(env, tracked_metrics, metrics)
+                    processed_obs = [preprocessor.transform(ob) for ob in vec_agent_obs]
 
-            if record_messages:
-                messages = deepcopy(env.network.resolver.tracked_messages)
-                env.network.resolver.clear_tracked_messages()
+                    squashed_actions = policy.compute_actions(
+                        processed_obs, explore=False
+                    )[0]
+
+                    actions[agent_id] = [
+                        unsquash_action(action, policy.action_space_struct)
+                        for action in squashed_actions
+                    ]
+
+            # hack for no agent acting step in Ops
+            if len(dict_observations) == 0:
+                vec_actions = [{}] * batch_size
             else:
-                messages = None
+                vec_actions = [dict(zip(actions, t)) for t in zip(*actions.values())]
 
-            steps.append(
-                Step(
-                    i,
-                    observation,
-                    reward,
-                    done,
-                    info,
-                    step_actions,
-                    messages,
-                    env.previous_stage
-                    if isinstance(env, FiniteStateMachineEnv)
-                    else None,
+            vec_steps = [
+                env.step(actions) for env, actions in zip(vec_envs, vec_actions)
+            ]
+
+            for j in range(batch_size):
+                if metric_objects is not None:
+                    logging_helper(vec_envs[j], metric_objects, vec_metrics[j])
+
+                if record_messages:
+                    messages = deepcopy(vec_envs[j].network.resolver.tracked_messages)
+                    vec_envs[j].network.resolver.clear_tracked_messages()
+                else:
+                    messages = None
+
+                vec_all_steps[j].append(
+                    Step(
+                        i,
+                        vec_observations[j],
+                        vec_steps[j].rewards,
+                        vec_steps[j].dones,
+                        vec_steps[j].infos,
+                        vec_actions[j],
+                        messages,
+                        vec_envs[j].previous_stage
+                        if isinstance(vec_envs[j], FiniteStateMachineEnv)
+                        else None,
+                    )
                 )
+
+            vec_observations = [step.observations for step in vec_steps]
+
+        for j in range(batch_size):
+            reduced_metrics = {
+                metric_id: metric_objects[metric_id].reduce(
+                    vec_metrics[j][metric_id], "evaluate"
+                )
+                for metric_id in metric_objects
+            }
+
+            yield Rollout(
+                configs[j].rollout_id,
+                configs[j].repeat_id,
+                configs[j].env_config,
+                configs[j].rollout_params,
+                vec_all_steps[j],
+                reduced_metrics,
             )
-
-            observation = new_observation
-
-        reduced_metrics = {
-            metric_id: tracked_metrics[metric_id].reduce(metrics[metric_id], "evaluate")
-            for metric_id in tracked_metrics
-        }
-
-        yield Rollout(
-            rollout_config.rollout_id,
-            rollout_config.repeat_id,
-            rollout_config.env_config,
-            rollout_config.rollout_params,
-            steps,
-            reduced_metrics,
-        )
 
 
 @dataclass(frozen=True)

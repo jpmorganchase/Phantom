@@ -8,6 +8,7 @@ from gym.spaces import Box, Discrete
 # Message Payloads
 ##############################################################
 
+
 # Could extend to include price + vol / price curve
 @dataclass(frozen=True)
 class Price(ph.MsgPayload):
@@ -21,6 +22,7 @@ class Order(ph.MsgPayload):
 
 # Buyer Agent
 ###############################################################
+
 
 # Buyer type = buyer's intrinsic value for the good
 @dataclass

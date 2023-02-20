@@ -39,8 +39,10 @@ episode_num = st.sidebar.selectbox("Episode", list(range(1, len(episodes) + 1)))
 
 st.sidebar.subheader("Select Filters:")
 
+has_messages = episodes[0]["steps"][0]["messages"] is not None
+
 show_observations = st.sidebar.checkbox("Show Observations", True)
-show_messages = st.sidebar.checkbox("Show Messages", True)
+show_messages = st.sidebar.checkbox("Show Messages", True) if has_messages else False
 show_actions = st.sidebar.checkbox("Show Actions", True)
 show_rewards = st.sidebar.checkbox("Show Rewards", True)
 show_dones = st.sidebar.checkbox("Show Dones", False)

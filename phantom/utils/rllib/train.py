@@ -1,5 +1,7 @@
-import logging
 import os
+import random
+import tempfile
+from datetime import datetime
 from inspect import isclass
 from pathlib import Path
 from typing import (
@@ -17,24 +19,21 @@ import cloudpickle
 import gym
 import numpy as np
 import ray
+import rich.pretty
 from ray import rllib
+from ray.rllib.algorithms import Algorithm
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.evaluation import Episode, MultiAgentEpisode
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.typing import TensorStructType, TensorType
-from ray.tune.logger import LoggerCallback
 
 from ...agents import Agent
 from ...env import PhantomEnv
-from ...fsm import FiniteStateMachineEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
-from .. import check_env_config, show_pythonhashseed_warning
+from .. import check_env_config, rich_progress, show_pythonhashseed_warning
 from .wrapper import RLlibEnvWrapper
-
-
-logger = logging.getLogger(__name__)
 
 
 PolicyClass = Union[Type[Policy], Type[rllib.Policy]]
@@ -56,13 +55,15 @@ def train(
     algorithm: str,
     env_class: Type[PhantomEnv],
     policies: PolicyMapping,
+    iterations: int,
+    checkpoint_freq: Optional[int] = None,
     num_workers: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
     rllib_config: Optional[Mapping[str, Any]] = None,
-    tune_config: Optional[Mapping[str, Any]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
-    local_mode: bool = False,
-):
+    results_dir: str = ray.tune.result.DEFAULT_RESULTS_DIR,
+    show_training_metrics: bool = False,
+) -> Algorithm:
     """Performs training of a Phantom experiment using the RLlib library.
 
     Any objects that inherit from BaseSampler in the env_supertype or agent_supertypes
@@ -74,12 +75,14 @@ def train(
             be provided).
         env_class: A PhantomEnv subclass.
         policies: A mapping of policy IDs to policy configurations.
-        num_workers: Number of Ray workers to initialise (defaults to 'NUM CPU - 1').
+        iterations: Number of training iterations to perform.
+        checkpoint_freq: The iteration frequency to save policy checkpoints at.
+        num_workers: Number of Ray rollout workers to use (defaults to 'NUM CPU - 1').
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
-        tune_config: Optional algorithm parameters dictionary to pass to Ray Tune.
         metrics: Optional set of metrics to record and log.
-        local_mode: Use RLlib's local mode option for training (default is False).
+        results_dir: A custom results directory, default is ~/ray_results/
+        show_training_metrics: Set to True to print training metrics every iteration.
 
     The ``policies`` parameter defines which agents will use which policy. This is key
     to performing shared policy learning. The function expects a mapping of
@@ -105,19 +108,25 @@ def train(
         The Ray Tune experiment results object.
 
     .. note::
-        It is the users responsibility to invoke rollouts via the provided ``phantom``
+        It is the users responsibility to invoke training via the provided ``phantom``
         command or ensure the ``PYTHONHASHSEED`` environment variable is set before
         starting the Python interpreter to run this code. Not setting this may lead to
         reproducibility issues.
     """
     show_pythonhashseed_warning()
 
+    assert iterations > 0, "'iterations' parameter must be > 0"
+
+    if num_workers is not None:
+        assert num_workers >= 0, "'num_workers' parameter must be >= 0"
+
     env_config = env_config or {}
     rllib_config = rllib_config or {}
-    tune_config = tune_config or {}
     metrics = metrics or {}
 
     check_env_config(env_config)
+
+    ray.init(ignore_reinit_error=True)
 
     env = env_class(**env_config)
     env.reset()
@@ -172,57 +181,91 @@ def train(
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
+    timestr = datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
+    logdir_prefix = f"{algorithm}_{env.__class__.__name__}_{timestr}"
+
+    results_dir = os.path.expanduser(results_dir)
+
+    def logger_creator(config):
+        os.makedirs(results_dir, exist_ok=True)
+        logdir = tempfile.mkdtemp(prefix=logdir_prefix, dir=results_dir)
+        return ray.tune.logger.UnifiedLogger(config, logdir, loggers=None)
+
     config = {
+        "callbacks": RLlibMetricLogger(metrics),
+        "enable_connectors": True,
         "env": env_class.__name__,
         "env_config": env_config,
+        "framework": "torch",
+        "logger_creator": logger_creator,
         "num_sgd_iter": 10,
-        "num_workers": num_workers_,
+        "num_rollout_workers": num_workers_,
         "rollout_fragment_length": env.num_steps,
+        "seed": 0,
         "train_batch_size": env.num_steps * max(1, num_workers_),
-        "multiagent": {
-            "policies": policy_specs,
-            "policy_mapping_fn": policy_mapping_fn,
-            "policies_to_train": policies_to_train,
-        },
     }
 
     config.update(rllib_config)
 
+    config["multiagent"] = {
+        "policies": policy_specs,
+        "policy_mapping_fn": policy_mapping_fn,
+        "policies_to_train": policies_to_train,
+    }
+    config["multiagent"].update(rllib_config.get("multiagent", {}))
+
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
-    if "callbacks" not in tune_config:
-        tune_config["callbacks"] = []
-
-    tune_config["callbacks"].append(
-        RLlibTrainingStartCallback(
-            {
-                "algorithm": algorithm,
-                "env_class": env_class,
-                "policy_specs": policy_specs,
-                "policy_mapping": policy_mapping,
-                "policies_to_train": policies_to_train,
-                "env_config": env_config,
-                "rllib_config": rllib_config,
-                "tune_config": tune_config,
-                "metrics": metrics,
-            }
-        )
+    algo = (
+        ray.tune.registry.get_trainable_cls(algorithm)
+        .get_default_config()
+        .from_dict(config)
+        .build()
     )
 
-    if metrics is not None:
-        config["callbacks"] = RLlibMetricLogger(metrics)
+    ray.init(ignore_reinit_error=True)
 
-    try:
-        ray.init(local_mode=local_mode)
-        results = ray.tune.run(algorithm, config=config, **tune_config)
-    except Exception as exception:
-        # Ensure that Ray is properly shutdown in the instance of an error occuring
-        ray.shutdown()
-        raise exception
-    else:
-        ray.shutdown()
-        return results
+    with rich_progress("Training...") as progress:
+        for i in progress.track(range(iterations)):
+            result = algo.train()
+
+            if show_training_metrics:
+                rich.pretty.pprint(
+                    {
+                        "iteration": i + 1,
+                        "metrics": result["custom_metrics"],
+                        "rewards": {
+                            "policy_reward_min": result["policy_reward_min"],
+                            "policy_reward_max": result["policy_reward_max"],
+                            "policy_reward_mean": result["policy_reward_mean"],
+                        },
+                    }
+                )
+
+            if i == 0:
+                config = {
+                    "algorithm": algorithm,
+                    "env_class": env_class,
+                    "iterations": iterations,
+                    "checkpoint_freq": checkpoint_freq,
+                    "policy_specs": policy_specs,
+                    "policy_mapping": policy_mapping,
+                    "policies_to_train": policies_to_train,
+                    "env_config": env_config,
+                    "rllib_config": rllib_config,
+                    "metrics": metrics,
+                }
+
+                with open(Path(algo.logdir, "phantom-training-params.pkl"), "wb") as f:
+                    cloudpickle.dump(config, f)
+
+            if checkpoint_freq is not None and i % checkpoint_freq == 0:
+                algo.save()
+
+    print(f"Logs & checkpoints saved to: {algo.logdir}")
+
+    return algo
 
 
 class RLlibMetricLogger(DefaultCallbacks):
@@ -242,34 +285,12 @@ class RLlibMetricLogger(DefaultCallbacks):
         logging_helper(env, self.metrics, episode.user_data)
 
     def on_episode_end(self, *, episode, **kwargs) -> None:
-        for (metric_id, metric) in self.metrics.items():
+        for metric_id, metric in self.metrics.items():
             episode.custom_metrics[metric_id] = metric.reduce(
                 episode.user_data[metric_id], mode="train"
             )
 
     def __call__(self) -> "RLlibMetricLogger":
-        return self
-
-
-class RLlibTrainingStartCallback(LoggerCallback):
-    """Saves training parameters to the results directory at the start of training."""
-
-    def __init__(self, config: Dict[str, Any]) -> None:
-        super().__init__()
-        self.config = config
-
-    def on_trial_start(
-        self,
-        iteration: int,
-        trials: List[ray.tune.tune.Trial],
-        trial: ray.tune.tune.Trial,
-        **info: Any,
-    ) -> None:
-        cloudpickle.dump(
-            self.config, open(Path(trial.logdir, "phantom-training-params.pkl"), "wb")
-        )
-
-    def __call__(self) -> "RLlibTrainingStartCallback":
         return self
 
 

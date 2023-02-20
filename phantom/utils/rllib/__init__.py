@@ -23,7 +23,7 @@ def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
         # Not all directories will be experiment results directories. Filter by
         # attempting to parse a datetime from the directory name.
         try:
-            datetime.strptime(str(directory)[-19:], "%Y-%m-%d_%H-%M-%S")
+            datetime.strptime(str(directory)[-27:-8], "%Y-%m-%d_%H-%M-%S")
             experiment_directories.append(directory)
         except ValueError:
             pass
@@ -32,7 +32,7 @@ def find_most_recent_results_dir(base_path: Union[Path, str]) -> Path:
         raise ValueError(f"No experiment directories found in '{base_path}'")
 
     experiment_directories.sort(
-        key=lambda d: datetime.strptime(str(d)[-19:], "%Y-%m-%d_%H-%M-%S")
+        key=lambda d: datetime.strptime(str(d)[-27:-8], "%Y-%m-%d_%H-%M-%S")
     )
 
     return experiment_directories[-1]

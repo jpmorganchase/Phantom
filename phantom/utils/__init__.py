@@ -3,6 +3,8 @@ import inspect
 import os
 from typing import Any, Mapping, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
+import rich.progress
+import rich.text
 from termcolor import colored
 
 from .ranges import Range
@@ -164,3 +166,32 @@ def show_pythonhashseed_warning() -> None:
 
     if "PYTHONHASHSEED" not in os.environ:
         print(colored(string, "yellow"))
+
+
+def rich_progress(text: str) -> rich.progress.Progress:
+    class RateColumn(rich.progress.ProgressColumn):
+        """Renders human readable processing rate."""
+
+        def render(self, task):
+            """Render the speed in iterations per second."""
+            speed = task.finished_speed or task.speed
+            if speed is None:
+                return rich.text.Text("", style="progress.percentage")
+            unit, suffix = rich.progress.filesize.pick_unit_and_suffix(
+                int(speed),
+                ["", "×10³", "×10⁶", "×10⁹", "×10¹²"],
+                1000,
+            )
+            data_speed = speed / unit
+            return rich.text.Text(
+                f"{data_speed:.1f}{suffix} it/s", style="progress.percentage"
+            )
+
+    return rich.progress.Progress(
+        rich.progress.TextColumn(text),
+        rich.progress.BarColumn(),
+        RateColumn(),
+        rich.progress.MofNCompleteColumn(),
+        rich.progress.TimeElapsedColumn(),
+        rich.progress.TimeRemainingColumn(),
+    )
