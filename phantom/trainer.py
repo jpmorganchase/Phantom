@@ -19,8 +19,8 @@ from typing import (
 
 import gym
 import numpy as np
+import rich.progress
 import tensorboardX as tbx
-from tqdm import trange
 
 from .types import AgentID, PolicyID
 from .agents import Agent
@@ -186,7 +186,7 @@ class Trainer(ABC):
                     f"Policy ID '{policy_to_train}' in 'policies_to_train' must be of trainer policy type '{self.policy_class.__name__}'"
                 )
 
-        for i in trange(num_iterations):
+        for i in rich.progress.track(range(num_iterations), description="Training..."):
             self.training_step(env, policy_mapping, policy_instances, policies_to_train)
             self.tbx_write_values(i)
 

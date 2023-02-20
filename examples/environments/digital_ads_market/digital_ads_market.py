@@ -781,7 +781,6 @@ if __name__ == "__main__":
         results = ph.utils.rllib.rollout(
             directory=path,
             num_repeats=50,
-            num_workers=40,
             metrics=metrics,
             record_messages=False,
             env_config={
@@ -885,16 +884,11 @@ if __name__ == "__main__":
                     "sport": NUM_SPORT_ADVERTISERS,
                 },
             },
+            iterations=1e4,
+            checkpoint_freq=50,
             rllib_config={
                 "seed": 0,
                 "batch_mode": "complete_episodes",
                 "disable_env_checking": True,
-            },
-            tune_config={
-                "name": "simple",
-                "checkpoint_freq": 50,
-                "stop": {
-                    "training_iteration": 1e4,
-                },
             },
         )

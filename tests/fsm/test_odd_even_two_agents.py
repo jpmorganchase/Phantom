@@ -56,7 +56,7 @@ def test_odd_even_two_agents():
     step = env.step({"odd_agent": np.array([1])})
 
     assert env.current_stage == "EVEN"
-    assert step.observations == {"even_agent": np.array([0])}
+    assert step.observations == {"even_agent": np.array([1.0 / 3.0])}
     assert step.rewards == {"even_agent": None}
     assert step.dones == {"__all__": False, "even_agent": False, "odd_agent": False}
     assert step.infos == {"even_agent": {}}
@@ -72,7 +72,7 @@ def test_odd_even_two_agents():
     step = env.step({"even_agent": np.array([0])})
 
     assert env.current_stage == "ODD"
-    assert step.observations == {"odd_agent": np.array([0])}
+    assert step.observations == {"odd_agent": np.array([2.0 / 3.0])}
     assert step.rewards == {"odd_agent": 0.0}
     assert step.dones == {"__all__": False, "odd_agent": False, "even_agent": False}
     assert step.infos == {"odd_agent": {}}

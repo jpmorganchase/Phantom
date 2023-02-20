@@ -50,7 +50,7 @@ def test_odd_even_one_agent():
     step = env.step({"agent": np.array([0])})
 
     assert env.current_stage == "EVEN"
-    assert step.observations == {"agent": np.array([0])}
+    assert step.observations == {"agent": np.array([1.0 / 3.0])}
     assert step.rewards == {"agent": 0.0}
     assert step.dones == {"__all__": False, "agent": False}
     assert step.infos == {"agent": {}}

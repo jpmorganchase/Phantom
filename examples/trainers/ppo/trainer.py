@@ -2,8 +2,8 @@ from collections import defaultdict
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 
 import numpy as np
+import rich.progress
 import torch
-from tqdm import trange
 
 from ...env import PhantomEnv
 from ...logging import Metric
@@ -148,7 +148,7 @@ class PPOTrainer(Trainer):
 
         # episode_rewards = deque(maxlen=10)
 
-        for i in trange(num_iterations):
+        for i in rich.progress.track(range(num_iterations), description="Training..."):
             if self.use_linear_lr_decay:
                 # decrease learning rate linearly
                 update_linear_schedule(self.optimizer, i, num_iterations, self.lr)
