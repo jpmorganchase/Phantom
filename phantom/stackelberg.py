@@ -1,11 +1,10 @@
-from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
 from .telemetry import logger
-from .types import AgentID, PolicyID, StageID
+from .types import AgentID
 
 
 class StackelbergEnv(PhantomEnv):
