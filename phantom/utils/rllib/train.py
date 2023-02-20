@@ -242,7 +242,7 @@ class RLlibMetricLogger(DefaultCallbacks):
         logging_helper(env, self.metrics, episode.user_data)
 
     def on_episode_end(self, *, episode, **kwargs) -> None:
-        for (metric_id, metric) in self.metrics.items():
+        for metric_id, metric in self.metrics.items():
             episode.custom_metrics[metric_id] = metric.reduce(
                 episode.user_data[metric_id], mode="train"
             )

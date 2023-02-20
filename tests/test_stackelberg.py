@@ -9,7 +9,6 @@ from . import MockStrategicAgent
 
 
 def test_stackelberg_env():
-
     agents = [MockStrategicAgent("leader"), MockStrategicAgent("follower")]
 
     network = ph.Network(agents)
