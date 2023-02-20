@@ -173,16 +173,3 @@ class StackelbergEnv(PhantomEnv):
         }
 
         return self.Step(observations, rewards, dones, infos)
-
-
-"""
-
-Agent A, Agent B
-
-reset() -> Agent A Obs
-
-step1(Agent A Action) -> Agent B Obs
-
-step2(Agent B Action) -> Agent A Obs
-
-"""
