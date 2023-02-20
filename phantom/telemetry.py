@@ -372,15 +372,15 @@ def _t(n: int) -> str:
 def _pretty_format_space(space) -> str:
     if isinstance(space, tuple):
         return "(" + ", ".join(_pretty_format_space(x) for x in space) + ")"
-    elif isinstance(space, dict):
+    if isinstance(space, dict):
         return (
             "{"
             + ", ".join(k + ": " + _pretty_format_space(v) for k, v in space.items())
             + "}"
         )
-    elif isinstance(space, np.ndarray):
+    if isinstance(space, np.ndarray):
         return str(space[0]) if space.shape == (1,) else str(space)
-    elif isinstance(space, (int, float)):
+    if isinstance(space, (int, float, np.number, np.floating)):
         return str(space)
 
     raise NotImplementedError(type(space))
