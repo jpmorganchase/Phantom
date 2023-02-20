@@ -4,7 +4,7 @@ from .. import MockAgent
 
 
 def test_decorator_style():
-    class Env(ph.fsm.FiniteStateMachineEnv):
+    class Env(ph.FiniteStateMachineEnv):
         def __init__(self):
             agents = [MockAgent("A")]
 
@@ -16,8 +16,9 @@ def test_decorator_style():
                 initial_stage="StageA",
             )
 
-        @ph.fsm.FSMStage(
+        @ph.FSMStage(
             stage_id="StageA",
+            acting_agents=["A"],
             next_stages=["StageA"],
         )
         def handle(self):
@@ -29,7 +30,7 @@ def test_decorator_style():
 
 
 def test_state_definition_list_style():
-    class Env(ph.fsm.FiniteStateMachineEnv):
+    class Env(ph.FiniteStateMachineEnv):
         def __init__(self):
             agents = [MockAgent("A")]
 
@@ -40,8 +41,9 @@ def test_state_definition_list_style():
                 network=network,
                 initial_stage="StageA",
                 stages=[
-                    ph.fsm.FSMStage(
+                    ph.FSMStage(
                         stage_id="StageA",
+                        acting_agents=["A"],
                         next_stages=["StageA"],
                         handler=self.handle,
                     )

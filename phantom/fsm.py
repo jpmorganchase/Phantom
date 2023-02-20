@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
 from .telemetry import logger
-from .types import AgentID, PolicyID, StageID
-from .views import EnvView
+from .types import AgentID, StageID
+from .views import AgentView, EnvView
 
 
 class FSMValidationError(Exception):
@@ -33,28 +33,27 @@ class FSMStage:
 
     Attributes:
         id: The name of this stage.
-        next_stages: The stages that this stage can transition to.
-        acting_agents: If provided, only the given agents will make observations at the
-            end of the previous step and take actions in that steps. If not provided,
-            all agents will make observations and take actions.
+        acting_agents: The agents that will take an action at the end of the steps that
+            belong to this stage..
         rewarded_agents: If provided, only the given agents will calculate and return a
             reward at the end of the step for this stage. If not provided, a reward will
             be computed for all acting agents for the current stage.
+        next_stages: The stages that this stage can transition to.
         handler: Environment class method to be called when the FSM enters this stage.
     """
 
     def __init__(
         self,
         stage_id: StageID,
-        next_stages: Optional[Sequence[StageID]] = None,
-        acting_agents: Optional[Sequence[AgentID]] = None,
+        acting_agents: Sequence[AgentID],
         rewarded_agents: Optional[Sequence[AgentID]] = None,
+        next_stages: Optional[Sequence[StageID]] = None,
         handler: Optional[Callable[[], StageID]] = None,
     ) -> None:
         self.id = stage_id
-        self.next_stages = next_stages or []
         self.acting_agents = acting_agents
         self.rewarded_agents = rewarded_agents
+        self.next_stages = next_stages or []
         self.handler = handler
 
     def __call__(self, handler_fn: Callable[..., Optional[StageID]]):
@@ -117,17 +116,16 @@ class FiniteStateMachineEnv(PhantomEnv):
     ) -> None:
         super().__init__(num_steps, network, env_supertype, agent_supertypes)
 
-        self.initial_stage = initial_stage
+        self._initial_stage = initial_stage
 
-        self._rewards: Dict[PolicyID, Optional[float]] = {}
-        self._observations: Dict[PolicyID, Any] = {}
-        self._infos: Dict[PolicyID, Dict[str, Any]] = {}
+        self._rewards: Dict[AgentID, Optional[float]] = {}
+        self._observations: Dict[AgentID, Any] = {}
+        self._infos: Dict[AgentID, Dict[str, Any]] = {}
 
         self._stages: Dict[StageID, FSMStage] = {}
 
-        self.policy_agent_handler_map: Dict[
-            PolicyID, Tuple[AgentID, Optional[StageID]]
-        ] = {}
+        self._current_stage = self.initial_stage
+        self.previous_stage: Optional[StageID] = None
 
         # Register stages via optional class initialiser list
         for stage in stages or []:
@@ -174,10 +172,17 @@ class FiniteStateMachineEnv(PhantomEnv):
                     f"Stage '{stage.id}' without handler must have exactly one next stage (got {len(stage.next_stages)})"
                 )
 
-        self.current_stage = self.initial_stage
-        self.previous_stage: Optional[StageID] = None
+    @property
+    def initial_stage(self) -> StageID:
+        """Returns the initial stage of the FSM Env."""
+        return self._initial_stage
 
-    def view(self) -> FSMEnvView:
+    @property
+    def current_stage(self) -> StageID:
+        """Returns the current stage of the FSM Env."""
+        return self._current_stage
+
+    def view(self, agent_views: Dict[AgentID, AgentView]) -> FSMEnvView:
         """Return an immutable view to the FSM environment's public state."""
         return FSMEnvView(
             self.current_step, self.current_step / self.num_steps, self.current_stage
@@ -194,32 +199,21 @@ class FiniteStateMachineEnv(PhantomEnv):
             A dictionary mapping AgentIDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
         """
-
         logger.log_reset()
 
-        # Reset clock and stage
-        self.current_step = 0
-        self.current_stage = self.initial_stage
+        # Reset the clock and stage
+        self._current_step = 0
+        self._current_stage = self.initial_stage
 
-        # Sample from supertype shared sampler objects
+        # Generate initial sampled values in samplers
         for sampler in self._samplers:
             sampler.sample()
 
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
-
-        # Generate views for use of the environment itself for generating it's own view
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
-
-        # Reset network and call reset method on all agents in the network.
+        # Reset the network and call reset method on all agents in the network.
         self.network.reset()
-        self.resolve_network()
 
         # Reset the agents' done statuses stored by the environment
         self._dones = set()
@@ -227,23 +221,11 @@ class FiniteStateMachineEnv(PhantomEnv):
         # Set initial null reward values
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
-        # Initial acting agents are either those specified in stage acting agents or
-        # else all acting agents
-        acting_agents = (
-            self._stages[self.current_stage].acting_agents or self.strategic_agent_ids
+        # Generate all contexts for agents taking actions
+        acting_agents = self._stages[self.current_stage].acting_agents
+        self._make_ctxs(
+            [aid for aid in acting_agents if aid in self.strategic_agent_ids]
         )
-
-        # Pre-generate all contexts for agents taking actions
-        env_view = self.view()
-        self._ctxs = {
-            aid: self.network.context_for(aid, env_view)
-            for aid in acting_agents
-            if aid in self.strategic_agent_ids
-        }
-
-        # Generate initial sampled values in samplers
-        for sampler in self._samplers:
-            sampler.sample()
 
         # Generate initial observations for agents taking actions
         obs = {
@@ -262,50 +244,24 @@ class FiniteStateMachineEnv(PhantomEnv):
         Arguments:
             actions: Actions output by the agent policies to be translated into
                 messages and passed throughout the network.
+
+        Returns:
+            A :class:`PhantomEnv.Step` object containing observations, rewards, dones
+            and infos.
         """
-        # Increment clock
-        self.current_step += 1
+        # Increment the clock
+        self._current_step += 1
 
         logger.log_step(self.current_step, self.num_steps)
-
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
-
-        # Pre-generate all contexts for all agents taking actions / generating messages
-        env_view = self.view()
-        self._ctxs = {
-            aid: self.network.context_for(aid, env_view)
-            for aid in self.agents
-            if aid not in self._dones
-        }
-
         logger.log_actions(actions)
         logger.log_start_decoding_actions()
 
-        # Generate views for use of the environment itself for generating it's own view
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
+        # Generate contexts for all agents taking actions / generating messages
+        self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
-        for aid in actions.keys():
-            ctx = self._ctxs[aid]
-            messages = ctx.agent.decode_action(ctx, actions[aid]) or []
-
-            for receiver_id, message in messages:
-                self.network.send(aid, receiver_id, message)
-
-        for aid in self.non_strategic_agent_ids:
-            if (
-                self._stages[self.current_stage].acting_agents is None
-                or aid in self._stages[self.current_stage].acting_agents
-            ):
-                ctx = self._ctxs[aid]
-                messages = ctx.agent.generate_messages(ctx) or []
-
-                for receiver_id, message in messages:
-                    self.network.send(aid, receiver_id, message)
+        acting_agents = self._stages[self.current_stage].acting_agents
+        self._handle_acting_agents(acting_agents, actions)
 
         env_handler = self._stages[self.current_stage].handler
 
@@ -337,7 +293,6 @@ class FiniteStateMachineEnv(PhantomEnv):
                 f"FiniteStateMachineEnv attempted invalid transition from '{self.current_stage}' to {next_stage}"
             )
 
-        # Compute the output for rllib:
         observations: Dict[AgentID, Any] = {}
         rewards: Dict[AgentID, float] = {}
         dones: Dict[AgentID, bool] = {"__all__": False}
@@ -379,7 +334,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         logger.log_fsm_transition(self.current_stage, next_stage)
 
-        self.previous_stage, self.current_stage = self.current_stage, next_stage
+        self.previous_stage, self._current_stage = self.current_stage, next_stage
 
         if self.current_stage is None or self.is_done():
             logger.log_episode_done()

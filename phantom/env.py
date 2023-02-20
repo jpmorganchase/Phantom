@@ -5,6 +5,7 @@ from typing import (
     Mapping,
     NamedTuple,
     Optional,
+    Sequence,
     Set,
 )
 
@@ -55,7 +56,7 @@ class PhantomEnv:
         agent_supertypes: Optional[Mapping[AgentID, Supertype]] = None,
     ) -> None:
         self.network = network or Network()
-        self.current_step = 0
+        self._current_step = 0
         self.num_steps = num_steps
 
         self.env_supertype: Optional[Supertype] = None
@@ -68,10 +69,6 @@ class PhantomEnv:
         # Context objects are generated for all active agents once at the start of each
         # step and stored for use across functions.
         self._ctxs: Dict[AgentID, Context] = {}
-
-        # A view for each agent is generated every step. This should be used by only the
-        # environment for generating it's own view or metrics.
-        self._views: Dict[AgentID, AgentView] = {}
 
         # Collect all instances of classes that inherit from BaseSampler from the env
         # supertype and the agent supertypes into a flat list. We make sure that the
@@ -122,6 +119,11 @@ class PhantomEnv:
             agent.reset()
 
     @property
+    def current_step(self) -> int:
+        """Return the current step of the environment."""
+        return self._current_step
+
+    @property
     def n_agents(self) -> int:
         """Return the number of agents in the environment."""
         return len(self.agent_ids)
@@ -156,7 +158,7 @@ class PhantomEnv:
         """Return a list of the IDs of the agents that do not take actions."""
         return [a.id for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
-    def view(self) -> EnvView:
+    def view(self, agent_views: Dict[AgentID, AgentView]) -> EnvView:
         """Return an immutable view to the environment's public state."""
         return EnvView(self.current_step, self.current_step / self.num_steps)
 
@@ -188,8 +190,8 @@ class PhantomEnv:
         """
         logger.log_reset()
 
-        # Reset clock
-        self.current_step = 0
+        # Reset the clock
+        self._current_step = 0
 
         # Sample from supertype shared sampler objects
         for sampler in self._samplers:
@@ -198,28 +200,14 @@ class PhantomEnv:
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
-        # Generate views for use of the environment itself for generating it's own view
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
-
-        # Reset network and call reset method on all agents in the network
+        # Reset the network and call reset method on all agents in the network.
         self.network.reset()
-        self.resolve_network()
 
         # Reset the strategic agents' done statuses stored by the environment
         self._dones = set()
 
-        # Pre-generate all contexts for agents taking actions
-        env_view = self.view()
-        self._ctxs = {
-            agent.id: self.network.context_for(agent.id, env_view)
-            for agent in self.strategic_agents
-        }
-
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
+        # Generate all contexts for agents taking actions
+        self._make_ctxs(self.strategic_agent_ids)
 
         # Generate initial observations for agents taking actions
         obs = {
@@ -243,58 +231,43 @@ class PhantomEnv:
             A :class:`PhantomEnv.Step` object containing observations, rewards, dones
             and infos.
         """
-        # Increment clock
-        self.current_step += 1
+        # Increment the clock
+        self._current_step += 1
 
         logger.log_step(self.current_step, self.num_steps)
-
-        # Generate all contexts for all agents taking actions / generating messages
-        env_view = self.view()
-        self._ctxs = {
-            agent_id: self.network.context_for(agent_id, env_view)
-            for agent_id in self.agent_ids
-            if agent_id not in self._dones
-        }
-
-        # Generate views for use of the environment itself for generating it's own view
-        self._views = {
-            agent_id: agent.view() for agent_id, agent in self.agents.items()
-        }
-
         logger.log_actions(actions)
         logger.log_start_decoding_actions()
 
-        # Decode action/generate messages for agents and send to the network
-        for agent_id, ctx in self._ctxs.items():
-            if agent_id in actions:
-                messages = ctx.agent.decode_action(ctx, actions[agent_id]) or []
-            else:
-                messages = ctx.agent.generate_messages(ctx) or []
+        # Generate contexts for all agents taking actions / generating messages
+        self._make_ctxs(self.agent_ids)
 
-            for receiver_id, message in messages:
-                self.network.send(agent_id, receiver_id, message)
+        # Decode action/generate messages for agents and send to the network
+        self._handle_acting_agents(self.agent_ids, actions)
 
         # Resolve the messages on the network and perform mutations:
         self.resolve_network()
 
-        # Compute the output for rllib:
         observations: Dict[AgentID, Any] = {}
         rewards: Dict[AgentID, Any] = {}
         dones: Dict[AgentID, bool] = {}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
-        # Pre-generate all context objects for acting agents
-        for agent_id, ctx in self._ctxs.items():
-            if isinstance(ctx.agent, StrategicAgent):
-                obs = ctx.agent.encode_observation(ctx)
-                if obs is not None:
-                    observations[agent_id] = obs
-                    infos[agent_id] = ctx.agent.collect_infos(ctx)
-                    rewards[agent_id] = ctx.agent.compute_reward(ctx)
-                    dones[agent_id] = ctx.agent.is_done(ctx)
+        for aid in self.strategic_agent_ids:
+            if aid in self._dones:
+                continue
 
-                    if dones[agent_id]:
-                        self._dones.add(agent_id)
+            ctx = self._ctxs[aid]
+
+            obs = ctx.agent.encode_observation(ctx)
+            if obs is not None:
+                observations[aid] = obs
+                infos[aid] = ctx.agent.collect_infos(ctx)
+                rewards[aid] = ctx.agent.compute_reward(ctx)
+
+            dones[aid] = ctx.agent.is_done(ctx)
+
+            if dones[aid]:
+                self._dones.add(aid)
 
         logger.log_step_values(observations, rewards, dones, infos)
         logger.log_metrics(self)
@@ -304,9 +277,7 @@ class PhantomEnv:
         if dones["__all__"]:
             logger.log_episode_done()
 
-        return self.Step(
-            observations=observations, rewards=rewards, dones=dones, infos=infos
-        )
+        return self.Step(observations, rewards, dones, infos)
 
     def is_done(self) -> bool:
         """Implements the logic to decide when the episode is completed."""
@@ -315,6 +286,36 @@ class PhantomEnv:
         )
 
         return is_at_max_step or len(self._dones) == len(self.strategic_agents)
+
+    def _handle_acting_agents(
+        self, agent_ids: Sequence[AgentID], actions: Mapping[AgentID, Any]
+    ) -> None:
+        """Internal method."""
+        for aid in agent_ids:
+            if aid in self._dones:
+                continue
+
+            ctx = self._ctxs[aid]
+
+            if aid in actions:
+                messages = ctx.agent.decode_action(ctx, actions[aid]) or []
+            else:
+                messages = ctx.agent.generate_messages(ctx) or []
+
+            for receiver_id, message in messages:
+                self.network.send(aid, receiver_id, message)
+
+    def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> None:
+        """Internal method."""
+        env_view = self.view(
+            {agent_id: agent.view() for agent_id, agent in self.agents.items()}
+        )
+
+        self._ctxs = {
+            aid: self.network.context_for(aid, env_view)
+            for aid in agent_ids
+            if aid not in self._dones
+        }
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]

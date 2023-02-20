@@ -34,6 +34,7 @@ Phantom
     api/resolvers
     api/reward_functions
     api/rllib
+    api/stackelberg
     api/supertypes
     api/telemetry
     api/trainer
