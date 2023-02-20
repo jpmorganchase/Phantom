@@ -48,7 +48,7 @@ def test_one_state_with_handler():
     assert env.agents["agent"].encode_obs_count == 2
     assert env.agents["agent"].decode_action_count == 1
 
-    assert step.observations == {"agent": np.array([0.0])}
+    assert step.observations == {"agent": np.array([0.5])}
     assert step.rewards == {"agent": 0}
     assert step.dones == {"__all__": False, "agent": False}
     assert step.infos == {"agent": {}}
@@ -60,7 +60,7 @@ def test_one_state_with_handler():
     assert env.agents["agent"].encode_obs_count == 3
     assert env.agents["agent"].decode_action_count == 2
 
-    assert step.observations == {"agent": np.array([0.0])}
+    assert step.observations == {"agent": np.array([1.0])}
     assert step.rewards == {"agent": 0}
     assert step.dones == {"__all__": True, "agent": False}
     assert step.infos == {"agent": {}}
@@ -125,7 +125,7 @@ def test_one_state_without_handler():
     assert env.agents["agent"].encode_obs_count == 2
     assert env.agents["agent"].decode_action_count == 1
 
-    assert step.observations == {"agent": np.array([0.0])}
+    assert step.observations == {"agent": np.array([0.5])}
     assert step.rewards == {"agent": 0}
     assert step.dones == {"__all__": False, "agent": False}
     assert step.infos == {"agent": {}}
@@ -137,7 +137,7 @@ def test_one_state_without_handler():
     assert env.agents["agent"].encode_obs_count == 3
     assert env.agents["agent"].decode_action_count == 2
 
-    assert step.observations == {"agent": np.array([0.0])}
+    assert step.observations == {"agent": np.array([1.0])}
     assert step.rewards == {"agent": 0}
     assert step.dones == {"__all__": True, "agent": False}
     assert step.infos == {"agent": {}}

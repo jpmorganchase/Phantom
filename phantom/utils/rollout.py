@@ -1,5 +1,7 @@
+import io
+import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import (
     Any,
     Dict,
@@ -11,12 +13,13 @@ from typing import (
 )
 
 import numpy as np
+import pandas as pd
 
 from ..message import Message
 from ..types import AgentID, StageID
 
 
-@dataclass
+@dataclass(frozen=True)
 class AgentStep:
     """Describes a step taken by a single agent in an episode."""
 
@@ -29,7 +32,7 @@ class AgentStep:
     stage: Optional[StageID] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class Step:
     """Describes a step taken in an episode."""
 
@@ -43,22 +46,14 @@ class Step:
     stage: Optional[StageID] = None
 
 
+@dataclass(frozen=True)
 class Rollout:
-    def __init__(
-        self,
-        rollout_id: int,
-        repeat_id: int,
-        env_config: Mapping[str, Any],
-        rollout_params: Dict[str, Any],
-        steps: List[Step],
-        metrics: Dict[str, np.ndarray],
-    ) -> None:
-        self.rollout_id = rollout_id
-        self.repeat_id = repeat_id
-        self.env_config = env_config
-        self.rollout_params = rollout_params
-        self.steps = steps
-        self.metrics = metrics
+    rollout_id: int
+    repeat_id: int
+    env_config: Mapping[str, Any]
+    rollout_params: Dict[str, Any]
+    steps: List[Step]
+    metrics: Dict[str, np.ndarray]
 
     def observations_for_agent(
         self,
@@ -238,3 +233,87 @@ class Rollout:
             return self.steps[index]
         except KeyError:
             KeyError(f"Index {index} not valid for trajectory")
+
+
+def rollouts_to_dataframe(
+    rollouts: Iterable[Rollout],
+    avg_over_repeats: bool = True,
+    index_value_precision: Optional[int] = None,
+) -> pd.DataFrame:
+    """
+    Converts a list of Rollouts into a MultiIndex DataFrame with rollout params as the
+    indexes and metrics as the columns.
+
+    Arguments:
+        rollouts: The list/iterator of Phantom Rollout objects to use.
+        avg_over_repeats: If True will average all metric values over each set of
+            repeats. This is very useful for reducing the overall data size if
+            individual rollouts are not required.
+        index_value_precision: If given will round the index values to the given
+            precision and convert to strings. This can be useful for avoiding floating
+            point inaccuracies when indexing (eg. 2.0 != 2.000000001).
+
+    Returns:
+        A Pandas DataFrame containing the results.
+    """
+
+    # Consume iterator (if applicable), throw away everything except params and metrics
+    rollouts = [(rollout.rollout_params, rollout.metrics) for rollout in rollouts]
+
+    index_cols = list(rollouts[0][0].keys())
+
+    df = pd.DataFrame([dict(**params, **metrics) for params, metrics in rollouts])
+
+    if index_value_precision is not None:
+        for col in index_cols:
+            df[col] = df[col].round(index_value_precision).astype(str)
+
+    if len(index_cols) > 0:
+        if avg_over_repeats:
+            df = df.groupby(index_cols).mean().reset_index()
+
+        df = df.set_index(index_cols)
+
+    return df
+
+
+def rollouts_to_jsonl(
+    rollouts: Iterable[Rollout],
+    file_obj: io.TextIOBase,
+    human_readable: bool = False,
+) -> None:
+    """
+    Writes multiple rollouts to a file using the JSONL (JSON Lines) format.
+
+    Arguments:
+        rollouts: The list/iterator of Phantom Rollout objects to use.
+        file_obj: A writable file object to output to.
+        human_readable: If True the output will be 'pretty printed'.
+    """
+    for rollout in rollouts:
+        json.dump(
+            rollout,
+            file_obj,
+            indent=2 if human_readable else None,
+            cls=RolloutJSONEncoder,
+        )
+        file_obj.write("\n")
+        file_obj.flush()
+
+
+class RolloutJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.number):
+            return int(obj)
+        if isinstance(obj, Rollout):
+            return asdict(obj)
+        if isinstance(obj, Step):
+            return asdict(obj)
+
+        return json.JSONEncoder.default(self, obj)
