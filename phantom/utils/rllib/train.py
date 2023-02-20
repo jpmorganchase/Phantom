@@ -198,11 +198,6 @@ def train(
         "env_config": env_config,
         "framework": "torch",
         "logger_creator": logger_creator,
-        "multiagent": {
-            "policies": policy_specs,
-            "policy_mapping_fn": policy_mapping_fn,
-            "policies_to_train": policies_to_train,
-        },
         "num_sgd_iter": 10,
         "num_rollout_workers": num_workers_,
         "rollout_fragment_length": env.num_steps,
@@ -211,6 +206,13 @@ def train(
     }
 
     config.update(rllib_config)
+
+    config["multiagent"] = {
+        "policies": policy_specs,
+        "policy_mapping_fn": policy_mapping_fn,
+        "policies_to_train": policies_to_train,
+    }
+    config["multiagent"].update(rllib_config.get("multiagent", {}))
 
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
