@@ -166,7 +166,11 @@ class StackelbergEnv(PhantomEnv):
             return self.Step(observations, self._rewards, dones, infos)
 
         # Otherwise not in terminal stage:
-        rewards = {aid: self._rewards[aid] for aid in observations}
+        rewards = {
+            aid: self._rewards[aid]
+            for aid in observations
+            if self._rewards[aid] is not None
+        }
 
         return self.Step(observations, rewards, dones, infos)
 
