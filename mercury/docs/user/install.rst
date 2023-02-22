@@ -3,7 +3,7 @@
 Installing Mercury
 ==================
 
-The main requirements for installing Mercury are a modern Python installation (3.7
+The main requirements for installing Mercury are a modern Python installation (3.8
 minimum) and access to the pip Python package manager.
 
 A list of Python packages required by Mercury is given in the requirements.txt file.
