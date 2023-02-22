@@ -1,2 +1,2 @@
-numpy==1.19.3
+numpy==1.22.0
 networkx==2.6.3
