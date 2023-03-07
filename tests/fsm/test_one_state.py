@@ -34,7 +34,7 @@ class OneStateFSMEnvWithHandler(ph.FiniteStateMachineEnv):
 def test_one_state_with_handler():
     env = OneStateFSMEnvWithHandler()
 
-    assert env.reset() == {"agent": np.array([0.0])}
+    assert env.reset() == ({"agent": np.array([0.0])}, {})
 
     assert env.current_stage == "UNIT"
     assert env.agents["agent"].compute_reward_count == 0
@@ -50,7 +50,8 @@ def test_one_state_with_handler():
 
     assert step.observations == {"agent": np.array([0.5])}
     assert step.rewards == {"agent": 0}
-    assert step.dones == {"__all__": False, "agent": False}
+    assert step.terminations == {"agent": False, "__all__": False}
+    assert step.truncations == {"agent": False, "__all__": False}
     assert step.infos == {"agent": {}}
 
     step = env.step({"agent": np.array([0])})
@@ -62,7 +63,8 @@ def test_one_state_with_handler():
 
     assert step.observations == {"agent": np.array([1.0])}
     assert step.rewards == {"agent": 0}
-    assert step.dones == {"__all__": True, "agent": False}
+    assert step.terminations == {"agent": False, "__all__": False}
+    assert step.truncations == {"agent": False, "__all__": True}
     assert step.infos == {"agent": {}}
 
 
@@ -111,7 +113,7 @@ class OneStateFSMEnvWithoutHandler(ph.FiniteStateMachineEnv):
 def test_one_state_without_handler():
     env = OneStateFSMEnvWithoutHandler()
 
-    assert env.reset() == {"agent": np.array([0.0])}
+    assert env.reset() == ({"agent": np.array([0.0])}, {})
 
     assert env.current_stage == "UNIT"
     assert env.agents["agent"].compute_reward_count == 0
@@ -127,7 +129,8 @@ def test_one_state_without_handler():
 
     assert step.observations == {"agent": np.array([0.5])}
     assert step.rewards == {"agent": 0}
-    assert step.dones == {"__all__": False, "agent": False}
+    assert step.terminations == {"agent": False, "__all__": False}
+    assert step.truncations == {"agent": False, "__all__": False}
     assert step.infos == {"agent": {}}
 
     step = env.step({"agent": np.array([0])})
@@ -139,7 +142,8 @@ def test_one_state_without_handler():
 
     assert step.observations == {"agent": np.array([1.0])}
     assert step.rewards == {"agent": 0}
-    assert step.dones == {"__all__": True, "agent": False}
+    assert step.terminations == {"agent": False, "__all__": False}
+    assert step.truncations == {"agent": False, "__all__": True}
     assert step.infos == {"agent": {}}
 
 

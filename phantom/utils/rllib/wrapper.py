@@ -1,6 +1,6 @@
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Optional, Tuple
 
-import gym
+import gymnasium as gym
 from ray import rllib
 
 from ...agents import AgentID
@@ -34,16 +34,18 @@ class RLlibEnvWrapper(rllib.MultiAgentEnv):
             }
         )
 
-        rllib.MultiAgentEnv.__init__(self)
+        super().__init__()
 
     def step(self, action_dict: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         return self.env.step(action_dict)
 
-    def reset(self) -> Dict[AgentID, Any]:
-        return self.env.reset()
+    def reset(
+        self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Dict[AgentID, Any], Dict[str, Any]]:
+        return self.env.reset(seed, options)
 
-    def is_done(self) -> bool:
-        return self.env.is_done()
+    def is_terminated(self) -> bool:
+        return self.env.is_terminated()
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.env, name)

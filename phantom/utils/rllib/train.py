@@ -1,5 +1,4 @@
 import os
-import random
 import tempfile
 from datetime import datetime
 from inspect import isclass
@@ -16,7 +15,7 @@ from typing import (
 )
 
 import cloudpickle
-import gym
+import gymnasium as gym
 import numpy as np
 import ray
 import rich.pretty

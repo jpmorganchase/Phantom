@@ -2,7 +2,7 @@ from functools import reduce
 from operator import mul
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 from torch import nn

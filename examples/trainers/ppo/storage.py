@@ -1,6 +1,6 @@
 from typing import Iterator, Optional, Tuple
 
-import gym
+import gymnasium as gym
 import torch
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 

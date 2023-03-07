@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import gym
+import gymnasium as gym
 import numpy as np
 import phantom as ph
 
@@ -51,7 +51,10 @@ class MockStrategicAgent(ph.StrategicAgent):
         self.compute_reward_count += 1
         return 0.0
 
-    def is_done(self, ctx: ph.Context) -> bool:
+    def is_terminated(self, ctx: ph.Context) -> bool:
+        return ctx.env_view.current_step == self.num_steps
+
+    def is_truncated(self, ctx: ph.Context) -> bool:
         return ctx.env_view.current_step == self.num_steps
 
 

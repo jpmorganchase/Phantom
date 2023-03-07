@@ -292,10 +292,11 @@ class StrategicAgent(Agent):
 
         return self.reward_function.reward(ctx)
 
-    def is_done(self, ctx: Context) -> bool:
+    def is_terminated(self, ctx: Context) -> bool:
         """
-        Indicates whether the agent is done for the current episode. The default
-        logic is for the agent to be done only once all the timesteps have been executed.
+        Indicates whether 'a `terminal state` (as defined under the MDP of the task) is
+        reached' for the agent. The default logic is for the agent to be done only once
+        all the timesteps have been executed.
 
         Note:
             This method may be extended by sub-classes to provide additional functionality.
@@ -305,6 +306,22 @@ class StrategicAgent(Agent):
 
         Returns:
             A boolean representing the terminal status of the agent.
+        """
+        return False
+
+    def is_truncated(self, ctx: Context) -> bool:
+        """
+        Indicates whether 'a truncation condition outside the scope of the MDP is
+        satisfied' for the agent.
+
+        Note:
+            This method may be extended by sub-classes to provide additional functionality.
+
+        Arguments:
+            ctx: A Context object representing the agent's local view of the environment.
+
+        Returns:
+            A boolean representing the truncated status of the agent.
         """
         return False
 

@@ -71,11 +71,13 @@ class StackelbergEnv(PhantomEnv):
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
-        # Reset the network and call reset method on all agents in the network.
+        # Reset the network and call reset method on all agents in the network
         self.network.reset()
 
-        # Reset the agents' done statuses stored by the environment
-        self._dones = set()
+        # Reset the strategic agents' termination/truncation statuses stored by the
+        # environment
+        self._terminations = set()
+        self._truncations = set()
 
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
@@ -103,8 +105,8 @@ class StackelbergEnv(PhantomEnv):
                 messages and passed throughout the network.
 
         Returns:
-            A :class:`PhantomEnv.Step` object containing observations, rewards, dones
-            and infos.
+            A :class:`PhantomEnv.Step` object containing observations, rewards,
+            terminations, truncations and infos.
         """
         # Increment the clock
         self._current_step += 1
@@ -129,11 +131,12 @@ class StackelbergEnv(PhantomEnv):
 
         observations: Dict[AgentID, Any] = {}
         rewards: Dict[AgentID, float] = {}
-        dones: Dict[AgentID, bool] = {"__all__": False}
+        terminations: Dict[AgentID, bool] = {}
+        truncations: Dict[AgentID, bool] = {}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
         for aid in self.strategic_agent_ids:
-            if aid in self._dones:
+            if aid in self._terminations or aid in self._truncations:
                 continue
 
             ctx = self._ctxs[aid]
@@ -147,28 +150,35 @@ class StackelbergEnv(PhantomEnv):
             if aid in acting_agents:
                 self._rewards[aid] = ctx.agent.compute_reward(ctx)
 
-            dones[aid] = ctx.agent.is_done(ctx)
+            terminations[aid] = ctx.agent.is_terminated(ctx)
+            truncations[aid] = ctx.agent.is_truncated(ctx)
 
-            if dones[aid]:
-                self._dones.add(aid)
+            if terminations[aid]:
+                self._terminations.add(aid)
 
-        logger.log_step_values(observations, rewards, dones, infos)
+            if truncations[aid]:
+                self._truncations.add(aid)
+
+        logger.log_step_values(observations, rewards, terminations, truncations, infos)
         logger.log_metrics(self)
 
-        if self.is_done():
+        terminations["__all__"] = self.is_terminated()
+        truncations["__all__"] = self.is_truncated()
+
+        if terminations["__all__"] or truncations["__all__"]:
             logger.log_episode_done()
 
-            # This is the terminal stage, return most recent observations, rewards and
+            # This is the terminal step, return most recent observations, rewards and
             # infos from all agents.
-            dones["__all__"] = True
+            return self.Step(
+                observations, self._rewards, terminations, truncations, infos
+            )
 
-            return self.Step(observations, self._rewards, dones, infos)
-
-        # Otherwise not in terminal stage:
+        # Otherwise not in terminal step:
         rewards = {
             aid: self._rewards[aid]
             for aid in observations
             if self._rewards[aid] is not None
         }
 
-        return self.Step(observations, rewards, dones, infos)
+        return self.Step(observations, rewards, terminations, truncations, infos)

@@ -48,7 +48,7 @@ class QLearningTrainer(Trainer):
         for _ in range(batch_size):
             observations = env.reset()
 
-            while not env.is_done():
+            while not env.is_terminated() or env.is_truncated():
                 actions: Dict[AgentID, Any] = {}
 
                 for agent_id, obs in observations.items():

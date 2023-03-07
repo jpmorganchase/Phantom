@@ -10,7 +10,8 @@ def test_telemetry(tmpdir):
         print_actions=True,
         print_observations=True,
         print_rewards=True,
-        print_dones=True,
+        print_terminations=True,
+        print_truncations=True,
         print_infos=True,
         print_messages=True,
         metrics={"step": ph.metrics.SimpleEnvMetric("current_step")},
@@ -49,7 +50,8 @@ def test_telemetry(tmpdir):
     assert set(data["steps"][0]) == {"messages", "metrics", "observations"}
     assert set(data["steps"][1]) == {
         "actions",
-        "dones",
+        "terminations",
+        "truncations",
         "infos",
         "messages",
         "metrics",

@@ -7,7 +7,10 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
 )
+
+import gymnasium as gym
 
 from .agents import Agent, StrategicAgent
 from .context import Context
@@ -19,7 +22,7 @@ from .utils.samplers import Sampler
 from .views import AgentView, EnvView
 
 
-class PhantomEnv:
+class PhantomEnv(gym.Env):
     """
     Base Phantom environment.
 
@@ -45,7 +48,8 @@ class PhantomEnv:
     class Step(NamedTuple):
         observations: Dict[AgentID, Any]
         rewards: Dict[AgentID, float]
-        dones: Dict[AgentID, bool]
+        terminations: Dict[AgentID, bool]
+        truncations: Dict[AgentID, bool]
         infos: Dict[AgentID, Any]
 
     def __init__(
@@ -62,9 +66,10 @@ class PhantomEnv:
         self.env_supertype: Optional[Supertype] = None
         self.env_type: Optional[Supertype] = None
 
-        # Keep track of which strategic agents are already done so we know to not
-        # continue to send back obs, rewards, etc...
-        self._dones: Set[AgentID] = set()
+        # Keep track of which strategic agents are already terminated/truncated so we
+        # know to not continue to send back obs, rewards, etc...
+        self._terminations: Set[AgentID] = set()
+        self._truncations: Set[AgentID] = set()
 
         # Context objects are generated for all active agents once at the start of each
         # step and stored for use across functions.
@@ -177,18 +182,28 @@ class PhantomEnv:
         self.network.resolve(self._ctxs)
         self.post_message_resolution()
 
-    def reset(self) -> Dict[AgentID, Any]:
+    def reset(
+        self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Dict[AgentID, Any], Dict[str, Any]]:
         """
         Reset the environment and return an initial observation.
 
         This method resets the step count and the :attr:`network`. This includes all the
         agents in the network.
 
+        Args:
+            seed: An optional seed to use for the new episode.
+            options : Additional information to specify how the environment is reset.
+
         Returns:
-            A dictionary mapping Agent IDs to observations made by the respective
+            - A dictionary mapping Agent IDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
+            - A dictionary with auxillary information, equivalent to the info dictionary
+                in `env.step()`.
         """
         logger.log_reset()
+
+        super().reset(seed=seed, options=options)
 
         # Reset the clock
         self._current_step = 0
@@ -200,11 +215,13 @@ class PhantomEnv:
         if self.env_supertype is not None:
             self.env_type = self.env_supertype.sample()
 
-        # Reset the network and call reset method on all agents in the network.
+        # Reset the network and call reset method on all agents in the network
         self.network.reset()
 
-        # Reset the strategic agents' done statuses stored by the environment
-        self._dones = set()
+        # Reset the strategic agents' termination/truncation statuses stored by the
+        # environment
+        self._terminations = set()
+        self._truncations = set()
 
         # Generate all contexts for agents taking actions
         self._make_ctxs(self.strategic_agent_ids)
@@ -217,7 +234,7 @@ class PhantomEnv:
 
         logger.log_observations(obs)
 
-        return {k: v for k, v in obs.items() if v is not None}
+        return {k: v for k, v in obs.items() if v is not None}, {}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
         """
@@ -228,7 +245,7 @@ class PhantomEnv:
                 messages and passed throughout the network.
 
         Returns:
-            A :class:`PhantomEnv.Step` object containing observations, rewards, dones
+            A :class:`PhantomEnv.Step` object containing observations, rewards, terminations
             and infos.
         """
         # Increment the clock
@@ -249,11 +266,12 @@ class PhantomEnv:
 
         observations: Dict[AgentID, Any] = {}
         rewards: Dict[AgentID, Any] = {}
-        dones: Dict[AgentID, bool] = {}
+        terminations: Dict[AgentID, bool] = {}
+        truncations: Dict[AgentID, bool] = {}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
         for aid in self.strategic_agent_ids:
-            if aid in self._dones:
+            if aid in self._terminations or aid in self._truncations:
                 continue
 
             ctx = self._ctxs[aid]
@@ -264,35 +282,47 @@ class PhantomEnv:
                 infos[aid] = ctx.agent.collect_infos(ctx)
                 rewards[aid] = ctx.agent.compute_reward(ctx)
 
-            dones[aid] = ctx.agent.is_done(ctx)
+            terminations[aid] = ctx.agent.is_terminated(ctx)
+            truncations[aid] = ctx.agent.is_truncated(ctx)
 
-            if dones[aid]:
-                self._dones.add(aid)
+            if terminations[aid]:
+                self._terminations.add(aid)
 
-        logger.log_step_values(observations, rewards, dones, infos)
+            if truncations[aid]:
+                self._truncations.add(aid)
+
+        logger.log_step_values(observations, rewards, terminations, truncations, infos)
         logger.log_metrics(self)
 
-        dones["__all__"] = self.is_done()
+        terminations["__all__"] = self.is_terminated()
+        truncations["__all__"] = self.is_truncated()
 
-        if dones["__all__"]:
+        if terminations["__all__"] or truncations["__all__"]:
             logger.log_episode_done()
 
-        return self.Step(observations, rewards, dones, infos)
+        return self.Step(observations, rewards, terminations, truncations, infos)
 
-    def is_done(self) -> bool:
-        """Implements the logic to decide when the episode is completed."""
+    def render(self) -> None:
+        return None
+
+    def is_terminated(self) -> bool:
+        """Implements the logic to decide when the episode is terminated."""
+        return len(self._terminations) == len(self.strategic_agents)
+
+    def is_truncated(self) -> bool:
+        """Implements the logic to decide when the episode is truncated."""
         is_at_max_step = (
             self.num_steps is not None and self.current_step == self.num_steps
         )
 
-        return is_at_max_step or len(self._dones) == len(self.strategic_agents)
+        return is_at_max_step or len(self._truncations) == len(self.strategic_agents)
 
     def _handle_acting_agents(
         self, agent_ids: Sequence[AgentID], actions: Mapping[AgentID, Any]
     ) -> None:
         """Internal method."""
         for aid in agent_ids:
-            if aid in self._dones:
+            if aid in self._terminations or aid in self._truncations:
                 continue
 
             ctx = self._ctxs[aid]
@@ -314,7 +344,7 @@ class PhantomEnv:
         self._ctxs = {
             aid: self.network.context_for(aid, env_view)
             for aid in agent_ids
-            if aid not in self._dones
+            if aid not in self._terminations and aid not in self._truncations
         }
 
     def __getitem__(self, agent_id: AgentID) -> Agent:

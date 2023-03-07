@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Iterable, Sequence
 
 import cloudpickle
-import gym
+import gymnasium as gym
 import numpy as np
 import phantom as ph
 
@@ -352,7 +352,7 @@ class AdvertiserAgent(ph.StrategicAgent):
             risk_aversion * self.left
         ) / self.type.budget
 
-    def is_done(self, _ctx: ph.Context) -> bool:
+    def is_terminated(self, _ctx: ph.Context) -> bool:
         """@override
         This agent cannot perform any more bids if its budget is 0.
         """

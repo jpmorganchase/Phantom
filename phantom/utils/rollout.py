@@ -39,7 +39,8 @@ class Step:
     i: int
     observations: Dict[AgentID, Any]
     rewards: Dict[AgentID, float]
-    dones: Dict[AgentID, bool]
+    terminations: Dict[AgentID, bool]
+    truncations: Dict[AgentID, bool]
     infos: Dict[AgentID, Dict[str, Any]]
     actions: Dict[AgentID, Any]
     messages: Optional[List[Message]] = None
@@ -98,23 +99,43 @@ class Rollout:
             and (stages is None or step.stage in stages)
         ]
 
-    def dones_for_agent(
+    def terminations_for_agent(
         self,
         agent_id: AgentID,
         drop_nones: bool = False,
         stages: Optional[Iterable[StageID]] = None,
     ) -> List[Optional[bool]]:
-        """Helper method to filter all 'dones' for a single agent.
+        """Helper method to filter all 'terminations' for a single agent.
 
         Arguments:
-            agent_id: The ID of the agent to filter 'dones' for.
+            agent_id: The ID of the agent to filter 'terminations' for.
             drop_nones: Drops any None values if True.
             stages: Optionally also filter by multiple stages.
         """
         return [
-            step.dones.get(agent_id, None)
+            step.terminations.get(agent_id, None)
             for step in self.steps
-            if (drop_nones is False or agent_id in step.dones)
+            if (drop_nones is False or agent_id in step.terminations)
+            and (stages is None or step.stage in stages)
+        ]
+
+    def truncations_for_agent(
+        self,
+        agent_id: AgentID,
+        drop_nones: bool = False,
+        stages: Optional[Iterable[StageID]] = None,
+    ) -> List[Optional[bool]]:
+        """Helper method to filter all 'truncations' for a single agent.
+
+        Arguments:
+            agent_id: The ID of the agent to filter 'truncations' for.
+            drop_nones: Drops any None values if True.
+            stages: Optionally also filter by multiple stages.
+        """
+        return [
+            step.truncations.get(agent_id, None)
+            for step in self.steps
+            if (drop_nones is False or agent_id in step.truncations)
             and (stages is None or step.stage in stages)
         ]
 
@@ -177,7 +198,8 @@ class Rollout:
                 step.i,
                 step.observations.get(agent_id, None),
                 step.rewards.get(agent_id, None),
-                step.dones[agent_id],
+                step.terminations.get(agent_id, None),
+                step.truncations.get(agent_id, None),
                 step.infos.get(agent_id, None),
                 step.actions.get(agent_id, None),
                 step.stage,
@@ -232,7 +254,7 @@ class Rollout:
         try:
             return self.steps[index]
         except KeyError:
-            KeyError(f"Index {index} not valid for trajectory")
+            raise KeyError(f"Index {index} not valid for trajectory")
 
 
 def rollouts_to_dataframe(
@@ -262,7 +284,7 @@ def rollouts_to_dataframe(
 
     index_cols = list(rollouts[0][0].keys())
 
-    df = pd.DataFrame([dict(**params, **metrics) for params, metrics in rollouts])
+    df = pd.DataFrame([{**params, **metrics} for params, metrics in rollouts])
 
     if index_value_precision is not None:
         for col in index_cols:
@@ -302,18 +324,18 @@ def rollouts_to_jsonl(
 
 
 class RolloutJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        if isinstance(obj, np.bool_):
-            return bool(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.number):
-            return int(obj)
-        if isinstance(obj, Rollout):
-            return asdict(obj)
-        if isinstance(obj, Step):
-            return asdict(obj)
+    def default(self, o):
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        if isinstance(o, np.bool_):
+            return bool(o)
+        if isinstance(o, np.floating):
+            return float(o)
+        if isinstance(o, np.number):
+            return int(o)
+        if isinstance(o, Rollout):
+            return asdict(o)
+        if isinstance(o, Step):
+            return asdict(o)
 
-        return json.JSONEncoder.default(self, obj)
+        return json.JSONEncoder.default(self, o)

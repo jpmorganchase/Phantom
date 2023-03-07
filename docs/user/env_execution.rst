@@ -14,7 +14,7 @@ evaluated actions and observations:
 
     observations = env.reset()
 
-    while not env.is_done():
+    while not env.is_terminated() or env.is_truncated():
         actions = {
             agent.id: agent.action_space.sample()
             for agent in env.strategic_agents
@@ -49,7 +49,7 @@ logging (to the terminal) and file logging:
 
     observations = env.reset()
 
-    while not env.is_done():
+    while not env.is_terminated() or env.is_truncated():
         actions = {
             agent.id: agent.action_space.sample()
             for agent in env.strategic_agents

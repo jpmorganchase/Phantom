@@ -171,7 +171,8 @@ class PPOTrainer(Trainer):
 
                 new_observations: List[Dict[AgentID, Any]] = []
                 rewards: List[Dict[AgentID, float]] = []
-                dones: List[Dict[AgentID, bool]] = []
+                terminations: List[Dict[AgentID, bool]] = []
+                truncations: List[Dict[AgentID, bool]] = []
                 infos: List[Dict[AgentID, Any]] = []
 
                 for env, obs, tpa in zip(envs, observations, trained_policy_actions):
@@ -190,11 +191,12 @@ class PPOTrainer(Trainer):
                         else:
                             actions[agent_id] = policy.compute_action(agent_obs)
 
-                    o, r, d, i_ = env.step(actions)
+                    o, r, te, tr, i_ = env.step(actions)
 
                     new_observations.append(o)
                     rewards.append(r)
-                    dones.append(d)
+                    terminations.append(te)
+                    truncations.append(tr)
                     infos.append(i_)
 
                 observations = new_observations
@@ -210,7 +212,7 @@ class PPOTrainer(Trainer):
 
                 # If done then clean the history of observations.
                 masks = torch.FloatTensor(
-                    [[0.0] if done[training_agent] else [1.0] for done in dones]
+                    [[0.0] if t[training_agent] else [1.0] for t in terminations]
                 )
                 bad_masks = torch.FloatTensor(
                     [

@@ -12,7 +12,8 @@ def test_rollout_class():
                 i=0,
                 observations={"agent": {"obs": 1}},
                 rewards={"agent": 1.0},
-                dones={"agent": {"obs": 1}},
+                terminations={"agent": False},
+                truncations={"agent": False},
                 infos={"agent": {"info": 1}},
                 actions={"agent": {"action": 1}},
                 messages=None,
@@ -22,7 +23,8 @@ def test_rollout_class():
                 i=0,
                 observations={},
                 rewards={"agent": None},
-                dones={},
+                terminations={},
+                truncations={},
                 infos={},
                 actions={},
                 messages=None,
@@ -32,7 +34,8 @@ def test_rollout_class():
                 i=0,
                 observations={},
                 rewards={},
-                dones={},
+                terminations={},
+                truncations={},
                 infos={},
                 actions={},
                 messages=None,
@@ -52,10 +55,15 @@ def test_rollout_class():
     rewards = rollout.rewards_for_agent("agent", drop_nones=True)
     assert rewards == [1.0]
 
-    dones = rollout.rewards_for_agent("agent", drop_nones=False)
-    assert dones == [1.0, None, None]
-    dones = rollout.rewards_for_agent("agent", drop_nones=True)
-    assert dones == [1.0]
+    terminations = rollout.rewards_for_agent("agent", drop_nones=False)
+    assert terminations == [1.0, None, None]
+    terminations = rollout.rewards_for_agent("agent", drop_nones=True)
+    assert terminations == [1.0]
+
+    truncations = rollout.rewards_for_agent("agent", drop_nones=False)
+    assert truncations == [1.0, None, None]
+    truncations = rollout.rewards_for_agent("agent", drop_nones=True)
+    assert truncations == [1.0]
 
     infos = rollout.rewards_for_agent("agent", drop_nones=False)
     assert infos == [1.0, None, None]
