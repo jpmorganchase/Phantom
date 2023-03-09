@@ -18,16 +18,15 @@ Below is an example demonstrating what can be acheived:
     # agent is to complete the task. We want to train the agent for many different skill
     # levels to learn a generalised policy.
 
-    # We define a base supertype dataclass for our agent:
-    @dataclass
-    class SimpleAgentSupertype(ph.Supertype):
-        # Each field in the dataclass is a parameter of the Type.
-        skill_weight: float
-
-    # Next we define our agent that encodes this type:
     class SimpleAgent(ph.Agent):
-        # We don't need to provide an instance of the SimpleAgentSupertype class when we
-        # create instances of the agent class.
+        # We define a supertype dataclass for our agent:
+        @dataclass
+        class Supertype(ph.Supertype):
+            # Each field in the dataclass is a parameter of the Type.
+            skill_weight: float = 1.0
+
+        # We don't need to provide an instance of the Supertype class when we create
+        # instances of the agent class.
         def __init__(self, agent_id: ph.AgentID):
             super().__init__(agent_id)
 
@@ -60,7 +59,7 @@ passing in a Supertype instance:
         ...
         env_config={
             "agent_supertypes": {
-                "SIMPLE_AGENT": SimpleAgentSupertype(
+                "SIMPLE_AGENT": SimpleAgent.Supertype(
                     # When training is run, for each episode the 'skill_weight' parameter
                     # will be uniformly sampled from the range 0.0 to 1.0:
                     skill_weight: UniformFloatSampler(0.0, 1.0)
@@ -101,7 +100,7 @@ function:
     ph.utils.rllib.rollout(
         ...
         agent_supertypes={
-            "SIMPLE_AGENT": SimpleAgentSupertype(
+            "SIMPLE_AGENT": SimpleAgent.Supertype(
                 # 11 rollouts will be performed, each with a value along the linearly
                 # spaced range from 0.0 to 1.0:
                 skill_weight: LinspaceRange(0.0, 1.0, n=11)
@@ -109,3 +108,29 @@ function:
         }
         ...
     )
+
+
+Supertypes can also be applied to the environment as a whole, this is useful in
+scenarios such as varying the stochastic network connectivity probabilities:
+
+.. code-block:: python
+
+    class SimpleEnv(ph.PhantomEnvironment):
+        # We define a base supertype dataclass for the env, just as we do for an agent:
+        @dataclass
+        class Supertype(ph.Supertype):
+            avg_connectivity: float = 0.5
+
+        def __init__(self, env_supertype, **kwargs):
+            agents = [
+                SimpleAgent("a1"),
+                SimpleAgent("a2"),
+            ]
+
+            network = StochasticNetwork(agents)
+
+            network.add_connection("a1", "a2", env_supertype.avg_connectivity)
+
+            super().__init__(
+                num_steps=10, network=network, env_supertype=env_supertype, **kwargs
+            )

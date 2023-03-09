@@ -15,6 +15,15 @@ class MockSampler(ph.utils.samplers.Sampler[float]):
         return self._value
 
 
+class MockComparableSampler(ph.utils.samplers.ComparableSampler[float]):
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def sample(self) -> float:
+        self._value += 1
+        return self._value
+
+
 class MockAgent(ph.Agent):
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)

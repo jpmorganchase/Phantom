@@ -114,7 +114,37 @@ top of the standard :class:`Network` class where each connection has a strength
 are created or destroyed randomly, weighted by the connection's strength.
 
 .. figure:: /img/stochastic-network.svg
+   :width: 60%
    :figclass: align-center
+
+
+.. code-block:: python
+
+    agents = [
+        Agent("a1"),
+        Agent("a2"),
+        Agent("a3"),
+    ]
+
+    network = StochasticNetwork(agents)
+
+    # Agent a1 will be connected to agent a2 in 50% of episodes:
+    network.add_connection("a1", "a2", 0.5)
+
+    # Agent a1 will always be connected to agent a3:
+    network.add_connection("a1", "a3", 1.0)
+
+    # This is equivalent as the default connectivity is 1.0:
+    network.add_connection("a1", "a3")
+
+    # Agent a2 will never be connected to agent a3. There is no real reason to do this:
+    network.add_connection("a2", "a3", 0.0)
+
+    # This samples the connectivities, creating new combinations of connections:
+    network.reset()
+
+    # This has a 50% chance of returning True:
+    print(network.has_edge("a1", "a2"))
 
 
 .. _message_resolution_ref:
