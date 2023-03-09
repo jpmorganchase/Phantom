@@ -10,14 +10,14 @@
 <div align="center">
   <h2 align="center">Phantom</h2>
 
-  <a href="https://github.com/jpmorganchase/Phantom">
-    <img src="phantom/docs/img/ai.png" alt="JPMorgan AI Research Logo" width=300>
+  <a href="https://www.jpmorgan.com/technology/artificial-intelligence">
+    <img src="docs/img/ai.png" alt="JPMorgan AI Research Logo" width=300>
   </a>
 
   <p align="center">
     A Multi-agent reinforcement-learning simulator framework.
     <br />
-    <a href="https://github.com/jpmorganchase/Phantom"><strong>Explore the docs »</strong></a>
+    <a href="https://phantom-marl.readthedocs.io"><strong>Explore the docs »</strong></a>
     <br />
     <a href="https://github.com/jpmorganchase/Phantom/issues">Report Bug</a>
     ·
@@ -85,7 +85,7 @@ With Phantom installed you can run the provided `supply-chain` sample experiment
 with the command:
 
 ```sh
-phantom envs/supply-chain/supply-chain-1.py
+phantom examples/environments/supply-chain/supply-chain.py
 ```
 
 Change the script for any of the other provided experiments in the examples directory.
