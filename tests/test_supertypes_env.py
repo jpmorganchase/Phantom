@@ -1,8 +1,10 @@
+from dataclasses import dataclass
+
 import pytest
 
 import phantom as ph
 
-from . import MockStrategicAgent, MockEnv, MockSampler
+from . import MockEnv, MockSampler, MockStrategicAgent
 
 
 def test_agent_supertypes_in_env_1():
@@ -129,3 +131,57 @@ def test_env_supertype_in_env_2():
 def test_env_supertype_in_env_bad():
     with pytest.raises(Exception):
         MockEnv(env_supertype={"xxx": 0.0})
+
+
+def test_env_type_passed_to_agent():
+    class MockAgent(ph.Agent):
+        def __init__(self, *args, num_steps=None, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.num_steps = num_steps
+
+            self.param = 0.0
+
+        def generate_messages(self, ctx):
+            self.param = ctx.env_view.supertype_param
+
+    class MockEnv(ph.PhantomEnv):
+        @dataclass
+        class Supertype(ph.Supertype):
+            param: float = 0.0
+
+        @dataclass(frozen=True)
+        class View(ph.EnvView):
+            supertype_param: float
+
+        def view(self, agent_views):
+            return self.View(
+                self.current_step,
+                self.current_step / self.num_steps,
+                self.env_type.param,
+            )
+
+        def __init__(self, **kwargs):
+            network = ph.StochasticNetwork([MockAgent("a1")])
+
+            super().__init__(num_steps=10, network=network, **kwargs)
+
+    env = MockEnv(env_supertype=MockEnv.Supertype(MockSampler(0.0)))
+
+    # sampler value = 1.0 (env.__init__())
+
+    env.reset()
+
+    # sampler value = 2.0 (env.reset())
+
+    env.step({})
+
+    assert env["a1"].param == 2.0
+
+    env.reset()
+
+    # sampler value = 3.0 (env.reset())
+
+    env.step({})
+
+    assert env["a1"].param == 3.0
