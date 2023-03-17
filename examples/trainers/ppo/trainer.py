@@ -212,7 +212,10 @@ class PPOTrainer(Trainer):
 
                 # If done then clean the history of observations.
                 masks = torch.FloatTensor(
-                    [[0.0] if t[training_agent] else [1.0] for t in terminations]
+                    [
+                        [0.0] if te[training_agent] or tr[training_agent] else [1.0]
+                        for te, tr in zip(terminations, truncations)
+                    ]
                 )
                 bad_masks = torch.FloatTensor(
                     [
