@@ -245,8 +245,8 @@ class PhantomEnv(gym.Env):
                 messages and passed throughout the network.
 
         Returns:
-            A :class:`PhantomEnv.Step` object containing observations, rewards, terminations
-            and infos.
+            A :class:`PhantomEnv.Step` object containing observations, rewards,
+            terminations, truncations and infos.
         """
         # Increment the clock
         self._current_step += 1
