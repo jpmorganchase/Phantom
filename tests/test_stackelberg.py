@@ -15,7 +15,7 @@ def test_stackelberg_env():
 
     env = ph.StackelbergEnv(3, network, ["leader"], ["follower"])
 
-    assert env.reset() == {"leader": np.array([0])}
+    assert env.reset() == ({"leader": np.array([0])}, {})
 
     assert env.agents["leader"].compute_reward_count == 0
     assert env.agents["leader"].encode_obs_count == 1
