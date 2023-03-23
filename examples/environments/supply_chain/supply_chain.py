@@ -1,7 +1,7 @@
 import sys
 from dataclasses import dataclass
 
-import gym
+import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 import phantom as ph

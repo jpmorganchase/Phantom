@@ -47,7 +47,8 @@ class TelemetryLogger:
         self._print_actions: Union[bool, Sequence[AgentID]] = False
         self._print_observations: Union[bool, Sequence[AgentID]] = False
         self._print_rewards: Union[bool, Sequence[AgentID]] = False
-        self._print_dones: Union[bool, Sequence[AgentID]] = False
+        self._print_terminations: Union[bool, Sequence[AgentID]] = False
+        self._print_truncations: Union[bool, Sequence[AgentID]] = False
         self._print_infos: Union[bool, Sequence[AgentID]] = False
         self._print_messages: Union[bool, Sequence[AgentID]] = False
 
@@ -65,7 +66,8 @@ class TelemetryLogger:
         print_actions: Union[bool, Sequence[AgentID], None] = None,
         print_observations: Union[bool, Sequence[AgentID], None] = None,
         print_rewards: Union[bool, Sequence[AgentID], None] = None,
-        print_dones: Union[bool, Sequence[AgentID], None] = None,
+        print_terminations: Union[bool, Sequence[AgentID], None] = None,
+        print_truncations: Union[bool, Sequence[AgentID], None] = None,
         print_infos: Union[bool, Sequence[AgentID], None] = None,
         print_messages: Union[bool, Sequence[AgentID], None] = None,
         metrics: Optional[Mapping[str, "Metric"]] = None,
@@ -84,7 +86,8 @@ class TelemetryLogger:
             print_actions: Updates whether and what action data will be logged.
             print_observations: Updates whether and what observation data will be logged.
             print_rewards: Updates whether and what reward data will be logged.
-            print_dones: Updates whether and what done data will be logged.
+            print_terminations: Updates whether and what termination data will be logged.
+            print_truncations: Updates whether and what truncation data will be logged.
             print_infos: Updates whether and what info data will be logged.
             print_messages: Updates whether and what message data will be logged.
             metrics: Sets which metrics will be logged.
@@ -101,8 +104,11 @@ class TelemetryLogger:
         if print_rewards is not None:
             self._print_rewards = print_rewards
 
-        if print_dones is not None:
-            self._print_dones = print_dones
+        if print_terminations is not None:
+            self._print_terminations = print_terminations
+
+        if print_truncations is not None:
+            self._print_truncations = print_truncations
 
         if print_infos is not None:
             self._print_infos = print_infos
@@ -151,7 +157,7 @@ class TelemetryLogger:
 
         if self._enable_print:
             print(colored("=" * 80, attrs=["dark"]))
-            print(colored(f"ENV RESET", attrs=["bold"]))
+            print(colored("ENV RESET", attrs=["bold"]))
             print(colored("-" * 80, attrs=["dark"]))
 
     def log_step(self, current_step: int, num_steps: int) -> None:
@@ -164,7 +170,7 @@ class TelemetryLogger:
 
     def log_start_decoding_actions(self) -> None:
         if self._enable_print:
-            print(_t(1) + colored(f"DECODING ACTIONS:", color="cyan"))
+            print(_t(1) + colored("DECODING ACTIONS:", color="cyan"))
 
     def log_actions(self, actions: Mapping[AgentID, Action]) -> None:
         if self._current_episode is not None:
@@ -222,20 +228,39 @@ class TelemetryLogger:
             else:
                 print(_t(2) + "None")
 
-    def log_dones(self, dones: Mapping[AgentID, bool]) -> None:
-        dones = [a for a, done in dones.items() if done]
+    def log_terminations(self, terminations: Mapping[AgentID, bool]) -> None:
+        terminations = [a for a, done in terminations.items() if done]
 
         if self._current_episode is not None:
-            self._current_episode["steps"][-1]["dones"] = dones
+            self._current_episode["steps"][-1]["terminations"] = terminations
 
-        if self._enable_print and self._print_dones:
-            print(_t(1) + colored("DONES:", color="cyan"))
+        if self._enable_print and self._print_terminations:
+            print(_t(1) + colored("TERMINATIONS:", color="cyan"))
 
-            if not isinstance(self._print_dones, bool):
-                dones = [a for a in dones if a in self._print_dones]
+            if not isinstance(self._print_terminations, bool):
+                terminations = [
+                    a for a in terminations if a in self._print_terminations
+                ]
 
-            if len(dones) > 0:
-                print(_t(2) + ", ".join(dones))
+            if len(terminations) > 0:
+                print(_t(2) + ", ".join(terminations))
+            else:
+                print(_t(2) + "None")
+
+    def log_truncations(self, truncations: Mapping[AgentID, bool]) -> None:
+        truncations = [a for a, done in truncations.items() if done]
+
+        if self._current_episode is not None:
+            self._current_episode["steps"][-1]["truncations"] = truncations
+
+        if self._enable_print and self._print_truncations:
+            print(_t(1) + colored("TRUNCATIONS:", color="cyan"))
+
+            if not isinstance(self._print_truncations, bool):
+                truncations = [a for a in truncations if a in self._print_truncations]
+
+            if len(truncations) > 0:
+                print(_t(2) + ", ".join(truncations))
             else:
                 print(_t(2) + "None")
 
@@ -263,12 +288,14 @@ class TelemetryLogger:
         self,
         observations: Mapping[AgentID, Observation],
         rewards: Mapping[AgentID, float],
-        dones: Mapping[AgentID, bool],
+        terminations: Mapping[AgentID, bool],
+        truncations: Mapping[AgentID, bool],
         infos: Mapping[AgentID, Any],
     ) -> None:
         self.log_observations(observations)
         self.log_rewards(rewards)
-        self.log_dones(dones)
+        self.log_terminations(terminations)
+        self.log_truncations(truncations)
         self.log_infos(infos)
 
     def log_fsm_transition(self, current_stage: StageID, next_stage: StageID) -> None:
@@ -387,10 +414,10 @@ def _pretty_format_space(space) -> str:
 
 
 class NumpyArrayEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+    def default(self, o):
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        return json.JSONEncoder.default(self, o)
 
 
 logger = TelemetryLogger()

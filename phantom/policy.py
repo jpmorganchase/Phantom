@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
 from typing import Any
 
-import gym
+import gymnasium as gym
 
 
 class Policy(ABC):

@@ -158,6 +158,6 @@ class BatchResolver(Resolver):
                         network.send(receiver_id, sub_receiver_id, sub_payload)
 
         if len(self.messages) > 0:
-            raise Exception(
+            raise RuntimeError(
                 f"{len(self.messages)} message(s) still in queue after BatchResolver round limit reached."
             )

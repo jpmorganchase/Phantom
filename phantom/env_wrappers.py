@@ -10,7 +10,7 @@ from typing import (
     Union,
 )
 
-import gym
+import gymnasium as gym
 
 from .agents import Agent, AgentID
 from .env import PhantomEnv
@@ -137,11 +137,15 @@ class SingleAgentEnvAdapter(gym.Env):
                 :attr:`observation_space`. This may, for instance, be a numpy array
                 containing the positions and velocities of certain objects.
             reward: The amount of reward returned as a result of taking the action.
-            done: A boolean value for if the episode has ended, in which case further
-                :meth:`step` calls will return undefined results. A done signal may be
-                emitted for different reasons: Maybe the task underlying the environment
-                was solved successfully, a certain timelimit was exceeded, or the
-                physics simulation has entered an invalid state.
+            terminated: Whether the agent reaches the terminal state (as defined under
+                the MDP of the task) which can be positive or negative. An example is
+                reaching the goal state or moving into the lava from the Sutton and
+                Barton, Gridworld. If true, the user needs to call reset().
+            truncated: Whether the truncation condition outside the scope of the MDP is
+                satisfied. Typically, this is a timelimit, but could also be used to
+                indicate an agent physically going out of bounds. Can be used to end the
+                episode prematurely before a terminal state is reached. If true, the
+                user needs to call reset().
             info: A dictionary that may contain additional information regarding the
                 reason for a ``done`` signal. `info` contains auxiliary diagnostic
                 information (helpful for debugging, learning, and logging). This might,
@@ -165,11 +169,12 @@ class SingleAgentEnvAdapter(gym.Env):
         return (
             step.observations[self._agent_id],
             step.rewards[self._agent_id],
-            step.dones[self._agent_id],
+            step.terminations[self._agent_id],
+            step.truncations[self._agent_id],
             step.infos[self._agent_id],
         )
 
-    def reset(self) -> Union[ObsType, Tuple[ObsType, dict]]:
+    def reset(self) -> Tuple[ObsType, Dict[str, Any]]:
         """
         Resets the environment to an initial state and returns an initial observation.
 
@@ -180,11 +185,13 @@ class SingleAgentEnvAdapter(gym.Env):
         previous episodes.
 
         Returns:
-            observation: the initial observation.
+            - The initial observation.
+            - A dictionary with auxillary information, equivalent to the info dictionary
+                in `env.step()`.
         """
 
         # TODO: update function interface when gym version is updated
 
-        self._observations = self._env.reset()
+        self._observations, infos = self._env.reset()
 
-        return self._observations[self._agent_id]
+        return self._observations[self._agent_id], infos

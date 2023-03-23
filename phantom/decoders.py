@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from itertools import chain
 from typing import Any, Dict, Generic, Iterable, List, Mapping, Tuple, TypeVar
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from .context import Context

@@ -2,7 +2,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Dict, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from .utils.samplers import Sampler

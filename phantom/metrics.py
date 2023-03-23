@@ -287,7 +287,9 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
 
 
 def _rgetattr(obj, attr, *args):
-    _getattr = lambda obj, attr: getattr(obj, attr, *args)
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+
     return reduce(_getattr, [obj] + attr.split("."))
 
 

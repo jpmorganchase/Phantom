@@ -29,7 +29,8 @@ def test_stackelberg_env():
 
     assert step.observations == {"follower": np.array([1 / 3])}
     assert step.rewards == {}
-    assert step.dones == {"__all__": False, "leader": False, "follower": False}
+    assert step.terminations == {"leader": False, "follower": False, "__all__": False}
+    assert step.truncations == {"leader": False, "follower": False, "__all__": False}
     assert step.infos == {"follower": {}}
 
     assert env.agents["leader"].compute_reward_count == 1
@@ -44,7 +45,8 @@ def test_stackelberg_env():
 
     assert step.observations == {"leader": np.array([2 / 3])}
     assert step.rewards == {"leader": 0.0}
-    assert step.dones == {"__all__": False, "leader": False, "follower": False}
+    assert step.terminations == {"leader": False, "follower": False, "__all__": False}
+    assert step.truncations == {"leader": False, "follower": False, "__all__": False}
     assert step.infos == {"leader": {}}
 
     assert env.agents["leader"].compute_reward_count == 1
@@ -59,7 +61,8 @@ def test_stackelberg_env():
 
     assert step.observations == {"follower": np.array([1])}
     assert step.rewards == {"leader": 0.0, "follower": 0.0}
-    assert step.dones == {"__all__": True, "leader": False, "follower": False}
+    assert step.terminations == {"leader": False, "follower": False, "__all__": False}
+    assert step.truncations == {"leader": False, "follower": False, "__all__": True}
     assert step.infos == {"follower": {}}
 
     assert env.agents["leader"].compute_reward_count == 2

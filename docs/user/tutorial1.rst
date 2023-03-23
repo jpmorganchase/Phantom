@@ -95,7 +95,7 @@ First we import the libraries we require and define some constants.
 
     from dataclasses import dataclass
 
-    import gym
+    import gymnasium as gym
     import numpy as np
     import phantom as ph
 

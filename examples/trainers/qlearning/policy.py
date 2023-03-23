@@ -1,6 +1,6 @@
 from typing import Any, Mapping, Optional
 
-import gym
+import gymnasium as gym
 import numpy as np
 from ...policy import Policy
 

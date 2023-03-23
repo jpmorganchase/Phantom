@@ -54,7 +54,7 @@ def get_checkpoints(results_dir: Union[Path, str]) -> List[int]:
 
     return list(
         sorted(
-            int(str(checkpoint_dir).split("_")[-1])
+            int(str(checkpoint_dir).rsplit("_", maxsplit=1)[-1])
             for checkpoint_dir in checkpoint_dirs
         )
     )

@@ -41,30 +41,42 @@ def test__get_item__(phantom_env):
     assert phantom_env["A"].id == "A"
 
 
-def test_is_done(phantom_env):
-    phantom_env._dones = []
-    assert not phantom_env.is_done()
+def test_is_terminated(phantom_env):
+    phantom_env._terminations = set()
+    assert not phantom_env.is_terminated()
 
-    phantom_env._dones = ["A"]
-    assert not phantom_env.is_done()
+    phantom_env._terminations = set(["A"])
+    assert not phantom_env.is_terminated()
 
-    phantom_env._dones = ["A", "B"]
-    assert phantom_env.is_done()
+    phantom_env._terminations = set(["A", "B"])
+    assert phantom_env.is_terminated()
 
-    phantom_env._dones = []
+
+def test_is_truncated(phantom_env):
+    phantom_env._truncations = set()
+    assert not phantom_env.is_truncated()
+
+    phantom_env._truncations = set(["A"])
+    assert not phantom_env.is_truncated()
+
+    phantom_env._truncations = set(["A", "B"])
+    assert phantom_env.is_truncated()
+
+    phantom_env._truncations = set()
     phantom_env._current_step = phantom_env.num_steps
-    assert phantom_env.is_done()
+    assert phantom_env.is_truncated()
 
 
 def test_reset(phantom_env):
-    obs = phantom_env.reset()
+    obs, infos = phantom_env.reset()
 
     assert phantom_env.current_step == 0
     assert list(obs.keys()) == ["A", "B"]
+    assert infos == {}
 
 
 def test_step(phantom_env):
-    # 1st step
+    # 1st step:
     current_time = phantom_env.current_step
 
     actions = {"A": 0, "B": 0}
@@ -72,15 +84,14 @@ def test_step(phantom_env):
 
     assert phantom_env.current_step == current_time + 1
 
-    for aid in ("A", "B"):
-        assert aid in step.observations
-        assert aid in step.rewards
-        assert aid in step.infos
-    assert step.dones["A"]
-    assert not step.dones["__all__"]
-    assert not step.dones["B"]
+    assert list(step.observations.keys()) == ["A", "B"]
+    assert list(step.rewards.keys()) == ["A", "B"]
+    assert list(step.infos.keys()) == ["A", "B"]
 
-    # 2nd step
+    assert step.terminations == {"A": True, "B": False, "__all__": False}
+    assert step.truncations == {"A": True, "B": False, "__all__": False}
+
+    # 2nd step:
     current_time = phantom_env.current_step
 
     actions = {"A": 0, "B": 0}
@@ -88,12 +99,9 @@ def test_step(phantom_env):
 
     assert phantom_env.current_step == current_time + 1
 
-    assert "A" not in step.observations
-    assert "A" not in step.rewards
-    assert "A" not in step.infos
-    assert "B" in step.observations
-    assert "B" in step.rewards
-    assert "B" in step.infos
-    assert "A" not in step.dones
-    assert step.dones["__all__"]
-    assert not step.dones["B"]
+    assert list(step.observations.keys()) == ["B"]
+    assert list(step.rewards.keys()) == ["B"]
+    assert list(step.infos.keys()) == ["B"]
+
+    assert step.terminations == {"B": False, "__all__": False}
+    assert step.truncations == {"B": False, "__all__": True}

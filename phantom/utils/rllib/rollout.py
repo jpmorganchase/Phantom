@@ -284,7 +284,10 @@ def _rollout_task_fn(
         vec_metrics = [defaultdict(list) for _ in range(batch_size)]
         vec_all_steps = [[] for _ in range(batch_size)]
 
-        vec_observations = [env.reset() for env in vec_envs]
+        vec_observations = [
+            env.reset(seed=config.rollout_id)[0]
+            for env, config in zip(vec_envs, configs)
+        ]
 
         initted_policy_mapping = {
             agent_id: policy(
@@ -359,7 +362,8 @@ def _rollout_task_fn(
                         i,
                         vec_observations[j],
                         vec_steps[j].rewards,
-                        vec_steps[j].dones,
+                        vec_steps[j].terminations,
+                        vec_steps[j].truncations,
                         vec_steps[j].infos,
                         vec_actions[j],
                         messages,

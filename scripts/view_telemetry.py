@@ -45,7 +45,8 @@ show_observations = st.sidebar.checkbox("Show Observations", True)
 show_messages = st.sidebar.checkbox("Show Messages", True) if has_messages else False
 show_actions = st.sidebar.checkbox("Show Actions", True)
 show_rewards = st.sidebar.checkbox("Show Rewards", True)
-show_dones = st.sidebar.checkbox("Show Dones", False)
+show_terminations = st.sidebar.checkbox("Show Terminations", False)
+show_truncations = st.sidebar.checkbox("Show Truncations", False)
 show_infos = st.sidebar.checkbox("Show Infos", False)
 show_metrics = st.sidebar.checkbox("Show Metrics", False)
 
@@ -97,11 +98,19 @@ for i, step in enumerate(episode["steps"]):
             else:
                 st.text("None")
 
-        if show_dones and "dones" in step:
-            st.subheader("Dones:")
+        if show_terminations and "terminations" in step:
+            st.subheader("Terminations:")
 
-            if len(step["dones"]) > 0:
-                st.code(step["dones"])
+            if len(step["terminations"]) > 0:
+                st.code(step["terminations"])
+            else:
+                st.text("None")
+
+        if show_truncations and "truncations" in step:
+            st.subheader("Truncations:")
+
+            if len(step["truncations"]) > 0:
+                st.code(step["truncations"])
             else:
                 st.text("None")
 

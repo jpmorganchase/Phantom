@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import phantom as ph
 import pytest
@@ -10,7 +10,7 @@ class MockAgent(ph.StrategicAgent):
     def decode_action(self, ctx: Context, action: np.ndarray):
         return []
 
-    def is_done(self, ctx: Context) -> bool:
+    def is_terminated(self, ctx: Context) -> bool:
         return self.id == "B"
 
     def compute_reward(self, ctx: Context) -> float:
@@ -60,10 +60,11 @@ def test_n_agents(gym_env):
 
 
 def test_reset(gym_env):
-    obs = gym_env.reset()
+    obs, info = gym_env.reset()
 
     assert gym_env.current_step == 0
     assert obs == 1.0
+    assert info == {}
 
     assert gym_env._observations == {
         "A": 1.0,
@@ -82,7 +83,7 @@ def test_step(gym_env):
 
     assert gym_env.current_step == current_time + 1
 
-    assert step == (1.0, 0.0, False, {})
+    assert step == (1.0, 0.0, False, False, {})
 
     assert gym_env.agents["A"].last_action == 3.0
     assert gym_env.agents["B"].last_action == 2.0

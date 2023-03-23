@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from market_agents import Price, Order, BuyerAgent, SellerAgent
 import numpy as np
 import phantom as ph
-from gym.spaces import Box
+from gymnasium.spaces import Box
 
 
 # Message Payloads

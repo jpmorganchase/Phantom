@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pytest
 
