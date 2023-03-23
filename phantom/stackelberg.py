@@ -1,5 +1,7 @@
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
+import gymnasium as gym
+
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -69,7 +71,7 @@ class StackelbergEnv(PhantomEnv):
         """
         logger.log_reset()
 
-        super().reset(seed=seed, options=options)
+        gym.Env.reset(self, seed=seed, options=options)
 
         # Reset the clock
         self._current_step = 0
