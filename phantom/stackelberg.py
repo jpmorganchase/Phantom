@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from .env import PhantomEnv
 from .network import Network
@@ -38,28 +38,38 @@ class StackelbergEnv(PhantomEnv):
 
         # Validate leader and follower agent ID lists
         for aid in leader_agents + follower_agents:
-            assert aid in network.agent_ids
+            assert aid in network.agent_ids, f"Agent '{aid}' not in network"
 
         for aid in leader_agents:
-            assert aid not in follower_agents
+            assert aid not in follower_agents, f"Agent '{aid}' not in network"
 
         self.leader_agents = leader_agents
         self.follower_agents = follower_agents
 
         self._rewards: Dict[AgentID, Optional[float]] = {}
 
-    def reset(self) -> Dict[AgentID, Any]:
+    def reset(
+        self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Dict[AgentID, Any], Dict[str, Any]]:
         """
         Reset the environment and return initial observations from the leader agents.
 
         This method resets the step count and the :attr:`network`. This includes all the
         agents in the network.
 
+        Args:
+            seed: An optional seed to use for the new episode.
+            options : Additional information to specify how the environment is reset.
+
         Returns:
-            A dictionary mapping AgentIDs to observations made by the respective
+            - A dictionary mapping Agent IDs to observations made by the respective
             agents. It is not required for all agents to make an initial observation.
+            - A dictionary with auxillary information, equivalent to the info dictionary
+                in `env.step()`.
         """
         logger.log_reset()
+
+        super().reset(seed=seed, options=options)
 
         # Reset the clock
         self._current_step = 0
@@ -94,7 +104,7 @@ class StackelbergEnv(PhantomEnv):
 
         logger.log_observations(obs)
 
-        return {k: v for k, v in obs.items() if v is not None}
+        return {k: v for k, v in obs.items() if v is not None}, {}
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
