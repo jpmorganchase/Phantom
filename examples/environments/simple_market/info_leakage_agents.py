@@ -32,7 +32,7 @@ class MaybeSneakySeller(SellerAgent):
         self.observation_space = Box(np.array([0, 0, 0]), np.array([np.Inf, 1, 1]))
 
     def encode_observation(self, ctx):
-        obs = np.array([self.current_tx, ctx["ENV"].avg_price, self.victims_price])
+        obs = np.array([self.current_tx, ctx.env_view.avg_price, self.victims_price])
         self.current_tx = 0
         return obs
 

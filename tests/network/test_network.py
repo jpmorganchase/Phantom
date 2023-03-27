@@ -35,6 +35,23 @@ class MockAgent(Agent):
             return [(message.sender_id, MockMessage(message.payload.cash / 2.0))]
 
 
+def test_init():
+    # 1
+    net = Network([MockAgent("a1"), MockAgent("a2")])
+    net.add_connection("a1", "a2")
+
+    # 2
+    Network([MockAgent("a1"), MockAgent("a2")], connections=[("a1", "a2")])
+
+
+def test_bad_init():
+    with pytest.raises(ValueError):
+        Network([MockAgent("a1"), MockAgent("a1")])
+
+    with pytest.raises(ValueError):
+        Network([MockAgent("a1")], connections=[("a1", "a2")])
+
+
 @pytest.fixture
 def net() -> Network:
     net = Network([MockAgent("mm"), MockAgent("inv"), MockAgent("inv2")])

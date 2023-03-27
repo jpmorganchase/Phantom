@@ -43,6 +43,7 @@ class Network:
         agents: Optional list of agents to add to the network.
         resolver: Optional custom resolver to use, by default will use the BatchResolver
             with a `round_limit` of 2.
+        connections: Optional initial list of connections to create in the network.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
 
@@ -52,12 +53,11 @@ class Network:
         graph: Directed graph modelling the connections between agents.
     """
 
-    RESERVED_AGENT_IDS = ["ENV"]
-
     def __init__(
         self,
-        agents: Optional[List[Agent]] = None,
+        agents: Optional[Iterable[Agent]] = None,
         resolver: Optional[Resolver] = None,
+        connections: Optional[Iterable[Tuple[AgentID, AgentID]]] = None,
         ignore_connection_errors: bool = False,
     ) -> None:
         self.graph = nx.DiGraph()
@@ -67,6 +67,10 @@ class Network:
 
         if agents is not None:
             self.add_agents(agents)
+
+        if connections is not None:
+            for connection in connections:
+                self.add_connection(*connection)
 
     @property
     def agent_ids(self) -> KeysView[AgentID]:
@@ -79,10 +83,8 @@ class Network:
         Arguments:
             agent: The new agent instance type to be added.
         """
-        if agent.id in self.RESERVED_AGENT_IDS:
-            raise ValueError(
-                f"Cannot add agent with ID = '{agent.id}' as this name is reserved."
-            )
+        if agent.id in self.agent_ids:
+            raise ValueError(f"Agent with ID = '{agent.id}' already exists.")
 
         self.agents[agent.id] = agent
 
@@ -104,6 +106,12 @@ class Network:
             u: One agent's ID.
             v: The other agent's ID.
         """
+        if u not in self.agent_ids:
+            raise ValueError(f"Agent with ID = '{u}' does not exist.")
+
+        if v not in self.agent_ids:
+            raise ValueError(f"Agent with ID = '{v}' does not exist.")
+
         self.graph.add_edge(u, v)
         self.graph.add_edge(v, u)
 
@@ -296,6 +304,7 @@ class StochasticNetwork(Network):
         agents: Optional list of agents to add to the network.
         resolver: Optional custom resolver to use, by default will use the BatchResolver
             with a `round_limit` of 2.
+        connections: Optional initial list of connections to create in the network.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
 
@@ -307,11 +316,12 @@ class StochasticNetwork(Network):
 
     def __init__(
         self,
-        agents: Optional[List[Agent]] = None,
+        agents: Optional[Iterable[Agent]] = None,
         resolver: Optional[Resolver] = None,
+        connections: Optional[Iterable[Tuple[AgentID, AgentID]]] = None,
         ignore_connection_errors: bool = False,
     ) -> None:
-        super().__init__(agents, resolver, ignore_connection_errors)
+        super().__init__(agents, resolver, connections, ignore_connection_errors)
 
         self._base_connections: List[Tuple[AgentID, AgentID, float]] = []
 
