@@ -7,7 +7,6 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
-    Union,
 )
 
 import gymnasium as gym

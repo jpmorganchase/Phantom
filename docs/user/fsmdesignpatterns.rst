@@ -102,7 +102,7 @@ function (that would compute the choice of next stage).
             ]
 
             network = ph.Network(agents)
-            
+
             stages = [
                 ph.FSMStage(
                     stage_id="Stage 1",

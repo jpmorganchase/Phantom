@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import os
 from datetime import datetime
 from pathlib import Path

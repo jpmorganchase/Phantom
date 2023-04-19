@@ -1,6 +1,7 @@
+# ruff: noqa: E731
 from functools import reduce
 from operator import mul
-from typing import Any, Dict, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple, Type
 
 import gymnasium as gym
 import numpy as np

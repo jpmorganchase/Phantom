@@ -5,7 +5,7 @@ RLlib Utilities
 
 The following tools are for training and evaluating policies with RLlib. The tools take
 care of a lot of boilerplate tasks such as finding the newest results directories and
-checkpoints and also more Phantom specific tasks such as populating supertypes with 
+checkpoints and also more Phantom specific tasks such as populating supertypes with
 Samplers and Ranges.
 
 

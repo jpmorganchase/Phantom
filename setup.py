@@ -30,9 +30,9 @@ def _get_requirements():
         encoding="utf-8",
     ) as requirements_file:
         requirements = [
-            l.strip()
-            for l in requirements_file.readlines()
-            if not (l.strip().startswith("#") or l.strip().startswith("-"))
+            line.strip()
+            for line in requirements_file.readlines()
+            if not (line.strip().startswith("#") or line.strip().startswith("-"))
         ]
     return requirements
 

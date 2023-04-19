@@ -34,7 +34,7 @@ def test_chained_decoder():
 
     cd2 = d1.chain(d2)
 
-    packet = cd2.decode(None, [None, None])
+    cd2.decode(None, [None, None])
 
     assert messages == [("RECIPIENT", "FROM 1"), ("RECIPIENT", "FROM 2")]
 

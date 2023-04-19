@@ -1,8 +1,6 @@
 import pytest
 
 from phantom.utils.samplers import (
-    NormalArraySampler,
-    NormalSampler,
     UniformArraySampler,
     UniformFloatSampler,
     UniformIntSampler,
@@ -57,8 +55,7 @@ def test_iterable():
     sampler3 = UniformFloatSampler()
     sampler3._value = 0.5
 
-    l = [sampler1, sampler2]
-    assert not sampler3 in l
+    assert sampler3 not in [sampler1, sampler2]
 
 
 def test_lambda_sampler():
