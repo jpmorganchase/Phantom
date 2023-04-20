@@ -9,7 +9,7 @@ declare the fields we want to be general over. During training, for each episode
 randomly sample a value from a distribution for each parameter. During rollouts we can
 then explore the full sample space.
 
-Below is an example demonstrating what can be acheived: 
+Below is an example demonstrating what can be acheived:
 
 .. code-block:: python
 
@@ -54,7 +54,7 @@ Initialising supertypes in this scenario can be done in one of two ways. The fir
 passing in a Supertype instance:
 
 .. code-block:: python
-    
+
     ph.utils.rllib.train(
         ...
         env_config={
@@ -73,7 +73,7 @@ The second is to pass in a dict that is used to populate the supertype, this rel
 the agent that the supertype is intended for having a Supertype sub class defined in it:
 
 .. code-block:: python
-    
+
     ph.utils.rllib.train(
         ...
         env_config={
@@ -96,7 +96,7 @@ function:
 
 
 .. code-block:: python
-    
+
     ph.utils.rllib.rollout(
         ...
         agent_supertypes={

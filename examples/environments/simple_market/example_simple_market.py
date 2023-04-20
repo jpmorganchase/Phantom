@@ -1,5 +1,4 @@
 import phantom as ph
-from phantom.utils.rollout import Step
 from phantom.utils.samplers import UniformFloatSampler
 
 from base_policy import BuyerPolicy, SellerPolicy

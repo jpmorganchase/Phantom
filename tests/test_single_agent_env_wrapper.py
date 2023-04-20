@@ -7,9 +7,6 @@ from phantom import Context, Network, PhantomEnv, Policy, SingleAgentEnvAdapter
 
 
 class MockAgent(ph.StrategicAgent):
-    def decode_action(self, ctx: Context, action: np.ndarray):
-        return []
-
     def is_terminated(self, ctx: Context) -> bool:
         return self.id == "B"
 

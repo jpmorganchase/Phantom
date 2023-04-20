@@ -99,7 +99,7 @@ def test_env_supertype_in_env_1():
 
     assert set(env._samplers) == set([s1])
 
-    assert env.env_type == None
+    assert env.env_type is None
     assert env.env_supertype == MockEnv.Supertype(s1)
 
     # sampler sampled 2nd time
@@ -119,7 +119,7 @@ def test_env_supertype_in_env_2():
 
     assert set(env._samplers) == set([s1])
 
-    assert env.env_type == None
+    assert env.env_type is None
     assert env.env_supertype == env_supertype
 
     # sampler sampled 2nd time
