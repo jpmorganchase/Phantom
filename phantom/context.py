@@ -34,10 +34,7 @@ class Context:
         return list(self.agent_views.keys())
 
     def __getitem__(self, view_id: str) -> Any:
-        if view_id == "ENV":
-            return self.env_view
-
         return self.agent_views[view_id]
 
     def __contains__(self, view_id: str) -> bool:
-        return view_id == "ENV" or view_id in self.agent_views
+        return view_id in self.agent_views

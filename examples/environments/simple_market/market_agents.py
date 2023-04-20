@@ -109,7 +109,7 @@ class SellerAgent(ph.StrategicAgent):
         return [(nid, Price(action)) for nid in ctx.neighbour_ids]
 
     def encode_observation(self, ctx):
-        obs = np.array([self.current_tx, ctx["ENV"].avg_price])
+        obs = np.array([self.current_tx, ctx.env_view.avg_price])
         self.current_tx = 0
         return obs
 
