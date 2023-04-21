@@ -60,6 +60,7 @@ Before the merge is made the following should be done:
   and the date.
 - The version should be updated in the following files:
   - `phantom/__init__.py`
+  - `pyproject.toml`
 
 After the merge is made the following should then be done:
 
