@@ -83,8 +83,10 @@ class LambdaMetric(Metric, Generic[MetricValue]):
 
     Arguments:
         extract_fn: Function to extract the metric value from the environment.
-        reduce_fn: Function to reduce a set of observations into a single representative
-            value.
+        train_reduce_fn: Function to reduce a set of observations into a single
+            representative value during training.
+        eval_reduce_fn: Function to reduce a set of observations into a single
+            representative value during evaluation.
         fsm_stages: Optional list of FSM stages to filter metric recording on. If None
             is given metrics will be recorded on all stages when used with an FSM Env.
             If a list of FSM stages is given, the metric will only be recorded when the
@@ -95,14 +97,14 @@ class LambdaMetric(Metric, Generic[MetricValue]):
     def __init__(
         self,
         extract_fn: Callable[[PhantomEnv], MetricValue],
-        reduce_fn: Callable[
-            [Sequence[MetricValue], Literal["train", "evaluate"]], MetricValue
-        ],
+        train_reduce_fn: Callable[[Sequence[MetricValue]], MetricValue],
+        eval_reduce_fn: Callable[[Sequence[MetricValue]], MetricValue],
         fsm_stages: Optional[Sequence[FSMStage]] = None,
         description: Optional[str] = None,
     ) -> None:
         self.extract_fn = extract_fn
-        self.reduce_fn = reduce_fn
+        self.train_reduce_fn = train_reduce_fn
+        self.eval_reduce_fn = eval_reduce_fn
         self.fsm_stages = fsm_stages
         self.description = description
 
@@ -125,7 +127,12 @@ class LambdaMetric(Metric, Generic[MetricValue]):
             values: Set of observations to reduce.
             mode: Whether the metric is being recorded during training or evaluation.
         """
-        return self.reduce_fn(values, mode)
+        if mode == "train":
+            return self.train_reduce_fn(values)
+        elif mode == "evaluate":
+            return self.eval_reduce_fn(values)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
 
 
 SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
