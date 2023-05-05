@@ -1,7 +1,6 @@
 .DEFAULT_GOAL	:=help
 
 MODULE			:=phantom
-MYPY_CONF		:=mypy.ini
 
 PYTHON			:=python3
 PYTEST			:=$(PYTHON) -m pytest
@@ -27,7 +26,7 @@ cov:  ## Run the tests with coverage
 	$(PYTEST) tests --cov-report term-missing:skip-covered --cov=${MODULE}
 
 check:  ## Check the types
-	$(MYPY) --config-file ${MYPY_CONF} ${MODULE}
+	$(MYPY) ${MODULE}
 
 format:  ## Format the code
 	$(BLACK) ${MODULE} tests
