@@ -1,41 +1,49 @@
 .DEFAULT_GOAL	:=help
 
-MERCURY			:=mercury
-PHANTOM			:=phantom
+MODULE			:=phantom
 
-install-deps-mercury:
-	cd $(MERCURY) && make install-deps && cd ..
+PYTHON			:=python3
+PYTEST			:=$(PYTHON) -m pytest
+MYPY			:=$(PYTHON) -m mypy
+PIP				:=$(PYTHON) -m pip
+BLACK			:=$(PYTHON) -m black
+SPHINXBUILD     :=$(PYTHON) -m sphinx
 
-install-deps-phantom:
-	cd $(PHANTOM) && make install-deps && cd ..
 
-install-deps: install-deps-mercury install-deps-phantom ## Install dependencies
+install-deps:  ## Install dependencies
+	$(PIP) install -r requirements.txt
 
-install-mercury:
-	cd $(MERCURY) && make install && cd ..
+install-dev-deps:  ## Install dev dependencies
+	$(PIP) install -r requirements-dev.txt
 
-install-phantom:
-	cd $(PHANTOM) && make install && cd ..
+install: ## Install the package
+	$(PIP) install .
 
-install: install-mercury install-phantom ## Install phantom
+test:  ## Run the tests
+	$(PYTEST) tests
 
-test-mercury:
-	cd $(MERCURY) && make test && cd ..
+cov:  ## Run the tests with coverage
+	$(PYTEST) tests --cov-report term-missing:skip-covered --cov=${MODULE}
 
-test-phantom:
-	cd $(PHANTOM) && make test && cd ..
+check:  ## Check the types
+	$(MYPY) ${MODULE}
 
-test: test-mercury test-phantom ## Run the tests
+format:  ## Format the code
+	$(BLACK) ${MODULE} tests
 
-format-mercury:
-	cd $(MERCURY) && make format && cd ..
+dev:  ## Build the package in develop mode
+	$(PIP) install --editable .
 
-format-phantom:
-	cd $(PHANTOM) && make format && cd ..
+build-docs:  ## Build the documentation
+	@$(SPHINXBUILD) -M html "docs/" "docs/_build"
 
-format: format-mercury format-phantom  ## Format the code
+host-docs:  ## Host the documentation locally
+	@$(PYTHON) -m http.server --directory docs/_build/html
+
+clean:  ## Clean the worspace
+	rm -rf $(MODULE).egg-info/ .pytest_cache/ .mypy_cache/
 
 help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage:\n  make \033[36m\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "    \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-.PHONY: install test format help
+.PHONY: check test clean help

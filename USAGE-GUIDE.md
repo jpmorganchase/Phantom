@@ -1,6 +1,6 @@
 # Usage Guide
 
-See the `README.md` files for instructions on how to install Phantom/Mercury and their
+See the `README.md` files for instructions on how to install Phantom and its
 dependencies.
 
 
@@ -29,4 +29,4 @@ without any breakages to your code.
 
 A future version 2.0.0 of Phantom may not be backwards compatible with version 1.4.0.
 Upgrading to this version may introduce breaking API changes. These will be documented
-in the release notes along with instructions on how to update your code. 
+in the release notes along with instructions on how to update your code.
