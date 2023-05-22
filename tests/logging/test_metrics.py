@@ -226,3 +226,22 @@ def test_nested_metric():
 
     env.step()
     assert metric.extract(env) == 1.0
+
+
+def test_lambda_metric():
+    env = MockEnv()
+
+    metric = ph.metrics.LambdaMetric(
+        extract_fn=lambda env: env.test_property,
+        train_reduce_fn=lambda values: np.sum(values),
+        eval_reduce_fn=lambda values: np.sum(values) * 2,
+    )
+
+    values = []
+
+    for _ in range(5):
+        env.step()
+        values.append(metric.extract(env))
+
+    assert metric.reduce(values, mode="train") == 15.0
+    assert metric.reduce(values, mode="evaluate") == 30.0

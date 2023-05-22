@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABC
 from functools import reduce
 from typing import (
+    Callable,
     DefaultDict,
     Dict,
     Generic,
@@ -74,6 +75,64 @@ class Metric(Generic[MetricValue], ABC):
             mode: Whether the metric is being recorded during training or evaluation.
         """
         return values[-1]
+
+
+class LambdaMetric(Metric, Generic[MetricValue]):
+    """Class for extracting metrics from a :class:`phantom.PhantomEnv` instance with a
+    provided extraction function.
+
+    Arguments:
+        extract_fn: Function to extract the metric value from the environment.
+        train_reduce_fn: Function to reduce a set of observations into a single
+            representative value during training.
+        eval_reduce_fn: Function to reduce a set of observations into a single
+            representative value during evaluation.
+        fsm_stages: Optional list of FSM stages to filter metric recording on. If None
+            is given metrics will be recorded on all stages when used with an FSM Env.
+            If a list of FSM stages is given, the metric will only be recorded when the
+            Env is in these stages, otherwise a None value will be recorded.
+        description: Optional description string for use in data exploration tools.
+    """
+
+    def __init__(
+        self,
+        extract_fn: Callable[[PhantomEnv], MetricValue],
+        train_reduce_fn: Callable[[Sequence[MetricValue]], MetricValue],
+        eval_reduce_fn: Callable[[Sequence[MetricValue]], MetricValue],
+        fsm_stages: Optional[Sequence[FSMStage]] = None,
+        description: Optional[str] = None,
+    ) -> None:
+        self.extract_fn = extract_fn
+        self.train_reduce_fn = train_reduce_fn
+        self.eval_reduce_fn = eval_reduce_fn
+        self.fsm_stages = fsm_stages
+        self.description = description
+
+    def extract(self, env: PhantomEnv) -> MetricValue:
+        """Extract and return the current metric value from `env`.
+
+        Arguments:
+            env: The environment instance.
+        """
+        return self.extract_fn(env)
+
+    def reduce(
+        self, values: Sequence[MetricValue], mode: Literal["train", "evaluate"]
+    ) -> MetricValue:
+        """Reduce a set of observations into a single representative value.
+
+        The default implementation is to return the latest observation.
+
+        Arguments:
+            values: Set of observations to reduce.
+            mode: Whether the metric is being recorded during training or evaluation.
+        """
+        if mode == "train":
+            return self.train_reduce_fn(values)
+        elif mode == "evaluate":
+            return self.eval_reduce_fn(values)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
 
 
 SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
