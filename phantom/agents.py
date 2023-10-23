@@ -72,14 +72,11 @@ class Agent(ABC):
 
         self.supertype = supertype
 
-        # This ensures that a supertype is sampled from and hence a type value is always
-        # set on the agent to prevent 'Agent.type is undefined' type errors.
-        Agent.reset(self)
-
         for name in dir(self):
-            attr = getattr(self, name)
-            if callable(attr) and hasattr(attr, "_message_type"):
-                self.__handlers[attr._message_type].append(getattr(self, name))
+            if name not in ["observation_space", "action_space"]:
+                attr = getattr(self, name)
+                if callable(attr) and hasattr(attr, "_message_type"):
+                    self.__handlers[attr._message_type].append(getattr(self, name))
 
     @property
     def id(self) -> AgentID:

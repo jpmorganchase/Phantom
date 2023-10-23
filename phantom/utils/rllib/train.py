@@ -114,6 +114,8 @@ def train(
     """
     show_pythonhashseed_warning()
 
+    iterations = int(iterations)
+
     assert iterations > 0, "'iterations' parameter must be > 0"
 
     if num_workers is not None:
