@@ -113,31 +113,29 @@ making use of the modularity of Phantom.
 Next we define message payload classes for each type of message. This helps to enforce
 the type of information that is sent between agents and can help reduce bugs in complex
 environments. The message payload classes are frozen, or immutable, which means once
-created they cannot be modified in transport.
+created they cannot be modified in transport. Adding the optional ``sender`` and
+``receiver`` parameter to the decorator allows us to enforce that messages are sent
+between agents of these types.
 
 .. code-block:: python
 
-    @dataclass(frozen=True)
-    class OrderRequest(ph.MsgPayload):
-        """Customer --> Shop"""
+    @ph.msg_payload(sender="CustomerAgent", receiver="ShopAgent")
+    class OrderRequest:
         size: int
 
 
-    @dataclass(frozen=True)
-    class OrderResponse(ph.MsgPayload):
-        """Shop --> Customer"""
+    @ph.msg_payload(sender="ShopAgent", receiver="CustomerAgent")
+    class OrderResponse:
         size: int
 
 
-    @dataclass(frozen=True)
-    class StockRequest(ph.MsgPayload):
-        """Shop --> Factory"""
+    @ph.msg_payload(sender="ShopAgent", receiver="FactoryAgent")
+    class StockRequest:
         size: int
 
 
-    @dataclass(frozen=True)
-    class StockResponse(ph.MsgPayload):
-        """Factory --> Shop"""
+    @ph.msg_payload(sender="FactoryAgent", receiver="ShopAgent")
+    class StockResponse:
         size: int
 
 Next, for each of our agent types we define a new Python class that encapsulates all the

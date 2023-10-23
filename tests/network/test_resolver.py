@@ -1,24 +1,23 @@
 import time
-from dataclasses import dataclass
 from typing import List, Tuple
 
 import pytest
 
 from phantom import AgentID, Context, Network
 from phantom.agents import msg_handler, Agent
-from phantom.message import MsgPayload
+from phantom.message import MsgPayload, msg_payload
 from phantom.network import NetworkError
 from phantom.resolvers import BatchResolver
 from phantom.views import EnvView
 
 
-@dataclass(frozen=True)
-class Request(MsgPayload):
+@msg_payload()
+class Request:
     cash: float
 
 
-@dataclass(frozen=True)
-class Response(MsgPayload):
+@msg_payload()
+class Response:
     cash: float
 
 
@@ -108,7 +107,7 @@ def test_invalid_response_connection():
     )
     n.add_connection("A", "B")
 
-    n.send("A", "B", True)
+    n.send("A", "B", Request(0.0))
 
     with pytest.raises(NetworkError):
         n.resolve({aid: n.context_for(aid, EnvView(0, 0.0)) for aid in n.agents})
