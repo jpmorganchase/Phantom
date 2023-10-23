@@ -112,15 +112,13 @@ email to [open_source@jpmorgan.com](mailto:open_source@jpmorgan.com).
 Find the paper on Arxiv [Phantom -- An RL-driven framework for agent-based modeling of complex economic systems and markets](https://arxiv.org/abs/2210.06012) or use the following BibTeX:
 
 ```
-@misc{https://doi.org/10.48550/arxiv.2210.06012,
-  doi = {10.48550/ARXIV.2210.06012},
-  url = {https://arxiv.org/abs/2210.06012},
-  author = {Ardon, Leo and Vann, Jared and Garg, Deepeka and Spooner, Tom and Ganesh, Sumitra},
-  keywords = {Artificial Intelligence (cs.AI), Multiagent Systems (cs.MA), FOS: Computer and information sciences, FOS: Computer and information sciences},
-  title = {Phantom -- An RL-driven framework for agent-based modeling of complex economic systems and markets},
-  publisher = {arXiv},
-  year = {2022},
-  copyright = {arXiv.org perpetual, non-exclusive license}
+@inproceedings{ardon2023phantom,
+  title={Phantom-A RL-driven Multi-Agent Framework to Model Complex Systems},
+  author={Ardon, Leo and Vann, Jared and Garg, Deepeka and Spooner, Thomas and Ganesh, Sumitra},
+  booktitle={Proceedings of the 2023 International Conference on Autonomous Agents and Multiagent Systems},
+  pages={2742--2744},
+  year={2023},
+  keywords = {Artificial Intelligence, Multiagent Systems, Reinforcement Learning}
 }
 ```
 
