@@ -334,6 +334,8 @@ class StochasticNetwork(Network):
         connections: Optional initial list of connections to create in the network.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
+        enforce_msg_payload_checks: If True will ensure that accepted agent types given
+            with the `@msg_payload` decorator are enforced.
 
     Attributes:
         agents: Mapping between IDs and the corresponding agents in the
@@ -347,8 +349,15 @@ class StochasticNetwork(Network):
         resolver: Optional[Resolver] = None,
         connections: Optional[Iterable[Tuple[AgentID, AgentID]]] = None,
         ignore_connection_errors: bool = False,
+        enforce_msg_payload_checks: bool = True,
     ) -> None:
-        super().__init__(agents, resolver, connections, ignore_connection_errors)
+        super().__init__(
+            agents,
+            resolver,
+            connections,
+            ignore_connection_errors,
+            enforce_msg_payload_checks,
+        )
 
         self._base_connections: List[Tuple[AgentID, AgentID, float]] = []
 
