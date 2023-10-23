@@ -2,7 +2,5 @@ cloudpickle>=3.0
 ray[rllib]==2.7.1
 rich>=13.0
 tensorboardX>=2.6
-# RLlib requires this (https://github.com/ray-project/ray/pull/31331):
-# tensorflow_probability
 torch>=2.0
 termcolor>=2.0
