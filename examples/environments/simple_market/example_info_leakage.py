@@ -8,7 +8,7 @@ from market_agents import BuyerSupertype, BuyerAgent, SellerAgent
 
 
 def rollout(env):
-    observations = env.reset()
+    observations, _ = env.reset()
     rewards = {}
 
     while env.current_step < env.num_steps:
@@ -31,7 +31,9 @@ def rollout(env):
         print("\nactions:")
         print(actions)
 
-        observations, rewards, _, _ = env.step(actions)
+        step = env.step(actions)
+        observations = step.observations
+        rewards = step.rewards
 
 
 if __name__ == "__main__":
