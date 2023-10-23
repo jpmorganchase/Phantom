@@ -6,8 +6,8 @@ def test_payload_1():
     class MockPayload:
         value: float = 0.0
 
-    assert MockPayload._sender_types == None
-    assert MockPayload._receiver_types == None
+    assert MockPayload._sender_types is None
+    assert MockPayload._receiver_types is None
 
 
 def test_payload_2():

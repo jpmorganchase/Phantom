@@ -1,5 +1,4 @@
 import sys
-from dataclasses import dataclass
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
