@@ -729,12 +729,12 @@ if __name__ == "__main__":
             }
         )
 
-        # sport companies have a bigger budget
+        # tech companies have a bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.ranges.LinspaceRange(
-                        7.0, 17.0, n=11, name="sport_budget"
+                        7.0, 17.0, n=11, name="tech_budget"
                     )
                 )
                 for i in range(
@@ -744,12 +744,12 @@ if __name__ == "__main__":
             }
         )
 
-        # tech companies have the bigger budget
+        # sport companies have the bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.ranges.LinspaceRange(
-                        10.0, 20.0, n=11, name="tech_budget"
+                        10.0, 20.0, n=11, name="sport_budget"
                     )
                 )
                 for i in range(
@@ -819,7 +819,7 @@ if __name__ == "__main__":
             }
         )
 
-        # sport companies have a bigger budget
+        # tech companies have a bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
@@ -834,7 +834,7 @@ if __name__ == "__main__":
             }
         )
 
-        # tech companies have the bigger budget
+        # sport companies have the bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
