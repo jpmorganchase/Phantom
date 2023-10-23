@@ -558,6 +558,7 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         network = ph.StochasticNetwork(
             actors,
             ph.resolvers.BatchResolver(round_limit=5),
+            ignore_connection_errors=True
         )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
