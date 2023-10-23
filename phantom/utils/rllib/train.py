@@ -223,8 +223,6 @@ def train(
         .build()
     )
 
-    ray.init(ignore_reinit_error=True)
-
     with rich_progress("Training...") as progress:
         for i in progress.track(range(iterations)):
             result = algo.train()
@@ -260,7 +258,8 @@ def train(
                     cloudpickle.dump(config, f)
 
             if checkpoint_freq is not None and i % checkpoint_freq == 0:
-                algo.save()
+                checkpoint_path = Path(algo.logdir, f"checkpoint_{str(i).zfill(6)}")
+                algo.save(checkpoint_path)
 
     print(f"Logs & checkpoints saved to: {algo.logdir}")
 
