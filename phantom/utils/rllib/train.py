@@ -59,6 +59,7 @@ def train(
     num_workers: Optional[int] = None,
     env_config: Optional[Mapping[str, Any]] = None,
     rllib_config: Optional[Mapping[str, Any]] = None,
+    ray_config: Optional[Mapping[str, Any]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_dir: str = ray.tune.result.DEFAULT_RESULTS_DIR,
     show_training_metrics: bool = False,
@@ -79,6 +80,7 @@ def train(
         num_workers: Number of Ray rollout workers to use (defaults to 'NUM CPU - 1').
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
+        ray_config: Optional algorithm parameters dictionary to pass to ``ray.init()``.
         metrics: Optional set of metrics to record and log.
         results_dir: A custom results directory, default is ~/ray_results/
         show_training_metrics: Set to True to print training metrics every iteration.
@@ -127,7 +129,7 @@ def train(
 
     check_env_config(env_config)
 
-    ray.init(ignore_reinit_error=True)
+    ray.init(ignore_reinit_error=True, **(ray_config or {}))
 
     env = env_class(**env_config)
     env.reset()
