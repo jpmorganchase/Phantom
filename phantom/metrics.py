@@ -135,7 +135,7 @@ class LambdaMetric(Metric, Generic[MetricValue]):
             raise ValueError(f"Unknown mode: {mode}")
 
 
-SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
+SimpleMetricValue = TypeVar("SimpleMetricValue", int, float, NotRecorded)
 
 
 class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
@@ -166,16 +166,14 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
     def reduce(
         self, values: Sequence[SimpleMetricValue], mode: Literal["train", "evaluate"]
     ) -> SimpleMetricValue:
+        values = [v for v in values if v is not not_recorded]
+
         reduce_action = (
             self.train_reduce_action if mode == "train" else self.eval_reduce_action
         )
 
         if reduce_action == "none":
             return np.array(values)
-
-        if self.fsm_stages is not None:
-            values = [v for v in values if v is not not_recorded]
-
         if reduce_action == "last":
             return values[-1] if len(values) > 0 else None
         if reduce_action == "mean":
