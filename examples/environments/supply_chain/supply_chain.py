@@ -1,5 +1,4 @@
 import sys
-from dataclasses import dataclass
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -14,31 +13,23 @@ CUSTOMER_MAX_ORDER_SIZE = 5
 SHOP_MAX_STOCK = 100
 
 
-@dataclass(frozen=True)
-class OrderRequest(ph.MsgPayload):
-    """Customer --> Shop"""
-
+@ph.msg_payload("CustomerAgent", "ShopAgent")
+class OrderRequest:
     size: int
 
 
-@dataclass(frozen=True)
-class OrderResponse(ph.MsgPayload):
-    """Shop --> Customer"""
-
+@ph.msg_payload("ShopAgent", "CustomerAgent")
+class OrderResponse:
     size: int
 
 
-@dataclass(frozen=True)
-class StockRequest(ph.MsgPayload):
-    """Shop --> Factory"""
-
+@ph.msg_payload("ShopAgent", "FactoryAgent")
+class StockRequest:
     size: int
 
 
-@dataclass(frozen=True)
-class StockResponse(ph.MsgPayload):
-    """Factory --> Shop"""
-
+@ph.msg_payload("FactoryAgent", "ShopAgent")
+class StockResponse:
     size: int
 
 

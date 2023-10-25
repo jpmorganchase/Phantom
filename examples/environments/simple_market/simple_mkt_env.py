@@ -8,7 +8,7 @@ from market_agents import BuyerAgent, SellerAgent
 
 class SimpleMarketEnv(ph.FiniteStateMachineEnv):
     @dataclass(frozen=True)
-    class View(ph.EnvView):
+    class View(ph.fsm.FSMEnvView):
         avg_price: float
 
     def __init__(self, num_steps, network):
@@ -44,7 +44,7 @@ class SimpleMarketEnv(ph.FiniteStateMachineEnv):
         super().__init__(num_steps, network, stages=stages, initial_stage="Sellers")
 
     def view(self, neighbour_id=None) -> "SimpleMarketEnv.View":
-        return self.View(avg_price=self.avg_price)
+        return self.View(avg_price=self.avg_price, **super().view({}).__dict__)
 
     def post_message_resolution(self):
         super().post_message_resolution()

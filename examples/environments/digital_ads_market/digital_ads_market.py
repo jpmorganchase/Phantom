@@ -25,8 +25,8 @@ logger.setLevel(LOG_LEVEL)
 # that will be sent between agents
 
 
-@dataclass(frozen=True)
-class ImpressionRequest(ph.MsgPayload):
+@ph.msg_payload()
+class ImpressionRequest:
     """
     The message indicating that a user  is visiting a website and might be
     interested in an advertisement offer
@@ -53,8 +53,8 @@ class ImpressionRequest(ph.MsgPayload):
         )
 
 
-@dataclass(frozen=True)
-class Bid(ph.MsgPayload):
+@ph.msg_payload()
+class Bid:
     """
     The message sent by the advertiser to the exchange
     to win the impression
@@ -72,8 +72,8 @@ class Bid(ph.MsgPayload):
     user_id: int
 
 
-@dataclass(frozen=True)
-class AuctionResult(ph.MsgPayload):
+@ph.msg_payload()
+class AuctionResult:
     """
     The message sent by the exchange to the advertiser
     to inform her of the auction's result
@@ -89,8 +89,8 @@ class AuctionResult(ph.MsgPayload):
     winning_bid: float
 
 
-@dataclass(frozen=True)
-class Ads(ph.MsgPayload):
+@ph.msg_payload()
+class Ads:
     """
     The message sent by an advertisers containing the ads to show to the user.
     For simplicity, it only contains a theme.
@@ -108,8 +108,8 @@ class Ads(ph.MsgPayload):
     user_id: int
 
 
-@dataclass(frozen=True)
-class ImpressionResult(ph.MsgPayload):
+@ph.msg_payload()
+class ImpressionResult:
     """
     The result of the ad display. i.e whether or not the user clicked
     on the ad
@@ -160,24 +160,8 @@ class PublisherAgent(ph.Agent):
         self.exchange_id = exchange_id
         self.user_click_proba = user_click_proba or self._USER_CLICK_PROBABILITIES
 
-        self.observation_space = gym.spaces.Box(
-            low=np.array([0]), high=np.array([0]), dtype=np.float64
-        )
-
-        self.action_space = gym.spaces.Box(
-            low=np.array([0]), high=np.array([0]), dtype=np.float64
-        )
-
-    def encode_observation(self, _ctx: ph.Context):
-        """Dummy observation to trigger the action"""
-        return np.array([0], dtype=np.float64)
-
-    def decode_action(self, ctx: ph.Context, action: np.ndarray):
+    def generate_messages(self, ctx: ph.Context):
         return [(self.exchange_id, ImpressionRequest.generate_random())]
-
-    def compute_reward(self, _ctx: ph.Context) -> float:
-        """Dummy reward"""
-        return 0.0
 
     @ph.agents.msg_handler(Ads)
     def handle_ads(self, _ctx: ph.Context, msg: ph.Message):
@@ -419,7 +403,7 @@ class AdExchangeAgent(ph.Agent):
         advertiser needs to access the information explicitely via the `ctx`
         object if it wants to use it.
         """
-        if neighbour_id.startswith("ADV"):
+        if neighbour_id and neighbour_id.startswith("ADV"):
             return self.AdExchangeView(
                 users_info={
                     1: {"age": 18, "zipcode": 94025},
@@ -572,7 +556,9 @@ class DigitalAdsEnv(ph.FiniteStateMachineEnv):
         # Building the network defining all the actors and connecting them
         actors = [exchange_agent, publisher_agent] + advertiser_agents
         network = ph.StochasticNetwork(
-            actors, ph.resolvers.BatchResolver(round_limit=5), True
+            actors,
+            ph.resolvers.BatchResolver(round_limit=5),
+            ignore_connection_errors=True,
         )
         network.add_connections_between([self.exchange_id], [self.publisher_id])
         network.add_connections_between([self.exchange_id], self.advertiser_ids)
@@ -618,7 +604,7 @@ class AdvertiserBidUser(ph.metrics.Metric[float]):
             return env[self.agent_id].bid
         return np.nan
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode=None) -> float:
         """@override
         The default logic returns the last step value,
         here we are interested in the average bid value
@@ -642,7 +628,7 @@ class AdvertiserAverageHitRatioUser(ph.metrics.Metric[float]):
             )
         return np.nan
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode=None) -> float:
         """@override
         The default logic returns the last step value,
         here we are interested in the average bid value
@@ -666,7 +652,7 @@ class AdvertiserAverageWinProbaUser(ph.metrics.Metric[float]):
             )
         return np.nan
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode=None) -> float:
         """@override
         The default logic returns the last step value,
         here we are interested in the average bid value
@@ -682,7 +668,7 @@ class AdvertiserTotalRequests(ph.metrics.Metric[float]):
     def extract(self, env: ph.PhantomEnv) -> float:
         return env[self.agent_id].total_requests[self.user_id]
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode=None) -> float:
         return values[-1]
 
 
@@ -694,7 +680,7 @@ class AdvertiserTotalWins(ph.metrics.Metric[float]):
     def extract(self, env: ph.PhantomEnv) -> float:
         return env[self.agent_id].total_wins[self.user_id]
 
-    def reduce(self, values) -> float:
+    def reduce(self, values, mode=None) -> float:
         return values[-1]
 
 
@@ -743,12 +729,12 @@ if __name__ == "__main__":
             }
         )
 
-        # sport companies have a bigger budget
+        # tech companies have a bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.ranges.LinspaceRange(
-                        7.0, 17.0, n=11, name="sport_budget"
+                        7.0, 17.0, n=11, name="tech_budget"
                     )
                 )
                 for i in range(
@@ -758,12 +744,12 @@ if __name__ == "__main__":
             }
         )
 
-        # tech companies have the bigger budget
+        # sport companies have the bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
                     budget=ph.utils.ranges.LinspaceRange(
-                        10.0, 20.0, n=11, name="tech_budget"
+                        10.0, 20.0, n=11, name="sport_budget"
                     )
                 )
                 for i in range(
@@ -819,7 +805,6 @@ if __name__ == "__main__":
                 )
             ],
         }
-        policies["publisher"] = (PublisherPolicy, PublisherAgent)
 
         agent_supertypes = {}
         # travel agency (i.e. agent 1 and 5) have a rather limited budget
@@ -834,7 +819,7 @@ if __name__ == "__main__":
             }
         )
 
-        # sport companies have a bigger budget
+        # tech companies have a bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
@@ -849,7 +834,7 @@ if __name__ == "__main__":
             }
         )
 
-        # tech companies have the bigger budget
+        # sport companies have the bigger budget
         agent_supertypes.update(
             {
                 f"ADV_{i}": AdvertiserAgent.Supertype(
@@ -883,7 +868,7 @@ if __name__ == "__main__":
                     "sport": NUM_SPORT_ADVERTISERS,
                 },
             },
-            iterations=1e4,
+            iterations=500,
             checkpoint_freq=50,
             rllib_config={
                 "seed": 0,

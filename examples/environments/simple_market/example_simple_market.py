@@ -26,7 +26,7 @@ network.add_connections_between(["b1", "b2", "b3"], ["s1", "s2"])
 env = SimpleMarketEnv(num_steps=10, network=network)
 
 # Run
-observations = env.reset()
+observations, _ = env.reset()
 rewards = {}
 infos = {}
 
@@ -52,4 +52,7 @@ while env.current_step < env.num_steps:
     print("\nactions:")
     print(actions)
 
-    observations, rewards, _, infos = env.step(actions)
+    step = env.step(actions)
+    observations = step.observations
+    rewards = step.rewards
+    infos = step.infos

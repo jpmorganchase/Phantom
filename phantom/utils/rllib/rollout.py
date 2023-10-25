@@ -56,6 +56,7 @@ def rollout(
     record_messages: bool = False,
     show_progress_bar: bool = True,
     policy_inference_batch_size: int = 1,
+    explore: bool = False,
 ) -> Generator[Rollout, None, None]:
     """Performs rollouts for a previously trained Phantom experiment.
 
@@ -87,6 +88,7 @@ def rollout(
             rollouts will be recorded. Only applies if `save_trajectories` is also True.
         show_progress_bar: If True shows a progress bar in the terminal output.
         policy_inference_batch_size: Number of policy inferences to perform in one go.
+        explore: If True, trained policies will be sampled from in exploration mode.
 
     Returns:
         A Generator of Rollouts.
@@ -195,6 +197,7 @@ def rollout(
             ph_config["policy_specs"],
             custom_policy_mapping,
             policy_inference_batch_size,
+            explore,
             metrics,
             record_messages,
         )
@@ -227,6 +230,7 @@ def rollout(
                 ph_config["policy_specs"],
                 custom_policy_mapping,
                 policy_inference_batch_size,
+                explore,
                 metrics,
                 record_messages,
             )
@@ -254,6 +258,7 @@ def _rollout_task_fn(
     policy_specs,
     custom_policy_mapping: CustomPolicyMapping,
     policy_inference_batch_size: int,
+    explore: bool,
     metric_objects: Optional[Mapping[str, Metric]] = None,
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
@@ -306,11 +311,13 @@ def _rollout_task_fn(
             }
 
             for agent_id, vec_agent_obs in dict_observations.items():
+                # Fixed policies:
                 if agent_id in initted_policy_mapping:
                     actions[agent_id] = [
                         initted_policy_mapping[agent_id].compute_action(agent_obs)
                         for agent_obs in vec_agent_obs
                     ]
+                # RLlib policies:
                 else:
                     policy_id = config.policy_mapping_fn(agent_id, 0, 0)
 
@@ -329,7 +336,7 @@ def _rollout_task_fn(
                     processed_obs = [preprocessor.transform(ob) for ob in vec_agent_obs]
 
                     squashed_actions = policy.compute_actions(
-                        processed_obs, explore=False
+                        processed_obs, explore=explore
                     )[0]
 
                     actions[agent_id] = [
