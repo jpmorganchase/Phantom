@@ -25,8 +25,8 @@ logger.setLevel(LOG_LEVEL)
 # that will be sent between agents
 
 
-@dataclass(frozen=True)
-class ImpressionRequest(ph.MsgPayload):
+@ph.msg_payload()
+class ImpressionRequest:
     """
     The message indicating that a user  is visiting a website and might be
     interested in an advertisement offer
@@ -53,8 +53,8 @@ class ImpressionRequest(ph.MsgPayload):
         )
 
 
-@dataclass(frozen=True)
-class Bid(ph.MsgPayload):
+@ph.msg_payload()
+class Bid:
     """
     The message sent by the advertiser to the exchange
     to win the impression
@@ -72,8 +72,8 @@ class Bid(ph.MsgPayload):
     user_id: int
 
 
-@dataclass(frozen=True)
-class AuctionResult(ph.MsgPayload):
+@ph.msg_payload()
+class AuctionResult:
     """
     The message sent by the exchange to the advertiser
     to inform her of the auction's result
@@ -89,8 +89,8 @@ class AuctionResult(ph.MsgPayload):
     winning_bid: float
 
 
-@dataclass(frozen=True)
-class Ads(ph.MsgPayload):
+@ph.msg_payload()
+class Ads:
     """
     The message sent by an advertisers containing the ads to show to the user.
     For simplicity, it only contains a theme.
@@ -108,8 +108,8 @@ class Ads(ph.MsgPayload):
     user_id: int
 
 
-@dataclass(frozen=True)
-class ImpressionResult(ph.MsgPayload):
+@ph.msg_payload()
+class ImpressionResult:
     """
     The result of the ad display. i.e whether or not the user clicked
     on the ad

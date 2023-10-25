@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import List, Tuple
 
 import numpy as np
@@ -6,13 +5,13 @@ import pytest
 
 from phantom import AgentID, Context
 from phantom.agents import msg_handler, Agent
-from phantom.message import MsgPayload
+from phantom.message import MsgPayload, msg_payload
 from phantom.network import Network, NetworkError
 from phantom.views import EnvView
 
 
-@dataclass(frozen=True)
-class MockMessage(MsgPayload):
+@msg_payload()
+class MockMessage:
     cash: float
 
 

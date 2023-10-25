@@ -46,6 +46,8 @@ class Network:
         connections: Optional initial list of connections to create in the network.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
+        enforce_msg_payload_checks: If True will ensure that accepted agent types given
+            with the `@msg_payload` decorator are enforced.
 
     Attributes:
         agents: Mapping between IDs and the corresponding agents in the
@@ -59,11 +61,13 @@ class Network:
         resolver: Optional[Resolver] = None,
         connections: Optional[Iterable[Tuple[AgentID, AgentID]]] = None,
         ignore_connection_errors: bool = False,
+        enforce_msg_payload_checks: bool = True,
     ) -> None:
         self.graph = nx.DiGraph()
         self.agents: Dict[AgentID, Agent] = {}
         self.resolver = resolver or BatchResolver()
         self.ignore_connection_errors = ignore_connection_errors
+        self.enforce_msg_payload_checks = enforce_msg_payload_checks
 
         if agents is not None:
             self.add_agents(agents)
@@ -236,13 +240,13 @@ class Network:
             receiver_id: The receiver ID.
             payload: The contents of the message.
         """
-        if (
-            not self.has_edge(sender_id, receiver_id)
-            and not self.ignore_connection_errors
+        if not self.ignore_connection_errors and not self.has_edge(
+            sender_id, receiver_id
         ):
-            raise NetworkError(
-                f"No connection between {self.agents[sender_id]} and {self.agents[receiver_id]}."
-            )
+            raise NetworkError(f"No connection between {sender_id} and {receiver_id}.")
+
+        if self.enforce_msg_payload_checks:
+            self._enforce_payload_checks(sender_id, receiver_id, payload)
 
         self.resolver.push(Message(sender_id, receiver_id, payload))
 
@@ -287,6 +291,33 @@ class Network:
         """
         return self.get_agents_where(lambda a: not isinstance(a, agent_type))
 
+    def _enforce_payload_checks(self, sender_id, receiver_id, payload):
+        """Internal method."""
+        if not hasattr(payload, "_sender_types") or not hasattr(
+            payload, "_receiver_types"
+        ):
+            raise NetworkError(
+                f"Message payloads sent across the network must use the 'msg_payload' decorator (bad payload = '{payload}')"
+            )
+
+        sender, receiver = self.agents[sender_id], self.agents[receiver_id]
+
+        if (
+            payload._sender_types is not None
+            and sender.__class__.__name__ not in payload._sender_types
+        ):
+            raise NetworkError(
+                f"Message payload of type '{payload.__class__.__name__}' cannot be sent by agent with type '{sender.__class__.__name__:}' (expected one of {payload._sender_types})"
+            )
+
+        if (
+            payload._receiver_types is not None
+            and receiver.__class__.__name__ not in payload._receiver_types
+        ):
+            raise NetworkError(
+                f"Message payload of type '{payload.__class__.__name__}' cannot be received by agent with type '{receiver.__class__.__name__:}' (expected one of {payload._receiver_types})"
+            )
+
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.agents[agent_id]
 
@@ -307,6 +338,8 @@ class StochasticNetwork(Network):
         connections: Optional initial list of connections to create in the network.
         ignore_connection_errors: If True will not raise errors if an attempt is made
             to send a message along an non-existant connection.
+        enforce_msg_payload_checks: If True will ensure that accepted agent types given
+            with the `@msg_payload` decorator are enforced.
 
     Attributes:
         agents: Mapping between IDs and the corresponding agents in the
@@ -320,8 +353,15 @@ class StochasticNetwork(Network):
         resolver: Optional[Resolver] = None,
         connections: Optional[Iterable[Tuple[AgentID, AgentID]]] = None,
         ignore_connection_errors: bool = False,
+        enforce_msg_payload_checks: bool = True,
     ) -> None:
-        super().__init__(agents, resolver, connections, ignore_connection_errors)
+        super().__init__(
+            agents,
+            resolver,
+            connections,
+            ignore_connection_errors,
+            enforce_msg_payload_checks,
+        )
 
         self._base_connections: List[Tuple[AgentID, AgentID, float]] = []
 

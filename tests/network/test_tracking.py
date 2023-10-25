@@ -1,9 +1,8 @@
-from dataclasses import dataclass
 from typing import List, Tuple
 
 from phantom import AgentID, Context, Network, Message
 from phantom.agents import msg_handler, Agent
-from phantom.message import MsgPayload
+from phantom.message import msg_payload
 from phantom.resolvers import BatchResolver
 from phantom.views import EnvView
 
@@ -13,8 +12,8 @@ class MockEnv:
         return None
 
 
-@dataclass(frozen=True)
-class _TestMessage(MsgPayload):
+@msg_payload()
+class _TestMessage:
     value: int
 
 

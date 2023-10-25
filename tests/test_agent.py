@@ -31,13 +31,13 @@ def test_reset():
     agent.reset()
 
 
-@dataclass(frozen=True)
-class MockPayload1(ph.MsgPayload):
+@ph.msg_payload()
+class MockPayload1:
     value: float = 0.0
 
 
-@dataclass(frozen=True)
-class MockPayload2(ph.MsgPayload):
+@ph.msg_payload()
+class MockPayload2:
     value: float = 0.0
 
 
