@@ -868,7 +868,7 @@ if __name__ == "__main__":
                     "sport": NUM_SPORT_ADVERTISERS,
                 },
             },
-            iterations=1e4,
+            iterations=500,
             checkpoint_freq=50,
             rllib_config={
                 "seed": 0,
