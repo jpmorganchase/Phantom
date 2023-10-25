@@ -1,4 +1,4 @@
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from . import decoders, encoders, fsm, metrics, resolvers, reward_functions
 from .agents import Agent, StrategicAgent

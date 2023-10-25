@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 2.1.0 (2023-10-25)
+
+- Update many dependencies to newer versions, including ray==2.7.1 and pytorch>=2.0.
+- Add option to strictly enforce which agents can send and receive specific payload
+types.
+- Bring digital-ads-market and simple-market example environments up to date.
+- Add policy 'explore' parameter to rollout function when using RLlib.
+- Loosen requirement on some samplers to allow high == low input parameters.
+- Allow ray.init() configuration in training.
+
+
 ## Version 2.0.0 (2023-05-22)
 
 **Major rewrite of Phantom - this version contains many backward incompatible changes.**
