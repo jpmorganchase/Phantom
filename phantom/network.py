@@ -246,30 +246,7 @@ class Network:
             raise NetworkError(f"No connection between {sender_id} and {receiver_id}.")
 
         if self.enforce_msg_payload_checks:
-            if not hasattr(payload, "_sender_types") or not hasattr(
-                payload, "_receiver_types"
-            ):
-                raise NetworkError(
-                    f"Message payloads sent across the network must use the 'msg_payload' decorator (bad payload = '{payload}')"
-                )
-
-            sender, receiver = self.agents[sender_id], self.agents[receiver_id]
-
-            if (
-                payload._sender_types is not None
-                and sender.__class__.__name__ not in payload._sender_types
-            ):
-                raise NetworkError(
-                    f"Message payload of type '{payload.__class__.__name__}' cannot be sent by agent with type '{sender.__class__.__name__:}' (expected one of {payload._sender_types})"
-                )
-
-            if (
-                payload._receiver_types is not None
-                and receiver.__class__.__name__ not in payload._receiver_types
-            ):
-                raise NetworkError(
-                    f"Message payload of type '{payload.__class__.__name__}' cannot be received by agent with type '{receiver.__class__.__name__:}' (expected one of {payload._receiver_types})"
-                )
+            self._enforce_payload_checks(sender_id, receiver_id, payload)
 
         self.resolver.push(Message(sender_id, receiver_id, payload))
 
@@ -313,6 +290,33 @@ class Network:
             agent_type: The class type of agents you want to exclude.
         """
         return self.get_agents_where(lambda a: not isinstance(a, agent_type))
+
+    def _enforce_payload_checks(self, sender_id, receiver_id, payload):
+        """Internal method."""
+        if not hasattr(payload, "_sender_types") or not hasattr(
+            payload, "_receiver_types"
+        ):
+            raise NetworkError(
+                f"Message payloads sent across the network must use the 'msg_payload' decorator (bad payload = '{payload}')"
+            )
+
+        sender, receiver = self.agents[sender_id], self.agents[receiver_id]
+
+        if (
+            payload._sender_types is not None
+            and sender.__class__.__name__ not in payload._sender_types
+        ):
+            raise NetworkError(
+                f"Message payload of type '{payload.__class__.__name__}' cannot be sent by agent with type '{sender.__class__.__name__:}' (expected one of {payload._sender_types})"
+            )
+
+        if (
+            payload._receiver_types is not None
+            and receiver.__class__.__name__ not in payload._receiver_types
+        ):
+            raise NetworkError(
+                f"Message payload of type '{payload.__class__.__name__}' cannot be received by agent with type '{receiver.__class__.__name__:}' (expected one of {payload._receiver_types})"
+            )
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.agents[agent_id]
