@@ -1,7 +1,8 @@
+import numpy as np
 import phantom as ph
 import pytest
 
-from . import MockAgent, MockStrategicAgent
+from . import MockAgent, MockStackedAgentEnv, MockStrategicAgent
 
 
 @pytest.fixture
@@ -105,3 +106,34 @@ def test_step(phantom_env):
 
     assert step.terminations == {"B": False, "__all__": False}
     assert step.truncations == {"B": False, "__all__": True}
+
+
+def test_stacked_agent_step():
+    env = MockStackedAgentEnv()
+
+    ids = ["a1"]
+    ids += [f"__stacked__{i}__a2" for i in range(2)]
+    ids += [f"__stacked__{i}__a3" for i in range(4)]
+
+    ids = set(ids)
+
+    obs, _ = env.reset()
+
+    assert set(obs.keys()) == ids
+
+    step = env.step({aid: np.array([0]) for aid in ids})
+
+    assert set(step.observations.keys()) == ids
+    assert set(step.rewards.keys()) == ids
+    assert set(step.infos.keys()) == ids
+
+    assert set(step.terminations) == ids.union(set(["__all__"]))
+    assert set(step.truncations) == ids.union(set(["__all__"]))
+
+    assert all(x == False for x in step.terminations.values())
+    assert all(x == False for x in step.truncations.values())
+
+    step = env.step({aid: np.array([0]) for aid in ids})
+
+    assert all(step.terminations.values())
+    assert all(step.truncations.values())

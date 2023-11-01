@@ -176,6 +176,9 @@ def train(
             policy_mapping[agent_id] = policy_name
 
     def policy_mapping_fn(agent_id, *args, **kwargs):
+        if agent_id.startswith("__stacked__"):
+            agent_id = agent_id[11:].split("__", 1)[1]
+
         return policy_mapping[agent_id]
 
     ray.tune.registry.register_env(

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import (
     Any,
     Dict,
@@ -228,13 +229,17 @@ class PhantomEnv(gym.Env):
 
         # Generate initial observations for agents taking actions
         obs = {
-            ctx.agent.id: ctx.agent.encode_observation(ctx)
-            for ctx in self._ctxs.values()
+            aid: ctx.agent.encode_observation(ctx) for aid, ctx in self._ctxs.items()
         }
 
         logger.log_observations(obs)
 
-        return {k: v for k, v in obs.items() if v is not None}, {}
+        unbatched_obs = {}
+
+        for aid, obs in obs.items():
+            unbatched_obs.update(self._unbatch_obs(aid, obs))
+
+        return {k: v for k, v in unbatched_obs.items() if v is not None}, {}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
         """
@@ -278,18 +283,41 @@ class PhantomEnv(gym.Env):
 
             obs = ctx.agent.encode_observation(ctx)
             if obs is not None:
-                observations[aid] = obs
-                infos[aid] = ctx.agent.collect_infos(ctx)
-                rewards[aid] = ctx.agent.compute_reward(ctx)
+                infos2 = ctx.agent.collect_infos(ctx)
+                rewards2 = ctx.agent.compute_reward(ctx)
 
-            terminations[aid] = ctx.agent.is_terminated(ctx)
-            truncations[aid] = ctx.agent.is_truncated(ctx)
+                unbatched_obs = self._unbatch_obs(aid, obs)
 
-            if terminations[aid]:
-                self._terminations.add(aid)
+                observations.update(unbatched_obs)
 
-            if truncations[aid]:
-                self._truncations.add(aid)
+                is_terminated = ctx.agent.is_terminated(ctx)
+                is_truncated = ctx.agent.is_truncated(ctx)
+
+                if len(unbatched_obs) == 1:
+                    infos[aid] = infos2
+                    rewards[aid] = (
+                        rewards2[0] if isinstance(rewards2, list) else rewards2
+                    )
+                    terminations[aid] = is_terminated
+                    truncations[aid] = is_truncated
+                else:
+                    if len(rewards2) != len(unbatched_obs):
+                        raise ValueError(
+                            f"Length of rewards list returned from batched agent ('{aid}') step does not match length of observations list ({len(rewards2)} vs. {len(unbatched_obs)})"
+                        )
+
+                    for i in range(len(unbatched_obs)):
+                        aid2 = f"__stacked__{i}__{ctx.agent.id}"
+                        infos[aid2] = infos2
+                        rewards[aid2] = rewards2[i]
+                        terminations[aid2] = is_terminated
+                        truncations[aid2] = is_truncated
+
+                if is_terminated:
+                    self._terminations.add(aid)
+
+                if is_truncated:
+                    self._truncations.add(aid)
 
         logger.log_step_values(observations, rewards, terminations, truncations, infos)
         logger.log_metrics(self)
@@ -321,6 +349,13 @@ class PhantomEnv(gym.Env):
         self, agent_ids: Sequence[AgentID], actions: Mapping[AgentID, Any]
     ) -> None:
         """Internal method."""
+        stacked_ids = defaultdict(list)
+
+        for aid in actions.keys():
+            if aid.startswith("__stacked__"):
+                i, aid = aid[11:].split("__", 1)
+                stacked_ids[aid].append(int(i))
+
         for aid in agent_ids:
             if aid in self._terminations or aid in self._truncations:
                 continue
@@ -328,6 +363,12 @@ class PhantomEnv(gym.Env):
             ctx = self._ctxs[aid]
 
             if aid in actions:
+                if aid in stacked_ids:
+                    actions[aid] = [
+                        actions[f"__stacked__{idx}__{aid}"]
+                        for idx in sorted(stacked_ids[aid])
+                    ]
+
                 messages = ctx.agent.decode_action(ctx, actions[aid]) or []
             else:
                 messages = ctx.agent.generate_messages(ctx) or []
@@ -346,6 +387,28 @@ class PhantomEnv(gym.Env):
             for aid in agent_ids
             if aid not in self._terminations and aid not in self._truncations
         }
+
+    def _unbatch_obs(self, aid: AgentID, obs: Any) -> Dict[str, Any]:
+        """Internal method."""
+        observations = {aid: obs}
+
+        if isinstance(obs, list):
+            obs_space = self.agents[aid].observation_space
+            if not obs_space.contains(obs):
+                if obs_space.contains(obs[0]):
+                    if len(obs) == 1:
+                        observations[aid] = obs[0]
+                    else:
+                        for i, ob in enumerate(obs):
+                            observations[f"__stacked__{i}__{aid}"] = ob
+
+                        del observations[aid]
+                else:
+                    raise ValueError(
+                        f"Detected batched observations but with wrong shape, expected: {obs_space}, got: {obs[0]} with dtype={obs[0].dtype}"
+                    )
+
+        return observations
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]
