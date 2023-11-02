@@ -202,6 +202,15 @@ class PhantomEnv(gym.Env):
             - A dictionary with auxillary information, equivalent to the info dictionary
                 in `env.step()`.
         """
+        return self._reset(self.strategic_agent_ids)
+
+    def _reset(
+        self,
+        acting_agents: List[AgentID],
+        seed: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Dict[AgentID, Any], Dict[str, Any]]:
+        """Internal method."""
         logger.log_reset()
 
         super().reset(seed=seed, options=options)
@@ -225,7 +234,7 @@ class PhantomEnv(gym.Env):
         self._truncations = set()
 
         # Generate all contexts for agents taking actions
-        self._make_ctxs(self.strategic_agent_ids)
+        self._make_ctxs(acting_agents)
 
         # Generate initial observations for agents taking actions
         obs = {

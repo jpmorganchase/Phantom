@@ -207,44 +207,14 @@ class FiniteStateMachineEnv(PhantomEnv):
             - An optional dictionary with auxillary information, equivalent to the info
             dictionary in `env.step()`.
         """
-        logger.log_reset()
-
-        # Reset the clock and stage
-        self._current_step = 0
-        self._current_stage = self.initial_stage
-
-        # Generate initial sampled values in samplers
-        for sampler in self._samplers:
-            sampler.sample()
-
-        if self.env_supertype is not None:
-            self.env_type = self.env_supertype.sample()
-
-        # Reset the network and call reset method on all agents in the network.
-        self.network.reset()
-
-        # Reset the agents' done statuses stored by the environment
-        self._terminations = set()
-        self._truncations = set()
-
         # Set initial null reward values
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
-        # Generate all contexts for agents taking actions
         acting_agents = self._stages[self.current_stage].acting_agents
-        self._make_ctxs(
+
+        return self._reset(
             [aid for aid in acting_agents if aid in self.strategic_agent_ids]
         )
-
-        # Generate initial observations for agents taking actions
-        obs = {
-            ctx.agent.id: ctx.agent.encode_observation(ctx)
-            for ctx in self._ctxs.values()
-        }
-
-        logger.log_observations(obs)
-
-        return {k: v for k, v in obs.items() if v is not None}, {}
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
