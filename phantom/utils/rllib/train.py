@@ -220,12 +220,18 @@ def train(
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
-    algo = (
+    config_obj = (
         ray.tune.registry.get_trainable_cls(algorithm)
         .get_default_config()
         .from_dict(config)
-        .build()
     )
+
+    # Temporary fix to allow current custom model interfaces until RLlib's RLModule
+    # becomes stable.
+    config_obj.rl_module(_enable_rl_module_api=False)
+    config_obj.training(_enable_learner_api=False)
+
+    algo = config_obj.build()
 
     with rich_progress("Training...") as progress:
         for i in progress.track(range(iterations)):
