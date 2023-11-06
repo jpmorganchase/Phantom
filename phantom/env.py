@@ -202,15 +202,6 @@ class PhantomEnv(gym.Env):
             - A dictionary with auxillary information, equivalent to the info dictionary
                 in `env.step()`.
         """
-        return self._reset(self.strategic_agent_ids)
-
-    def _reset(
-        self,
-        acting_agents: List[AgentID],
-        seed: Optional[int] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Dict[AgentID, Any], Dict[str, Any]]:
-        """Internal method."""
         logger.log_reset()
 
         super().reset(seed=seed, options=options)
@@ -234,7 +225,7 @@ class PhantomEnv(gym.Env):
         self._truncations = set()
 
         # Generate all contexts for agents taking actions
-        self._make_ctxs(acting_agents)
+        self._make_ctxs(self._acting_agents)
 
         # Generate initial observations for agents taking actions
         obs = {
@@ -262,6 +253,21 @@ class PhantomEnv(gym.Env):
             A :class:`PhantomEnv.Step` object containing observations, rewards,
             terminations, truncations and infos.
         """
+        self._step_1(actions)
+
+        self.resolve_network()
+
+        observations, rewards, terminations, truncations, infos = self._step_2(
+            self.strategic_agent_ids, self.strategic_agent_ids
+        )
+
+        if terminations["__all__"] or truncations["__all__"]:
+            logger.log_episode_done()
+
+        return self.Step(observations, rewards, terminations, truncations, infos)
+
+    def _step_1(self, actions: Mapping[AgentID, Any]):
+        """Internal method."""
         # Increment the clock
         self._current_step += 1
 
@@ -273,91 +279,6 @@ class PhantomEnv(gym.Env):
         self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
-        self._handle_acting_agents(self.agent_ids, actions)
-
-        # Resolve the messages on the network and perform mutations:
-        self.resolve_network()
-
-        observations: Dict[AgentID, Any] = {}
-        rewards: Dict[AgentID, Any] = {}
-        terminations: Dict[AgentID, bool] = {}
-        truncations: Dict[AgentID, bool] = {}
-        infos: Dict[AgentID, Dict[str, Any]] = {}
-
-        for aid in self.strategic_agent_ids:
-            if aid in self._terminations or aid in self._truncations:
-                continue
-
-            ctx = self._ctxs[aid]
-
-            obs = ctx.agent.encode_observation(ctx)
-            if obs is not None:
-                infos2 = ctx.agent.collect_infos(ctx)
-                rewards2 = ctx.agent.compute_reward(ctx)
-
-                unbatched_obs = self._unbatch_obs(aid, obs)
-
-                observations.update(unbatched_obs)
-
-                is_terminated = ctx.agent.is_terminated(ctx)
-                is_truncated = ctx.agent.is_truncated(ctx)
-
-                if len(unbatched_obs) == 1:
-                    infos[aid] = infos2
-                    rewards[aid] = (
-                        rewards2[0] if isinstance(rewards2, list) else rewards2
-                    )
-                    terminations[aid] = is_terminated
-                    truncations[aid] = is_truncated
-                else:
-                    if len(rewards2) != len(unbatched_obs):
-                        raise ValueError(
-                            f"Length of rewards list returned from batched agent ('{aid}') step does not match length of observations list ({len(rewards2)} vs. {len(unbatched_obs)})"
-                        )
-
-                    for i in range(len(unbatched_obs)):
-                        aid2 = f"__stacked__{i}__{ctx.agent.id}"
-                        infos[aid2] = infos2
-                        rewards[aid2] = rewards2[i]
-                        terminations[aid2] = is_terminated
-                        truncations[aid2] = is_truncated
-
-                if is_terminated:
-                    self._terminations.add(aid)
-
-                if is_truncated:
-                    self._truncations.add(aid)
-
-        logger.log_step_values(observations, rewards, terminations, truncations, infos)
-        logger.log_metrics(self)
-
-        terminations["__all__"] = self.is_terminated()
-        truncations["__all__"] = self.is_truncated()
-
-        if terminations["__all__"] or truncations["__all__"]:
-            logger.log_episode_done()
-
-        return self.Step(observations, rewards, terminations, truncations, infos)
-
-    def render(self) -> None:
-        return None
-
-    def is_terminated(self) -> bool:
-        """Implements the logic to decide when the episode is terminated."""
-        return len(self._terminations) == len(self.strategic_agents)
-
-    def is_truncated(self) -> bool:
-        """Implements the logic to decide when the episode is truncated."""
-        is_at_max_step = (
-            self.num_steps is not None and self.current_step == self.num_steps
-        )
-
-        return is_at_max_step or len(self._truncations) == len(self.strategic_agents)
-
-    def _handle_acting_agents(
-        self, agent_ids: Sequence[AgentID], actions: Mapping[AgentID, Any]
-    ) -> None:
-        """Internal method."""
         stacked_ids = defaultdict(list)
 
         for aid in actions.keys():
@@ -365,7 +286,7 @@ class PhantomEnv(gym.Env):
                 i, aid = aid[11:].split("__", 1)
                 stacked_ids[aid].append(int(i))
 
-        for aid in agent_ids:
+        for aid in self.agents:
             if aid in self._terminations or aid in self._truncations:
                 continue
 
@@ -384,6 +305,89 @@ class PhantomEnv(gym.Env):
 
             for receiver_id, message in messages:
                 self.network.send(aid, receiver_id, message)
+
+    def _step_2(self, observing_agents: List[AgentID], rewarded_agents: List[AgentID]):
+        """Internal method."""
+        observations: Dict[AgentID, Any] = {}
+        rewards: Dict[AgentID, Any] = {}
+        terminations: Dict[AgentID, bool] = {}
+        truncations: Dict[AgentID, bool] = {}
+        infos: Dict[AgentID, Dict[str, Any]] = {}
+
+        for aid in self.strategic_agent_ids:
+            if aid in self._terminations or aid in self._truncations:
+                continue
+
+            ctx = self._ctxs[aid]
+
+            if aid in observing_agents:
+                obs = ctx.agent.encode_observation(ctx)
+
+                if obs is not None:
+                    infos2 = ctx.agent.collect_infos(ctx)
+                    unbatched_obs = self._unbatch_obs(aid, obs)
+                    observations.update(unbatched_obs)
+
+                    if len(unbatched_obs) == 1:
+                        infos[aid] = infos2
+                    else:
+                        infos.update(
+                            {
+                                f"__stacked__{i}__{aid}": infos2
+                                for i in range(len(unbatched_obs))
+                            }
+                        )
+
+            if aid in rewarded_agents:
+                rewards2 = ctx.agent.compute_reward(ctx)
+
+                if isinstance(rewards2, (float, int)):
+                    rewards[aid] = rewards2
+                elif len(rewards2) == 1:
+                    rewards[aid] = rewards2[0]
+                else:
+                    rewards.update(
+                        {f"__stacked__{i}__{aid}": r for i, r in enumerate(rewards2)}
+                    )
+
+            is_terminated = ctx.agent.is_terminated(ctx)
+            is_truncated = ctx.agent.is_truncated(ctx)
+
+            terminations[aid] = is_terminated
+            truncations[aid] = is_truncated
+
+            if is_terminated:
+                self._terminations.add(aid)
+
+            if is_truncated:
+                self._truncations.add(aid)
+
+        terminations["__all__"] = self.is_terminated()
+        truncations["__all__"] = self.is_truncated()
+
+        logger.log_step_values(observations, rewards, terminations, truncations, infos)
+        logger.log_metrics(self)
+
+        return (observations, rewards, terminations, truncations, infos)
+
+    def render(self) -> None:
+        return None
+
+    def is_terminated(self) -> bool:
+        """Implements the logic to decide when the episode is terminated."""
+        return len(self._terminations) == len(self.strategic_agents)
+
+    def is_truncated(self) -> bool:
+        """Implements the logic to decide when the episode is truncated."""
+        is_at_max_step = (
+            self.num_steps is not None and self.current_step == self.num_steps
+        )
+
+        return is_at_max_step or len(self._truncations) == len(self.strategic_agents)
+
+    @property
+    def _acting_agents(self) -> Sequence[AgentID]:
+        return self.strategic_agent_ids
 
     def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> None:
         """Internal method."""

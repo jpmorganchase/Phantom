@@ -134,16 +134,17 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Register stages via FSMStage decorator
         for attr_name in dir(self):
-            attr = getattr(self, attr_name)
-            if callable(attr):
-                handler_fn = attr
-                if hasattr(handler_fn, "_decorator"):
-                    if handler_fn._decorator.id in self._stages:
-                        raise FSMValidationError(
-                            f"Found multiple stages with ID '{handler_fn._decorator.id}'"
-                        )
+            if attr_name != "_acting_agents":
+                attr = getattr(self, attr_name)
+                if callable(attr):
+                    handler_fn = attr
+                    if hasattr(handler_fn, "_decorator"):
+                        if handler_fn._decorator.id in self._stages:
+                            raise FSMValidationError(
+                                f"Found multiple stages with ID '{handler_fn._decorator.id}'"
+                            )
 
-                    self._stages[handler_fn._decorator.id] = handler_fn._decorator
+                        self._stages[handler_fn._decorator.id] = handler_fn._decorator
 
         # Check there is at least one stage
         if len(self._stages) == 0:
@@ -210,11 +211,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         # Set initial null reward values
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
-        acting_agents = self._stages[self.current_stage].acting_agents
-
-        return self._reset(
-            [aid for aid in acting_agents if aid in self.strategic_agent_ids]
-        )
+        return super().reset()
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
@@ -228,19 +225,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             A :class:`PhantomEnv.Step` object containing observations, rewards,
             terminations, truncations and infos.
         """
-        # Increment the clock
-        self._current_step += 1
-
-        logger.log_step(self.current_step, self.num_steps)
-        logger.log_actions(actions)
-        logger.log_start_decoding_actions()
-
-        # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
-
-        # Decode action/generate messages for agents and send to the network
-        acting_agents = self._stages[self.current_stage].acting_agents
-        self._handle_acting_agents(acting_agents, actions)
+        self._step_1(actions)
 
         env_handler = self._stages[self.current_stage].handler
 
@@ -285,32 +270,9 @@ class FiniteStateMachineEnv(PhantomEnv):
             rewarded_agents = self._stages[self.current_stage].rewarded_agents
             next_acting_agents = self._stages[next_stage].acting_agents
 
-        for aid in self.strategic_agent_ids:
-            if aid in self._terminations or aid in self._truncations:
-                continue
-
-            ctx = self._ctxs[aid]
-
-            if aid in next_acting_agents:
-                obs = ctx.agent.encode_observation(ctx)
-                if obs is not None:
-                    observations[aid] = obs
-                    infos[aid] = ctx.agent.collect_infos(ctx)
-
-            if aid in rewarded_agents:
-                rewards[aid] = ctx.agent.compute_reward(ctx)
-
-            terminations[aid] = ctx.agent.is_terminated(ctx)
-            truncations[aid] = ctx.agent.is_truncated(ctx)
-
-            if terminations[aid]:
-                self._terminations.add(aid)
-
-            if truncations[aid]:
-                self._truncations.add(aid)
-
-        logger.log_step_values(observations, rewards, terminations, truncations, infos)
-        logger.log_metrics(self)
+        observations, rewards, terminations, truncations, infos = self._step_2(
+            next_acting_agents, rewarded_agents
+        )
 
         self._observations.update(observations)
         self._rewards.update(rewards)
@@ -319,9 +281,6 @@ class FiniteStateMachineEnv(PhantomEnv):
         logger.log_fsm_transition(self.current_stage, next_stage)
 
         self.previous_stage, self._current_stage = self.current_stage, next_stage
-
-        terminations["__all__"] = self.is_terminated()
-        truncations["__all__"] = self.is_truncated()
 
         if (
             self.current_stage is None
@@ -344,3 +303,11 @@ class FiniteStateMachineEnv(PhantomEnv):
         rewards = {aid: self._rewards[aid] for aid in observations}
 
         return self.Step(observations, rewards, terminations, truncations, infos)
+
+    @property
+    def _acting_agents(self) -> Sequence[AgentID]:
+        return [
+            aid
+            for aid in self._stages[self.current_stage].acting_agents
+            if aid in self.strategic_agent_ids
+        ]

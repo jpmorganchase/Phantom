@@ -127,8 +127,8 @@ def test_stacked_agent_step():
     assert set(step.rewards.keys()) == ids
     assert set(step.infos.keys()) == ids
 
-    assert set(step.terminations) == ids.union(set(["__all__"]))
-    assert set(step.truncations) == ids.union(set(["__all__"]))
+    assert set(step.terminations) == set(["__all__", "a1", "a2", "a3"])
+    assert set(step.truncations) == set(["__all__", "a1", "a2", "a3"])
 
     assert all(x == False for x in step.terminations.values())
     assert all(x == False for x in step.truncations.values())
