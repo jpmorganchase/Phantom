@@ -167,7 +167,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Check stages without handler have exactly one next stage
         for stage in self._stages.values():
-            if len(stage.next_stages) != 1:
+            if len(stage.next_stages) != 1 and stage.handler is None:
                 raise FSMValidationError(
                     f"Stage '{stage.id}' without handler must have exactly one next stage (got {len(stage.next_stages)})"
                 )
