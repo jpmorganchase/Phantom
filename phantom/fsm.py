@@ -182,6 +182,10 @@ class FiniteStateMachineEnv(PhantomEnv):
         """Returns the current stage of the FSM Env."""
         return self._current_stage
 
+    def is_fsm_deterministic(self) -> bool:
+        """Returns true if all stages are followed by exactly one stage."""
+        return all(len(s.next_stages) == 1 for s in self._stages.values())
+
     def view(self, agent_views: Dict[AgentID, AgentView]) -> FSMEnvView:
         """Return an immutable view to the FSM environment's public state."""
         return FSMEnvView(

@@ -105,9 +105,6 @@ def rollout(
         policy_inference_batch_size > 0
     ), "policy_inference_batch_size must be at least 1"
 
-    if policy_inference_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
-        raise ValueError("Cannot use FSM env when policy_inference_batch_size > 1")
-
     if num_workers is not None:
         assert num_workers >= 0, "num_workers must be at least 0"
 
@@ -168,6 +165,17 @@ def rollout(
         for i, (rollout_params, env_config) in enumerate(variations)
         for j in range(num_repeats)
     ]
+
+    env = env_class(**rollout_configs[0].env_config)
+
+    if (
+        policy_inference_batch_size > 1
+        and issubclass(env_class, FiniteStateMachineEnv)
+        and not env.is_fsm_deterministic()
+    ):
+        raise ValueError(
+            "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
+        )
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
