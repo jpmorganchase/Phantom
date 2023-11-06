@@ -1,7 +1,5 @@
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
-import gymnasium as gym
-
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype

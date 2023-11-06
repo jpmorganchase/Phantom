@@ -130,8 +130,8 @@ def test_stacked_agent_step():
     assert set(step.terminations) == set(["__all__", "a1", "a2", "a3"])
     assert set(step.truncations) == set(["__all__", "a1", "a2", "a3"])
 
-    assert all(x == False for x in step.terminations.values())
-    assert all(x == False for x in step.truncations.values())
+    assert all(x is False for x in step.terminations.values())
+    assert all(x is False for x in step.truncations.values())
 
     step = env.step({aid: np.array([0]) for aid in ids})
 
