@@ -166,6 +166,16 @@ def rollout(
         for j in range(num_repeats)
     ]
 
+    # Load configs from results directory.
+    with open(Path(directory, "params.pkl"), "rb") as params_file:
+        config = cloudpickle.load(params_file)
+
+    with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
+        ph_config = cloudpickle.load(params_file)
+
+    if env_class is None:
+        env_class = ph_config["env_class"]
+
     env = env_class(**rollout_configs[0].env_config)
 
     if (
@@ -182,16 +192,6 @@ def rollout(
     print(
         f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
     )
-
-    # Load configs from results directory.
-    with open(Path(directory, "params.pkl"), "rb") as params_file:
-        config = cloudpickle.load(params_file)
-
-    with open(Path(directory, "phantom-training-params.pkl"), "rb") as params_file:
-        ph_config = cloudpickle.load(params_file)
-
-    if env_class is None:
-        env_class = ph_config["env_class"]
 
     # Start the rollouts
     if num_workers_ == 0:
