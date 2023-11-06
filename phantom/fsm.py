@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
@@ -209,7 +210,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             dictionary in `env.step()`.
         """
         # Set initial null reward values
-        self._rewards = {aid: None for aid in self.strategic_agent_ids}
+        self._rewards = defaultdict(lambda: None)
 
         return super().reset()
 

@@ -12,6 +12,7 @@ from typing import (
 )
 
 import gymnasium as gym
+from ray.rllib.utils.spaces.space_utils import convert_element_to_space_type
 
 from .agents import Agent, StrategicAgent
 from .context import Context
@@ -407,18 +408,21 @@ class PhantomEnv(gym.Env):
 
         if isinstance(obs, list):
             obs_space = self.agents[aid].observation_space
+
             if not obs_space.contains(obs):
-                if obs_space.contains(obs[0]):
+                obs2 = convert_element_to_space_type(obs[0], obs_space.sample())
+                if obs_space.contains(obs2):
                     if len(obs) == 1:
-                        observations[aid] = obs[0]
+                        observations[aid] = obs2
                     else:
                         for i, ob in enumerate(obs):
+                            ob = convert_element_to_space_type(ob, obs_space.sample())
                             observations[f"__stacked__{i}__{aid}"] = ob
 
                         del observations[aid]
                 else:
                     raise ValueError(
-                        f"Detected batched observations but with wrong shape, expected: {obs_space}, got: {obs[0]} with dtype={obs[0].dtype}"
+                        f"Detected batched observations but with wrong shape or dtype, expected: {obs_space}, got: {obs[0]}"
                     )
 
         return observations
