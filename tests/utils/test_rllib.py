@@ -53,7 +53,7 @@ def test_rllib_train_rollout(tmpdir):
     with open(f"{tmpdir}/rollouts.json", "w") as f:
         ph.utils.rollout.rollouts_to_jsonl(results, f)
 
-    # TODO: fix
+    # TODO: fix (very small floating point rounding difference in some actions)
     # With batched inference:
     # results2 = ph.utils.rllib.rollout(
     #     directory=f"{tmpdir}/LATEST",
@@ -108,6 +108,99 @@ def test_rllib_train_rollout(tmpdir):
     assert results[0][1][0] == 0.0
     assert results[1][1][0] == 0.5
     assert results[2][1][0] == 1.0
+
+
+def test_rllib_rollout_vectorized_fsm_env(tmpdir):
+    # Non-stochastic FSM Env:
+    class Env(ph.FiniteStateMachineEnv):
+        def __init__(self):
+            agents = [MockStrategicAgent("A")]
+            network = ph.Network(agents)
+            super().__init__(num_steps=1, network=network, initial_stage="StageA")
+
+        @ph.FSMStage(stage_id="StageA", acting_agents=["A"], next_stages=["StageA"])
+        def handle(self):
+            return "StageA"
+
+    ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=Env,
+        env_config={},
+        policies={
+            "mock_policy": MockStrategicAgent,
+        },
+        rllib_config={
+            "disable_env_checking": True,
+            "num_rollout_workers": 1,
+        },
+        iterations=2,
+        checkpoint_freq=1,
+        results_dir=tmpdir,
+    )
+
+    results1 = ph.utils.rllib.rollout(
+        directory=f"{tmpdir}/LATEST",
+        env_config={},
+        num_repeats=3,
+        num_workers=1,
+        policy_inference_batch_size=1,
+    )
+
+    results2 = ph.utils.rllib.rollout(
+        directory=f"{tmpdir}/LATEST",
+        env_config={},
+        num_repeats=3,
+        num_workers=1,
+        policy_inference_batch_size=3,
+    )
+
+    assert list(results1) == list(results2)
+
+    # Stochastic FSM Env:
+    class Env2(ph.FiniteStateMachineEnv):
+        def __init__(self):
+            agents = [MockStrategicAgent("A")]
+            network = ph.Network(agents)
+            super().__init__(num_steps=1, network=network, initial_stage="StageA")
+
+        @ph.FSMStage(
+            stage_id="StageA", acting_agents=["A"], next_stages=["StageA", "StageB"]
+        )
+        def handleA(self):
+            return "StageB"
+
+        @ph.FSMStage(
+            stage_id="StageB", acting_agents=["A"], next_stages=["StageA", "StageB"]
+        )
+        def handleB(self):
+            return "StageA"
+
+    ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=Env2,
+        env_config={},
+        policies={
+            "mock_policy": MockStrategicAgent,
+        },
+        rllib_config={
+            "disable_env_checking": True,
+            "num_rollout_workers": 1,
+        },
+        iterations=2,
+        checkpoint_freq=1,
+        results_dir=tmpdir,
+    )
+
+    with pytest.raises(ValueError):
+        list(
+            ph.utils.rllib.rollout(
+                directory=f"{tmpdir}/LATEST",
+                env_config={},
+                num_repeats=3,
+                num_workers=1,
+                policy_inference_batch_size=3,
+            )
+        )
 
 
 def test_rllib_rollout_bad(tmpdir):

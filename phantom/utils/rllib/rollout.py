@@ -105,9 +105,6 @@ def rollout(
         policy_inference_batch_size > 0
     ), "policy_inference_batch_size must be at least 1"
 
-    if policy_inference_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
-        raise ValueError("Cannot use FSM env when policy_inference_batch_size > 1")
-
     if num_workers is not None:
         assert num_workers >= 0, "num_workers must be at least 0"
 
@@ -169,12 +166,6 @@ def rollout(
         for j in range(num_repeats)
     ]
 
-    num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
-
-    print(
-        f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
-    )
-
     # Load configs from results directory.
     with open(Path(directory, "params.pkl"), "rb") as params_file:
         config = cloudpickle.load(params_file)
@@ -184,6 +175,23 @@ def rollout(
 
     if env_class is None:
         env_class = ph_config["env_class"]
+
+    env = env_class(**rollout_configs[0].env_config)
+
+    if (
+        policy_inference_batch_size > 1
+        and issubclass(env_class, FiniteStateMachineEnv)
+        and not env.is_fsm_deterministic()
+    ):
+        raise ValueError(
+            "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
+        )
+
+    num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
+
+    print(
+        f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
+    )
 
     # Start the rollouts
     if num_workers_ == 0:
