@@ -187,9 +187,7 @@ def test_rllib_rollout_bad():
 
     # num_workers < 0
     with pytest.raises(AssertionError):
-        list(
-            ph.utils.rllib.rollout(directory="", env_class=MockEnv, num_workers=-1)
-        )
+        list(ph.utils.rllib.rollout(directory="", env_class=MockEnv, num_workers=-1))
 
 
 def test_rllib_train_no_checkpoint(tmpdir):
