@@ -234,13 +234,13 @@ def train(
     algo = config_obj.build()
 
     with rich_progress("Training...") as progress:
-        for i in progress.track(range(iterations)):
+        for i in progress.track(range(1, iterations + 1)):
             result = algo.train()
 
             if show_training_metrics:
                 rich.pretty.pprint(
                     {
-                        "iteration": i + 1,
+                        "iteration": i,
                         "metrics": result["custom_metrics"],
                         "rewards": {
                             "policy_reward_min": result["policy_reward_min"],
@@ -250,7 +250,7 @@ def train(
                     }
                 )
 
-            if i == 0:
+            if i == 1:
                 config = {
                     "algorithm": algorithm,
                     "env_class": env_class,
@@ -267,7 +267,7 @@ def train(
                 with open(Path(algo.logdir, "phantom-training-params.pkl"), "wb") as f:
                     cloudpickle.dump(config, f)
 
-            if checkpoint_freq is not None and i % checkpoint_freq == 0:
+            if checkpoint_freq and (i % checkpoint_freq == 0 or i == iterations):
                 checkpoint_path = Path(algo.logdir, f"checkpoint_{str(i).zfill(6)}")
                 algo.save(checkpoint_path)
 
