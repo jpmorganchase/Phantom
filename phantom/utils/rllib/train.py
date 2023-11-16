@@ -76,7 +76,8 @@ def train(
         env_class: A PhantomEnv subclass.
         policies: A mapping of policy IDs to policy configurations.
         iterations: Number of training iterations to perform.
-        checkpoint_freq: The iteration frequency to save policy checkpoints at.
+        checkpoint_freq: The iteration frequency to save policy checkpoints at (defaults
+            to taking one checkpoint at the end of training).
         num_workers: Number of Ray rollout workers to use (defaults to 'NUM CPU - 1').
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
@@ -122,6 +123,9 @@ def train(
 
     if num_workers is not None:
         assert num_workers >= 0, "'num_workers' parameter must be >= 0"
+
+    if checkpoint_freq is None:
+        checkpoint_freq = iterations
 
     env_config = env_config or {}
     rllib_config = rllib_config or {}

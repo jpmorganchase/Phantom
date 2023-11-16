@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import phantom as ph
 import pytest
@@ -178,20 +180,20 @@ def test_rllib_rollout_vectorized_fsm_env(tmpdir):
         )
 
 
-def test_rllib_rollout_bad(tmpdir):
+def test_rllib_rollout_bad():
     # num_repeats < 1
     with pytest.raises(AssertionError):
-        list(ph.utils.rllib.rollout(directory=tmpdir, env_class=MockEnv, num_repeats=0))
+        list(ph.utils.rllib.rollout(directory="", env_class=MockEnv, num_repeats=0))
 
     # num_workers < 0
     with pytest.raises(AssertionError):
         list(
-            ph.utils.rllib.rollout(directory=tmpdir, env_class=MockEnv, num_workers=-1)
+            ph.utils.rllib.rollout(directory="", env_class=MockEnv, num_workers=-1)
         )
 
 
 def test_rllib_train_no_checkpoint(tmpdir):
-    ph.utils.rllib.train(
+    algo = ph.utils.rllib.train(
         algorithm="PPO",
         env_class=MockEnv,
         policies={"mock_policy": MockStrategicAgent},
@@ -201,5 +203,18 @@ def test_rllib_train_no_checkpoint(tmpdir):
         results_dir=tmpdir,
     )
 
-    with pytest.raises(FileNotFoundError):
-        list(ph.utils.rllib.rollout(directory=f"{tmpdir}/LATEST"))
+    assert not Path(algo.logdir, f"checkpoint_{str(1).zfill(6)}").exists()
+
+
+def test_rllib_train_not_set_checkpoint_freq(tmpdir):
+    algo = ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=MockEnv,
+        policies={"mock_policy": MockStrategicAgent},
+        rllib_config={"disable_env_checking": True, "num_rollout_workers": 1},
+        iterations=2,
+        checkpoint_freq=None,
+        results_dir=tmpdir,
+    )
+
+    assert Path(algo.logdir, f"checkpoint_{str(2).zfill(6)}").exists()
