@@ -201,4 +201,5 @@ def test_rllib_train_no_checkpoint(tmpdir):
         results_dir=tmpdir,
     )
 
-    ph.utils.rllib.rollout(directory=f"{tmpdir}/LATEST")
+    with pytest.raises(FileNotFoundError):
+        list(ph.utils.rllib.rollout(directory=f"{tmpdir}/LATEST"))
