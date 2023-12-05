@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+import warnings
+
 import phantom as ph
 
 
@@ -28,3 +31,21 @@ def test_payload_3():
 
     assert MockPayload._sender_types == ["AgentA", "AgentB"]
     assert MockPayload._receiver_types == ["AgentC", "AgentD"]
+
+
+def test_old_payload():
+    @dataclass(frozen=True)
+    class MockPayload(ph.MsgPayload):
+        value: float = 0.0
+
+    net = ph.Network([ph.Agent("a"), ph.Agent("b")], connections=[("a", "b")])
+
+    net.enforce_msg_payload_checks = True
+
+    with warnings.catch_warnings(record=True) as w:
+        net.send("a", "b", MockPayload(1.0))
+        assert len(w) == 1
+        assert isinstance(w[0].message, DeprecationWarning)
+
+    net.enforce_msg_payload_checks = False
+    net.send("a", "b", MockPayload(1.0))

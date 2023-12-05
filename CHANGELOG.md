@@ -8,6 +8,7 @@ checkpoint_freq parameter != 0.
 - Fix packaging issues due to setuptools depreciations.
 - Temporarily disable unstable RLlib RLModule API.
 - Update Sphinx dependencies.
+- Add deprecation warning for older MsgPayload type.
 
 
 ## Version 2.1.0 (2023-10-25)
