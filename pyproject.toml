@@ -1,7 +1,7 @@
 [project]
 name = "Phantom"
 description = "A Multi-agent reinforcement-learning simulator framework."
-version = "2.1.0"
+version = "2.2.0"
 authors = [
     { name = "JPM AI Research" }
 ]
