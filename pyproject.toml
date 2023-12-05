@@ -6,7 +6,14 @@ authors = [
     { name = "JPM AI Research" }
 ]
 requires-python = ">3.8.0"
-
+readme = "README.md"
+classifiers=[
+    "Development Status :: 5 - Production",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+]
+keywords=["ai", "research", "reinforcement learning", "simulator", "multi-agent"]
+dynamic=["dependencies"]
 
 [tool.mypy]
 python_version = 3.8
