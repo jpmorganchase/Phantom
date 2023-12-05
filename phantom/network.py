@@ -1,3 +1,4 @@
+import warnings
 from copy import deepcopy
 from itertools import chain, product
 from typing import (
@@ -296,6 +297,14 @@ class Network:
         if not hasattr(payload, "_sender_types") or not hasattr(
             payload, "_receiver_types"
         ):
+            if isinstance(payload, MsgPayload):
+                warnings.warn(
+                    "MsgPayload type is deprecated. In future, use the @msg_payload decorator",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                return
+
             raise NetworkError(
                 f"Message payloads sent across the network must use the 'msg_payload' decorator (bad payload = '{payload}')"
             )
