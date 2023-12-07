@@ -70,6 +70,8 @@ class Network:
         self.ignore_connection_errors = ignore_connection_errors
         self.enforce_msg_payload_checks = enforce_msg_payload_checks
 
+        self._has_raised_msg_payload_deprecation_warning = False
+
         if agents is not None:
             self.add_agents(agents)
 
@@ -298,11 +300,12 @@ class Network:
             payload, "_receiver_types"
         ):
             if isinstance(payload, MsgPayload):
-                warnings.warn(
-                    "MsgPayload type is deprecated. In future, use the @msg_payload decorator",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+                if not self._has_raised_msg_payload_deprecation_warning:
+                    warnings.warn(
+                        "MsgPayload type is deprecated. In future, use the @msg_payload decorator",
+                        DeprecationWarning,
+                    )
+                    self._has_raised_msg_payload_deprecation_warning = True
                 return
 
             raise NetworkError(

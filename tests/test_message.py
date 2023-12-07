@@ -47,5 +47,10 @@ def test_old_payload():
         assert len(w) == 1
         assert isinstance(w[0].message, DeprecationWarning)
 
+    # Warning only gets raised once:
+    with warnings.catch_warnings(record=True) as w:
+        net.send("a", "b", MockPayload(1.0))
+        assert len(w) == 0
+
     net.enforce_msg_payload_checks = False
     net.send("a", "b", MockPayload(1.0))
