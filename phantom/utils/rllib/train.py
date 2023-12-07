@@ -76,7 +76,8 @@ def train(
         env_class: A PhantomEnv subclass.
         policies: A mapping of policy IDs to policy configurations.
         iterations: Number of training iterations to perform.
-        checkpoint_freq: The iteration frequency to save policy checkpoints at.
+        checkpoint_freq: The iteration frequency to save policy checkpoints at (defaults
+            to taking one checkpoint at the end of training).
         num_workers: Number of Ray rollout workers to use (defaults to 'NUM CPU - 1').
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
@@ -122,6 +123,9 @@ def train(
 
     if num_workers is not None:
         assert num_workers >= 0, "'num_workers' parameter must be >= 0"
+
+    if checkpoint_freq is None:
+        checkpoint_freq = iterations
 
     env_config = env_config or {}
     rllib_config = rllib_config or {}
@@ -220,21 +224,27 @@ def train(
     if algorithm == "PPO":
         config["sgd_minibatch_size"] = max(int(config["train_batch_size"] / 10), 1)
 
-    algo = (
+    config_obj = (
         ray.tune.registry.get_trainable_cls(algorithm)
         .get_default_config()
         .from_dict(config)
-        .build()
     )
 
+    # Temporary fix to allow current custom model interfaces until RLlib's RLModule
+    # becomes stable.
+    config_obj.rl_module(_enable_rl_module_api=False)
+    config_obj.training(_enable_learner_api=False)
+
+    algo = config_obj.build()
+
     with rich_progress("Training...") as progress:
-        for i in progress.track(range(iterations)):
+        for i in progress.track(range(1, iterations + 1)):
             result = algo.train()
 
             if show_training_metrics:
                 rich.pretty.pprint(
                     {
-                        "iteration": i + 1,
+                        "iteration": i,
                         "metrics": result["custom_metrics"],
                         "rewards": {
                             "policy_reward_min": result["policy_reward_min"],
@@ -244,7 +254,7 @@ def train(
                     }
                 )
 
-            if i == 0:
+            if i == 1:
                 config = {
                     "algorithm": algorithm,
                     "env_class": env_class,
@@ -261,7 +271,7 @@ def train(
                 with open(Path(algo.logdir, "phantom-training-params.pkl"), "wb") as f:
                     cloudpickle.dump(config, f)
 
-            if checkpoint_freq is not None and i % checkpoint_freq == 0:
+            if checkpoint_freq and (i % checkpoint_freq == 0 or i == iterations):
                 checkpoint_path = Path(algo.logdir, f"checkpoint_{str(i).zfill(6)}")
                 algo.save(checkpoint_path)
 

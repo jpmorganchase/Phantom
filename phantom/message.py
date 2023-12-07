@@ -6,7 +6,13 @@ from .types import AgentID
 if TYPE_CHECKING:
     from .agents import Agent
 
-MsgPayload = TypeVar("MsgPayload")
+
+@dataclass(frozen=True)
+class MsgPayload:
+    """Message payload structure."""
+
+
+MsgPayloadType = TypeVar("MsgPayloadType")
 
 AgentTypeArg = Union[Type["Agent"], str, List[Union[Type["Agent"], str]], None]
 
@@ -37,7 +43,7 @@ def msg_payload(sender_type: AgentTypeArg = None, receiver_type: AgentTypeArg = 
 
 
 @dataclass(frozen=True)
-class Message(Generic[MsgPayload]):
+class Message(Generic[MsgPayloadType]):
     """
     Message class storing the sender agent ID, receiver agent ID and message payload.
     """
