@@ -158,6 +158,17 @@ def check_env_config(env_config: Mapping[str, Any]) -> None:
                 raise Exception
 
 
+def validate_env(env) -> None:
+    obs, _ = env.reset()
+
+    for _ in range(env.num_steps):
+        actions = {aid: env.agents[aid].action_space.sample() for aid in obs}
+        obs, _, done, _, _ = env.step(actions)
+
+        if done["__all__"]:
+            break
+
+
 def show_pythonhashseed_warning() -> None:
     string = "================================================================\n"
     string += "WARNING: The $PYTHONHASHSEED environment variable is not set!\n"

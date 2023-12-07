@@ -4,17 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import Any, Dict, Generator, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import ray
@@ -35,6 +25,7 @@ from .. import (
     rich_progress,
     show_pythonhashseed_warning,
     update_val,
+    validate_env,
     Range,
     Sampler,
 )
@@ -186,6 +177,8 @@ def rollout(
         raise ValueError(
             "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
         )
+
+    validate_env(env)
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 
