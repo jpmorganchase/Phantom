@@ -126,11 +126,14 @@ for i, step in enumerate(episode["steps"]):
             if infos == 0:
                 st.text("None")
 
-        if show_metrics and len(step["metrics"]) > 0:
+        if show_metrics:
             st.subheader("Metrics:")
-            df = pd.DataFrame(step["metrics"].items())
-            df.columns = ["Metric", "Value"]
-            st.table(df)
+            if len(step["metrics"]) > 0:
+                df = pd.DataFrame(step["metrics"].items())
+                df.columns = ["Metric", "Value"]
+                st.table(df)
+            else:
+                st.text("None")
 
         if show_fsm and "fsm_current_stage" in step and "fsm_next_stage" in step:
             st.subheader("FSM Transition:")
