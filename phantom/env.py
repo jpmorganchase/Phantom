@@ -81,7 +81,7 @@ class PhantomEnv(gym.Env):
         self._samplers: List[Sampler] = []
 
         if env_supertype is not None:
-            if isinstance(env_supertype, dict):
+            if isinstance(env_supertype, dict) and hasattr(self, "Supertype"):
                 env_supertype = self.Supertype(**env_supertype)
             else:
                 assert isinstance(env_supertype, self.Supertype)
