@@ -80,40 +80,27 @@ class PhantomEnv(gym.Env):
         # list contains only one reference to each sampler instance.
         self._samplers: List[Sampler] = []
 
-        if env_supertype is not None:
-            if isinstance(env_supertype, dict) and hasattr(self, "Supertype"):
-                env_supertype = self.Supertype(**env_supertype)
-            else:
-                assert isinstance(env_supertype, self.Supertype)
-
-            # The env will manage sampling the supertype values
-            env_supertype._managed = True
+        def build_supertype(supertype, entity) -> Supertype:
+            if isinstance(supertype, dict):
+                assert hasattr(entity, "Supertype")
+                supertype = entity.Supertype(**supertype)
+            elif hasattr(entity, "Supertype"):
+                assert isinstance(supertype, entity.Supertype)
 
             # Extract samplers from env supertype dict
-            for value in env_supertype.__dict__.values():
+            for value in supertype.__dict__.values():
                 if isinstance(value, Sampler) and value not in self._samplers:
                     self._samplers.append(value)
 
-            self.env_supertype = env_supertype
+            supertype._managed = True
+            return supertype
 
-        if agent_supertypes is not None:
-            for agent_id, agent_supertype in agent_supertypes.items():
-                if isinstance(agent_supertype, dict):
-                    agent_supertype = self.agents[agent_id].Supertype(**agent_supertype)
-                # TODO: fix, temporarily disabled as AgentClass.Supertype changed to __main__.Supertype
-                # else:
-                #     assert isinstance(agent_supertype, self.agents[agent_id].Supertype)
+        if env_supertype is not None:
+            self.env_supertype = build_supertype(env_supertype, self)
 
-                # The env will manage sampling the supertype values
-                agent_supertype._managed = True
-
-                # Extract samplers from agent supertype dict
-                for value in agent_supertype.__dict__.values():
-                    if isinstance(value, Sampler) and value not in self._samplers:
-                        self._samplers.append(value)
-
-                agent = self.network.agents[agent_id]
-                agent.supertype = agent_supertype
+        for agent_id, agent_supertype in (agent_supertypes or {}).items():
+            agent = self.network.agents[agent_id]
+            agent.supertype = build_supertype(agent_supertype, agent)
 
         # Generate initial sampled values in samplers
         for sampler in self._samplers:
