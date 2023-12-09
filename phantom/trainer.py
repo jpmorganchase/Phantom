@@ -23,7 +23,7 @@ import rich.progress
 import tensorboardX as tbx
 
 from .types import AgentID, PolicyID
-from .agents import Agent
+from .agents import Agent, StrategicAgent
 from .env import PhantomEnv
 from .metrics import Metric
 from .policy import Policy
@@ -283,22 +283,26 @@ class Trainer(ABC):
             if isclass(policy_config) and issubclass(policy_config, Agent):
                 agent_class = policy_config
 
-                agent_ids = list(env.network.get_agents_with_type(agent_class).keys())
+                agents = env.network.get_agents_with_type(agent_class)
+                agent = next(agent.values())
+                assert isinstance(agent, StrategicAgent)
 
                 policy_specs[policy_name] = PolicySpec(
-                    action_space=env.agents[agent_ids[0]].action_space,
-                    observation_space=env.agents[agent_ids[0]].observation_space,
+                    action_space=agent.action_space,
+                    observation_space=agent.observation_space,
                 )
 
-                for agent_id in agent_ids:
+                for agent_id in agents:
                     policy_mapping[agent_id] = policy_name
 
             elif isinstance(policy_config, list):
                 agent_ids = policy_config
+                agent = env.agents[agent_ids[0]]
+                assert isinstance(agent, StrategicAgent)
 
                 policy_specs[policy_name] = PolicySpec(
-                    action_space=env.agents[agent_ids[0]].action_space,
-                    observation_space=env.agents[agent_ids[0]].observation_space,
+                    action_space=agent.action_space,
+                    observation_space=agent.observation_space,
                 )
 
                 for agent_id in agent_ids:
@@ -320,10 +324,13 @@ class Trainer(ABC):
                 else:
                     raise ValueError
 
+                agent = env.agents[agent_ids[0]]
+                assert isinstance(agent, StrategicAgent)
+
                 policy_specs[policy_name] = PolicySpec(
                     policy_class=policy_class,
-                    action_space=env.agents[agent_ids[0]].action_space,
-                    observation_space=env.agents[agent_ids[0]].observation_space,
+                    action_space=agent.action_space,
+                    observation_space=agent.observation_space,
                     config=config,
                 )
 

@@ -2,6 +2,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import gymnasium as gym
 
+from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -152,6 +153,7 @@ class StackelbergEnv(PhantomEnv):
                 continue
 
             ctx = self._ctxs[aid]
+            assert isinstance(ctx.agent, StrategicAgent)
 
             if aid in next_acting_agents:
                 obs = ctx.agent.encode_observation(ctx)

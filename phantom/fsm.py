@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
+from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -324,6 +325,7 @@ class FiniteStateMachineEnv(PhantomEnv):
                 continue
 
             ctx = self._ctxs[aid]
+            assert isinstance(ctx.agent, StrategicAgent)
 
             if aid in next_acting_agents:
                 obs = ctx.agent.encode_observation(ctx)

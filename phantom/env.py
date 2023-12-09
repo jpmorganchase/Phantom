@@ -275,6 +275,7 @@ class PhantomEnv(gym.Env):
                 continue
 
             ctx = self._ctxs[aid]
+            assert isinstance(ctx.agent, StrategicAgent)
 
             obs = ctx.agent.encode_observation(ctx)
             if obs is not None:
