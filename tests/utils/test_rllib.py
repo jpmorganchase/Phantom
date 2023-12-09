@@ -7,12 +7,22 @@ import pytest
 from .. import MockStrategicAgent, MockEnv, MockPolicy
 
 
+RLLIB_CONFIG = {
+    "disable_env_checking": True,
+    "num_rollout_workers": 1,
+    "model": {
+        "fcnet_hiddens": [16, 16, 16],
+        "fcnet_activation": "relu",
+    },
+}
+
+
 def test_rllib_train_rollout(tmpdir):
     ph.utils.rllib.train(
         algorithm="PPO",
         env_class=MockEnv,
         policies={"mock_policy": MockStrategicAgent},
-        rllib_config={"disable_env_checking": True, "num_rollout_workers": 1},
+        rllib_config=RLLIB_CONFIG,
         iterations=2,
         checkpoint_freq=2,
         results_dir=tmpdir,
@@ -118,7 +128,7 @@ def test_rllib_rollout_vectorized_fsm_env(tmpdir):
         algorithm="PPO",
         env_class=Env,
         policies={"mock_policy": MockStrategicAgent},
-        rllib_config={"disable_env_checking": True, "num_rollout_workers": 1},
+        rllib_config=RLLIB_CONFIG,
         iterations=2,
         checkpoint_freq=2,
         results_dir=tmpdir,
@@ -163,7 +173,7 @@ def test_rllib_rollout_vectorized_fsm_env(tmpdir):
         algorithm="PPO",
         env_class=Env2,
         policies={"mock_policy": MockStrategicAgent},
-        rllib_config={"disable_env_checking": True, "num_rollout_workers": 1},
+        rllib_config=RLLIB_CONFIG,
         iterations=2,
         checkpoint_freq=1,
         results_dir=tmpdir,
@@ -195,7 +205,7 @@ def test_rllib_train_no_checkpoint(tmpdir):
         algorithm="PPO",
         env_class=MockEnv,
         policies={"mock_policy": MockStrategicAgent},
-        rllib_config={"disable_env_checking": True, "num_rollout_workers": 1},
+        rllib_config=RLLIB_CONFIG,
         iterations=1,
         checkpoint_freq=0,
         results_dir=tmpdir,
@@ -209,7 +219,7 @@ def test_rllib_train_not_set_checkpoint_freq(tmpdir):
         algorithm="PPO",
         env_class=MockEnv,
         policies={"mock_policy": MockStrategicAgent},
-        rllib_config={"disable_env_checking": True, "num_rollout_workers": 1},
+        rllib_config=RLLIB_CONFIG,
         iterations=2,
         checkpoint_freq=None,
         results_dir=tmpdir,
