@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, List, Optional, Sequence, TypeVar
+from typing import Generic, List, Optional, Sequence, TypeVar, Union
 
 import numpy as np
 
@@ -21,7 +21,7 @@ class Range(ABC, Generic[T]):
         self.name = name
 
     @abstractmethod
-    def values(self) -> Sequence[T]:
+    def values(self) -> Union[Sequence[T], np.typing.NDArray[T]]:
         """
         Returns the complete set of values defined by the Range.
         """

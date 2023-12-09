@@ -3,14 +3,15 @@ from functools import reduce
 from typing import (
     Callable,
     DefaultDict,
-    Dict,
     Generic,
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     TypeVar,
+    Union,
 )
 
 import numpy as np
@@ -19,7 +20,7 @@ from .env import PhantomEnv
 from .fsm import FSMStage, FiniteStateMachineEnv
 
 
-MetricValue = TypeVar("MetricValue")
+MetricValue = TypeVar("MetricValue", float, int, np.typing.ArrayLike)
 
 
 class NotRecorded:
@@ -135,7 +136,7 @@ class LambdaMetric(Metric, Generic[MetricValue]):
             raise ValueError(f"Unknown mode: {mode}")
 
 
-SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
+SimpleMetricValue = TypeVar("SimpleMetricValue", int, float, np.number)
 
 
 class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
@@ -165,7 +166,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
 
     def reduce(
         self, values: Sequence[SimpleMetricValue], mode: Literal["train", "evaluate"]
-    ) -> SimpleMetricValue:
+    ) -> Union[SimpleMetricValue, np.typing.NDArray[SimpleMetricValue]]:
         reduce_action = (
             self.train_reduce_action if mode == "train" else self.eval_reduce_action
         )
@@ -354,8 +355,8 @@ def _rgetattr(obj, attr, *args):
 
 def logging_helper(
     env: PhantomEnv,
-    metrics: Dict[str, Metric],
-    metric_values: DefaultDict[str, List[float]],
+    metrics: Mapping[str, Metric],
+    metric_values: DefaultDict[str, List[Union[MetricValue, NotRecorded]]],
 ) -> None:
     for metric_id, metric in metrics.items():
         if (

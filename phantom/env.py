@@ -140,7 +140,7 @@ class PhantomEnv:
         """Return a list of the IDs of the agents that do not take actions."""
         return [a.id for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
-    def view(self, agent_views: Dict[AgentID, AgentView]) -> EnvView:
+    def view(self, agent_views: Dict[AgentID, Optional[AgentView]]) -> EnvView:
         """Return an immutable view to the environment's public state."""
         return EnvView(self.current_step, self.current_step / self.num_steps)
 
