@@ -1,6 +1,6 @@
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
-import gymnasium as gym
+from gymnasium.utils import seeding
 
 from .agents import StrategicAgent
 from .env import PhantomEnv
@@ -72,7 +72,8 @@ class StackelbergEnv(PhantomEnv):
         """
         logger.log_reset()
 
-        gym.Env.reset(self, seed=seed, options=options)
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
 
         # Reset the clock
         self._current_step = 0

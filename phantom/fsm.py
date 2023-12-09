@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+
+from gymnasium.utils import seeding
 
 from .agents import StrategicAgent
 from .env import PhantomEnv
@@ -213,6 +214,9 @@ class FiniteStateMachineEnv(PhantomEnv):
             dictionary in `env.step()`.
         """
         logger.log_reset()
+
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
 
         # Reset the clock and stage
         self._current_step = 0

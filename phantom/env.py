@@ -1,16 +1,6 @@
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence, Set, Tuple
 
-import gymnasium as gym
+from gymnasium.utils import seeding
 
 from .agents import Agent, StrategicAgent
 from .context import Context
@@ -22,7 +12,7 @@ from .utils.samplers import Sampler
 from .views import AgentView, EnvView
 
 
-class PhantomEnv(gym.Env):
+class PhantomEnv:
     """
     Base Phantom environment.
 
@@ -190,7 +180,8 @@ class PhantomEnv(gym.Env):
         """
         logger.log_reset()
 
-        super().reset(seed=seed, options=options)
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
 
         # Reset the clock
         self._current_step = 0
