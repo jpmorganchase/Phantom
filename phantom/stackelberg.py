@@ -95,7 +95,7 @@ class StackelbergEnv(PhantomEnv):
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
         # Generate all contexts for strategic leader agents
-        self._make_ctxs(
+        self._ctxs = self._make_ctxs(
             [aid for aid in self.leader_agents if aid in self.strategic_agent_ids]
         )
 
@@ -129,7 +129,7 @@ class StackelbergEnv(PhantomEnv):
         logger.log_start_decoding_actions()
 
         # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
+        self._ctxs = self._make_ctxs(self.agent_ids)
 
         acting_agents, next_acting_agents = (
             (self.leader_agents, self.follower_agents)

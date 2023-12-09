@@ -237,7 +237,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Generate all contexts for agents taking actions
         acting_agents = self._stages[self.current_stage].acting_agents
-        self._make_ctxs(
+        self._ctxs = self._make_ctxs(
             [aid for aid in acting_agents if aid in self.strategic_agent_ids]
         )
 
@@ -271,7 +271,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         logger.log_start_decoding_actions()
 
         # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
+        self._ctxs = self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
         acting_agents = self._stages[self.current_stage].acting_agents

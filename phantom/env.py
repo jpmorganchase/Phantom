@@ -224,7 +224,7 @@ class PhantomEnv(gym.Env):
         self._truncations = set()
 
         # Generate all contexts for agents taking actions
-        self._make_ctxs(self.strategic_agent_ids)
+        self._ctxs = self._make_ctxs(self.strategic_agent_ids)
 
         # Generate initial observations for agents taking actions
         obs = {
@@ -256,7 +256,7 @@ class PhantomEnv(gym.Env):
         logger.log_start_decoding_actions()
 
         # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
+        self._ctxs = self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
         self._handle_acting_agents(self.agent_ids, actions)
@@ -336,13 +336,13 @@ class PhantomEnv(gym.Env):
             for receiver_id, message in messages:
                 self.network.send(aid, receiver_id, message)
 
-    def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> None:
+    def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> Dict[AgentID, Context]:
         """Internal method."""
         env_view = self.view(
             {agent_id: agent.view() for agent_id, agent in self.agents.items()}
         )
 
-        self._ctxs = {
+        return {
             aid: self.network.context_for(aid, env_view)
             for aid in agent_ids
             if aid not in self._terminations and aid not in self._truncations
