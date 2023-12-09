@@ -20,7 +20,7 @@ import cloudpickle
 import ray
 from ray.rllib.models.preprocessors import get_preprocessor, Preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
-from ray.rllib.utils.spaces.space_utils import unsquash_action
+from ray.rllib.utils.spaces.space_utils import unbatch, unsquash_action
 from ray.util.queue import Queue
 
 from ...env import PhantomEnv
@@ -343,14 +343,14 @@ def _rollout_task_fn(
 
                     processed_obs = [preprocessor.transform(ob) for ob in vec_agent_obs]
 
-                    squashed_actions = policy.compute_actions(
+                    squashed_action = policy.compute_actions(
                         processed_obs, explore=explore
                     )[0]
 
-                    actions[agent_id] = [
-                        unsquash_action(action, policy.action_space_struct)
-                        for action in squashed_actions
-                    ]
+                    unsquashed_action = unsquash_action(
+                        squashed_action, policy.action_space_struct
+                    )
+                    actions[agent_id] = unbatch(unsquashed_action)
 
             # hack for no agent acting step in Ops
             if len(dict_observations) == 0:

@@ -40,17 +40,17 @@ class MockFSMEnv(ph.FiniteStateMachineEnv):
 def test_odd_even_one_agent():
     env = MockFSMEnv()
 
-    assert env.reset() == ({"agent": np.array([0])}, {})
+    assert env.reset() == ({"agent": {"a": np.array([0])}}, {})
 
     assert env.current_stage == "ODD"
     assert env.agents["agent"].compute_reward_count == 0
     assert env.agents["agent"].encode_obs_count == 1
     assert env.agents["agent"].decode_action_count == 0
 
-    step = env.step({"agent": np.array([0])})
+    step = env.step({"agent": {"a": np.array([0])}})
 
     assert env.current_stage == "EVEN"
-    assert step.observations == {"agent": np.array([1.0 / 3.0])}
+    assert step.observations == {"agent": {"a": np.array([1.0 / 3.0])}}
     assert step.rewards == {"agent": 0.0}
     assert step.terminations == {"agent": False, "__all__": False}
     assert step.truncations == {"agent": False, "__all__": False}

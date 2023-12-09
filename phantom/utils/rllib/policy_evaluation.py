@@ -6,7 +6,7 @@ import cloudpickle
 import rich.progress
 from ray.rllib.models.preprocessors import get_preprocessor
 from ray.rllib.policy import Policy
-from ray.rllib.utils.spaces.space_utils import unsquash_action
+from ray.rllib.utils.spaces.space_utils import unbatch, unsquash_action
 
 from .. import (
     collect_instances_of_type_with_paths,
@@ -102,10 +102,7 @@ def evaluate_policy(
 
         squashed_actions = policy.compute_actions(processed_obs, explore=explore)[0]
 
-        actions = [
-            unsquash_action(action, policy.action_space_struct)
-            for action in squashed_actions
-        ]
+        actions = unbatch(unsquash_action(squashed_actions, policy.action_space_struct))
 
         for p, o, a in zip(params, obs, actions):
             yield (p, o, a)
