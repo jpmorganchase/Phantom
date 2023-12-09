@@ -2,7 +2,7 @@ import pytest
 
 from phantom import Agent, StochasticNetwork
 from phantom.resolvers import BatchResolver
-from .. import MockComparableSampler
+from .. import IncrementingComparableSampler
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def test_stochastic_network_4(net):
 
 
 def test_stochastic_network_5(net):
-    net.add_connection("A", "B", rate=MockComparableSampler(1.0))
+    net.add_connection("A", "B", rate=IncrementingComparableSampler(1.0))
 
     assert net.graph.has_edge("A", "B")
 
@@ -63,7 +63,7 @@ def test_stochastic_network_5(net):
 
 
 def test_stochastic_network_6(net):
-    net.add_connection("A", "B", rate=MockComparableSampler(0.0))
+    net.add_connection("A", "B", rate=IncrementingComparableSampler(0.0))
 
     assert not net.graph.has_edge("A", "B")
 
