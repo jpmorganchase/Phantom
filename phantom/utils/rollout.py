@@ -26,7 +26,8 @@ class AgentStep:
     i: int
     observation: Optional[Any]
     reward: Optional[float]
-    done: bool
+    terminated: bool
+    truncated: bool
     info: Optional[Dict[str, Any]]
     action: Optional[Any]
     stage: Optional[StageID] = None
@@ -198,8 +199,8 @@ class Rollout:
                 step.i,
                 step.observations.get(agent_id, None),
                 step.rewards.get(agent_id, None),
-                step.terminations.get(agent_id, None),
-                step.truncations.get(agent_id, None),
+                step.terminations.get(agent_id, False),
+                step.truncations.get(agent_id, False),
                 step.infos.get(agent_id, None),
                 step.actions.get(agent_id, None),
                 step.stage,
