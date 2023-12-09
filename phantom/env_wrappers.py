@@ -83,6 +83,9 @@ class SingleAgentEnvAdapter(gym.Env):
         self._actions: Dict[AgentID, Any] = {}
         self._observations: Dict[AgentID, Any] = {}
 
+        self.action_space = self._env[self._agent_id].action_space
+        self.observation_space = self._env[self._agent_id].observation_space
+
         super().__init__()
 
     @property
@@ -108,16 +111,6 @@ class SingleAgentEnvAdapter(gym.Env):
     def current_step(self) -> int:
         """Return the current step of the environment."""
         return self._env.current_step
-
-    @property
-    def action_space(self) -> gym.Space:
-        """Return the action space of the selected env agent."""
-        return self._env[self._agent_id].action_space
-
-    @property
-    def observation_space(self) -> gym.Space:
-        """Return the observation space of the selected env agent."""
-        return self._env[self._agent_id].observation_space
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
         """
