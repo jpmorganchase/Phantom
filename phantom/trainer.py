@@ -284,7 +284,7 @@ class Trainer(ABC):
                 agent_class = policy_config
 
                 agents = env.network.get_agents_with_type(agent_class)
-                agent = next(agent.values())
+                agent = next(agents.values())
                 assert isinstance(agent, StrategicAgent)
 
                 policy_specs[policy_name] = PolicySpec(
