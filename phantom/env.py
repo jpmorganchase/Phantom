@@ -201,8 +201,6 @@ class PhantomEnv(gym.Env):
             - A dictionary with auxillary information, equivalent to the info dictionary
                 in `env.step()`.
         """
-        logger.log_reset()
-
         super().reset(seed=seed, options=options)
 
         # Reset the clock
@@ -217,6 +215,8 @@ class PhantomEnv(gym.Env):
 
         # Reset the network and call reset method on all agents in the network
         self.network.reset()
+
+        logger.log_reset(self)
 
         # Reset the strategic agents' termination/truncation statuses stored by the
         # environment
