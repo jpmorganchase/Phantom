@@ -3,7 +3,6 @@ import sys
 
 import networkx as nx
 import matplotlib.pyplot as plt
-import pandas as pd
 import streamlit as st
 
 from utils import parse_concatenated_json
