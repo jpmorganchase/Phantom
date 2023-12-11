@@ -42,7 +42,7 @@ class MockFSMEnv(ph.FiniteStateMachineEnv):
 def test_odd_even_two_agents():
     env = MockFSMEnv()
 
-    assert env.reset() == ({"odd_agent": np.array([0])}, {})
+    assert env.reset() == ({"odd_agent": {"a": np.array([0])}}, {})
 
     assert env.current_stage == "ODD"
     assert env.agents["odd_agent"].compute_reward_count == 0
@@ -53,10 +53,10 @@ def test_odd_even_two_agents():
     assert env.agents["even_agent"].encode_obs_count == 0
     assert env.agents["even_agent"].decode_action_count == 0
 
-    step = env.step({"odd_agent": np.array([1])})
+    step = env.step({"odd_agent": {"a": np.array([1])}})
 
     assert env.current_stage == "EVEN"
-    assert step.observations == {"even_agent": np.array([1.0 / 3.0])}
+    assert step.observations == {"even_agent": {"a": np.array([1.0 / 3.0])}}
     assert step.rewards == {"even_agent": None}
     assert step.terminations == {
         "even_agent": False,
@@ -78,10 +78,10 @@ def test_odd_even_two_agents():
     assert env.agents["even_agent"].encode_obs_count == 1
     assert env.agents["even_agent"].decode_action_count == 0
 
-    step = env.step({"even_agent": np.array([0])})
+    step = env.step({"even_agent": {"a": np.array([0])}})
 
     assert env.current_stage == "ODD"
-    assert step.observations == {"odd_agent": np.array([2.0 / 3.0])}
+    assert step.observations == {"odd_agent": {"a": np.array([2.0 / 3.0])}}
     assert step.rewards == {"odd_agent": 0.0}
     assert step.terminations == {
         "even_agent": False,
