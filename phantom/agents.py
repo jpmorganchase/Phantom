@@ -1,3 +1,4 @@
+import inspect
 from abc import ABC
 from collections import defaultdict
 from itertools import chain
@@ -75,7 +76,7 @@ class Agent(ABC):
 
         for name in dir(self):
             if name not in ["observation_space", "action_space"]:
-                attr = getattr(self, name)
+                attr = inspect.getattr_static(self, name)
                 if callable(attr) and hasattr(attr, "_message_type"):
                     self.__handlers[attr._message_type].append(getattr(self, name))
 
