@@ -211,8 +211,6 @@ class FiniteStateMachineEnv(PhantomEnv):
             - An optional dictionary with auxillary information, equivalent to the info
             dictionary in `env.step()`.
         """
-        logger.log_reset()
-
         # Reset the clock and stage
         self._current_step = 0
         self._current_stage = self.initial_stage
@@ -226,6 +224,8 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Reset the network and call reset method on all agents in the network.
         self.network.reset()
+
+        logger.log_reset(self)
 
         # Reset the agents' done statuses stored by the environment
         self._terminations = set()

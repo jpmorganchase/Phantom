@@ -69,8 +69,6 @@ class StackelbergEnv(PhantomEnv):
             - A dictionary with auxillary information, equivalent to the info dictionary
                 in `env.step()`.
         """
-        logger.log_reset()
-
         gym.Env.reset(self, seed=seed, options=options)
 
         # Reset the clock
@@ -85,6 +83,8 @@ class StackelbergEnv(PhantomEnv):
 
         # Reset the network and call reset method on all agents in the network
         self.network.reset()
+
+        logger.log_reset(self)
 
         # Reset the strategic agents' termination/truncation statuses stored by the
         # environment

@@ -45,7 +45,13 @@ def test_telemetry(tmpdir):
 
     data = json.load(open(tmpdir.join("log.json"), "r"))
 
-    assert set(data.keys()) == {"start", "steps"}
+    assert set(data.keys()) == {
+        "start",
+        "steps",
+        "agents",
+        "environment",
+        "connections",
+    }
     assert len(data["steps"]) == 6
     assert set(data["steps"][0]) == {"messages", "metrics", "observations"}
     assert set(data["steps"][1]) == {

@@ -148,11 +148,29 @@ class TelemetryLogger:
         if metrics is not None:
             self._file_metrics = metrics
 
-    def log_reset(self) -> None:
+    def log_reset(self, env: "PhantomEnv") -> None:
         if self._output_file is not None:
             self._current_episode = {
                 "start": str(datetime.now()),
-                "steps": [{"messages": [], "metrics": []}],
+                "steps": [{"messages": [], "metrics": {}}],
+                "environment": {
+                    "class": type(env).__name__,
+                    "type": asdict(env.type) if hasattr(env, "type") else None,
+                    "num_steps": env.num_steps,
+                },
+                "agents": [
+                    {
+                        "id": agent.id,
+                        "class": type(agent).__name__,
+                        "type": asdict(agent.type) if hasattr(agent, "type") else None,
+                        "strategic": any(
+                            "StrategicAgent" in str(base)
+                            for base in type(agent).__bases__
+                        ),
+                    }
+                    for agent in env.network.agents.values()
+                ],
+                "connections": list(env.network.graph.edges),
             }
 
         if self._enable_print:
@@ -162,7 +180,7 @@ class TelemetryLogger:
 
     def log_step(self, current_step: int, num_steps: int) -> None:
         if self._current_episode is not None:
-            self._current_episode["steps"].append({"messages": []})
+            self._current_episode["steps"].append({"messages": [], "metrics": {}})
 
         if self._enable_print:
             print(colored("-" * 80, attrs=["dark"]))
@@ -331,12 +349,17 @@ class TelemetryLogger:
 
     def log_msg_recv(self, message: Message) -> None:
         if self._current_episode is not None:
-            self._current_episode["steps"][-1]["messages"].append(asdict(message))
+            msg = asdict(message)
+            msg["type"] = message.payload.__class__.__name__
+            self._current_episode["steps"][-1]["messages"].append(msg)
 
         self._print_msg(message, "RECV")
 
     def log_metrics(self, env: "PhantomEnv") -> None:
-        if self._current_episode is not None:
+        if self._current_episode is None:
+            return
+
+        if self._file_metrics is not None:
             self._current_episode["steps"][-1]["metrics"] = {
                 name: metric.extract(env) for name, metric in self._file_metrics.items()
             }
@@ -374,7 +397,7 @@ class TelemetryLogger:
                 self._current_episode,
                 self._output_file,
                 indent=2 if self._human_readable else None,
-                cls=NumpyArrayEncoder,
+                cls=CustomJSONEncoder,
             )
             self._output_file.write("\n")
             self._output_file.flush()
@@ -413,10 +436,13 @@ def _pretty_format_space(space) -> str:
     raise NotImplementedError(type(space))
 
 
-class NumpyArrayEncoder(json.JSONEncoder):
+class CustomJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, np.ndarray):
             return o.tolist()
+        if isinstance(o, (np.number, np.floating)):
+            return o.item()
+
         return json.JSONEncoder.default(self, o)
 
 
