@@ -226,8 +226,6 @@ class Trainer(ABC):
     def log_rewards(self, rewards: Mapping[AgentID, float]) -> None:
         """Logs the rewards from a provided env."""
         for agent_id, reward in rewards.items():
-            if agent_id not in self.logged_rewards:
-                self.logged_rewards[agent_id] = {"total": 0, "count": 0}
             self.logged_rewards[agent_id]["total"] += reward
             self.logged_rewards[agent_id]["count"] += 1
 
