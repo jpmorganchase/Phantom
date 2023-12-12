@@ -1,6 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from gymnasium.utils import seeding
+
+from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -45,10 +48,10 @@ class FSMStage:
     def __init__(
         self,
         stage_id: StageID,
-        acting_agents: Sequence[AgentID],
-        rewarded_agents: Optional[Sequence[AgentID]] = None,
-        next_stages: Optional[Sequence[StageID]] = None,
-        handler: Optional[Callable[[], StageID]] = None,
+        acting_agents: List[AgentID],
+        rewarded_agents: Optional[List[AgentID]] = None,
+        next_stages: Optional[List[StageID]] = None,
+        handler: Optional[Callable[..., StageID]] = None,
     ) -> None:
         self.id = stage_id
         self.acting_agents = acting_agents
@@ -186,7 +189,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         """Returns true if all stages are followed by exactly one stage."""
         return all(len(s.next_stages) == 1 for s in self._stages.values())
 
-    def view(self, agent_views: Dict[AgentID, AgentView]) -> FSMEnvView:
+    def view(self, agent_views: Dict[AgentID, Optional[AgentView]]) -> FSMEnvView:
         """Return an immutable view to the FSM environment's public state."""
         return FSMEnvView(
             self.current_step, self.current_step / self.num_steps, self.current_stage
@@ -213,6 +216,9 @@ class FiniteStateMachineEnv(PhantomEnv):
         """
         logger.log_reset()
 
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
+
         # Reset the clock and stage
         self._current_step = 0
         self._current_stage = self.initial_stage
@@ -236,7 +242,7 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Generate all contexts for agents taking actions
         acting_agents = self._stages[self.current_stage].acting_agents
-        self._make_ctxs(
+        self._ctxs = self._make_ctxs(
             [aid for aid in acting_agents if aid in self.strategic_agent_ids]
         )
 
@@ -270,7 +276,7 @@ class FiniteStateMachineEnv(PhantomEnv):
         logger.log_start_decoding_actions()
 
         # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
+        self._ctxs = self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
         acting_agents = self._stages[self.current_stage].acting_agents
@@ -301,7 +307,9 @@ class FiniteStateMachineEnv(PhantomEnv):
             # function.
             next_stage = env_handler(self)
 
-        if next_stage not in self._stages[self.current_stage].next_stages:
+        current_stage = self._stages[self.current_stage]
+
+        if next_stage not in current_stage.next_stages:
             raise FSMRuntimeError(
                 f"FiniteStateMachineEnv attempted invalid transition from '{self.current_stage}' to {next_stage}"
             )
@@ -312,11 +320,11 @@ class FiniteStateMachineEnv(PhantomEnv):
         truncations: Dict[AgentID, bool] = {}
         infos: Dict[AgentID, Dict[str, Any]] = {}
 
-        if self._stages[self.current_stage].rewarded_agents is None:
+        if current_stage.rewarded_agents is None:
             rewarded_agents = self.strategic_agent_ids
             next_acting_agents = self.strategic_agent_ids
         else:
-            rewarded_agents = self._stages[self.current_stage].rewarded_agents
+            rewarded_agents = current_stage.rewarded_agents
             next_acting_agents = self._stages[next_stage].acting_agents
 
         for aid in self.strategic_agent_ids:
@@ -324,6 +332,7 @@ class FiniteStateMachineEnv(PhantomEnv):
                 continue
 
             ctx = self._ctxs[aid]
+            assert isinstance(ctx.agent, StrategicAgent)
 
             if aid in next_acting_agents:
                 obs = ctx.agent.encode_observation(ctx)

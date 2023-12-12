@@ -4,7 +4,7 @@ import pytest
 
 import phantom as ph
 
-from . import MockAgent, MockSampler, MockStrategicAgent
+from . import MockAgent, IncrementingSampler, MockStrategicAgent
 
 
 def test_repr():
@@ -12,7 +12,7 @@ def test_repr():
 
 
 def test_reset():
-    st = MockStrategicAgent.Supertype(MockSampler(1))
+    st = MockStrategicAgent.Supertype(IncrementingSampler(1))
 
     agent = MockStrategicAgent("Agent", supertype=st)
 

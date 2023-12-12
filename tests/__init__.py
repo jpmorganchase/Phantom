@@ -6,7 +6,7 @@ import numpy as np
 import phantom as ph
 
 
-class MockSampler(ph.utils.samplers.Sampler[float]):
+class IncrementingSampler(ph.utils.samplers.Sampler[float]):
     def __init__(self, value: float) -> None:
         self._value = value
 
@@ -15,7 +15,7 @@ class MockSampler(ph.utils.samplers.Sampler[float]):
         return self._value
 
 
-class MockComparableSampler(ph.utils.samplers.ComparableSampler[float]):
+class IncrementingComparableSampler(ph.utils.samplers.ComparableSampler[float]):
     def __init__(self, value: float) -> None:
         self._value = value
 

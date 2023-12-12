@@ -17,7 +17,7 @@ from ray.rllib.evaluation import Episode, MultiAgentEpisode
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.typing import TensorStructType, TensorType
 
-from ...agents import Agent
+from ...agents import Agent, StrategicAgent
 from ...env import PhantomEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
@@ -163,10 +163,13 @@ def train(
         else:
             raise TypeError(type(params))
 
+        agent = env.agents[agent_ids[0]]
+        assert isinstance(agent, StrategicAgent)
+
         policy_specs[policy_name] = rllib.policy.policy.PolicySpec(
             policy_class=policy_class,
-            action_space=env.agents[agent_ids[0]].action_space,
-            observation_space=env.agents[agent_ids[0]].observation_space,
+            action_space=agent.action_space,
+            observation_space=agent.observation_space,
             config=config,
         )
 
@@ -180,7 +183,7 @@ def train(
         env_class.__name__, lambda config: RLlibEnvWrapper(env_class(**config))
     )
 
-    num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
+    num_workers_ = ((os.cpu_count() or 1) - 1) if num_workers is None else num_workers
 
     timestr = datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
     logdir_prefix = f"{algorithm}_{env.__class__.__name__}_{timestr}"

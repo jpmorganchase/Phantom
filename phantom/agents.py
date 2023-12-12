@@ -1,3 +1,4 @@
+import inspect
 from abc import ABC
 from collections import defaultdict
 from itertools import chain
@@ -6,6 +7,7 @@ from typing import (
     Callable,
     DefaultDict,
     Dict,
+    Generic,
     List,
     Optional,
     Sequence,
@@ -74,7 +76,7 @@ class Agent(ABC):
 
         for name in dir(self):
             if name not in ["observation_space", "action_space"]:
-                attr = getattr(self, name)
+                attr = inspect.getattr_static(self, name)
                 if callable(attr) and hasattr(attr, "_message_type"):
                     self.__handlers[attr._message_type].append(getattr(self, name))
 
@@ -178,7 +180,7 @@ class Agent(ABC):
         return f"[{self.__class__.__name__} {self.id}]"
 
 
-class StrategicAgent(Agent):
+class StrategicAgent(Agent, Generic[Action, Observation]):
     """
     Representation of a behavioural agent in the network.
 
@@ -215,13 +217,8 @@ class StrategicAgent(Agent):
 
         if action_decoder is not None:
             self.action_space = action_decoder.action_space
-        elif "action_space" not in dir(self):
-            self.action_space = None
-
         if observation_encoder is not None:
             self.observation_space = observation_encoder.observation_space
-        elif "observation_space" not in dir(self):
-            self.observation_space = None
 
     def encode_observation(self, ctx: Context) -> Observation:
         """

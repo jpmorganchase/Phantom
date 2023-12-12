@@ -1,14 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import (
-    Callable,
-    Generic,
-    Iterable,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-)
-from uuid import uuid4
+from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
@@ -58,7 +49,6 @@ class Sampler(ABC, Generic[T]):
 
     def __init__(self):
         self._value: Optional[T] = None
-        self._id = uuid4()
 
     @property
     def value(self) -> Optional[T]:
@@ -73,6 +63,9 @@ class Sampler(ABC, Generic[T]):
         :attr:`_value` property.
         """
         raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} value={self._value}>"
 
 
 class ComparableSampler(Sampler[ComparableT], Generic[ComparableT]):

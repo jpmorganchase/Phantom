@@ -230,8 +230,8 @@ class TelemetryLogger:
             else:
                 print(_t(2) + "None")
 
-    def log_terminations(self, terminations: Mapping[AgentID, bool]) -> None:
-        terminations = [a for a, done in terminations.items() if done]
+    def log_terminations(self, terminations_map: Mapping[AgentID, bool]) -> None:
+        terminations = [a for a, done in terminations_map.items() if done]
 
         if self._current_episode is not None:
             self._current_episode["steps"][-1]["terminations"] = terminations
@@ -245,12 +245,12 @@ class TelemetryLogger:
                 ]
 
             if len(terminations) > 0:
-                print(_t(2) + ", ".join(terminations))
+                print(_t(2) + ", ".join(str(x) for x in terminations))
             else:
                 print(_t(2) + "None")
 
-    def log_truncations(self, truncations: Mapping[AgentID, bool]) -> None:
-        truncations = [a for a, done in truncations.items() if done]
+    def log_truncations(self, truncations_map: Mapping[AgentID, bool]) -> None:
+        truncations = [a for a, done in truncations_map.items() if done]
 
         if self._current_episode is not None:
             self._current_episode["steps"][-1]["truncations"] = truncations
@@ -262,7 +262,7 @@ class TelemetryLogger:
                 truncations = [a for a in truncations if a in self._print_truncations]
 
             if len(truncations) > 0:
-                print(_t(2) + ", ".join(truncations))
+                print(_t(2) + ", ".join(str(x) for x in truncations))
             else:
                 print(_t(2) + "None")
 

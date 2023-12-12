@@ -1,7 +1,8 @@
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
-import gymnasium as gym
+from gymnasium.utils import seeding
 
+from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -71,7 +72,8 @@ class StackelbergEnv(PhantomEnv):
         """
         logger.log_reset()
 
-        gym.Env.reset(self, seed=seed, options=options)
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
 
         # Reset the clock
         self._current_step = 0
@@ -94,7 +96,7 @@ class StackelbergEnv(PhantomEnv):
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
         # Generate all contexts for strategic leader agents
-        self._make_ctxs(
+        self._ctxs = self._make_ctxs(
             [aid for aid in self.leader_agents if aid in self.strategic_agent_ids]
         )
 
@@ -128,7 +130,7 @@ class StackelbergEnv(PhantomEnv):
         logger.log_start_decoding_actions()
 
         # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
+        self._ctxs = self._make_ctxs(self.agent_ids)
 
         acting_agents, next_acting_agents = (
             (self.leader_agents, self.follower_agents)
@@ -152,6 +154,7 @@ class StackelbergEnv(PhantomEnv):
                 continue
 
             ctx = self._ctxs[aid]
+            assert isinstance(ctx.agent, StrategicAgent)
 
             if aid in next_acting_agents:
                 obs = ctx.agent.encode_observation(ctx)

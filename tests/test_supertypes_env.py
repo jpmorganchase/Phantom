@@ -4,7 +4,7 @@ import pytest
 
 import phantom as ph
 
-from . import MockEnv, MockSampler, MockStrategicAgent
+from . import MockEnv, IncrementingSampler, MockStrategicAgent
 
 
 def test_agent_supertypes_in_env_1():
@@ -13,8 +13,8 @@ def test_agent_supertypes_in_env_1():
 
     network = ph.Network(agents)
 
-    s1 = MockSampler(0)
-    s2 = MockSampler(10)
+    s1 = IncrementingSampler(0)
+    s2 = IncrementingSampler(10)
 
     agent_supertypes = {
         "a1": MockStrategicAgent.Supertype(type_value=s1),
@@ -48,8 +48,8 @@ def test_agent_supertypes_in_env_2():
 
     network = ph.Network(agents)
 
-    s1 = MockSampler(0)
-    s2 = MockSampler(10)
+    s1 = IncrementingSampler(0)
+    s2 = IncrementingSampler(10)
 
     agent_supertypes = {
         "a1": {"type_value": s1},
@@ -90,7 +90,7 @@ def test_agent_supertypes_in_env_bad():
 
 def test_env_supertype_in_env_1():
     # USING STANDARD ENV_SUPERTYPES PARAMETER STYLE
-    s1 = MockSampler(0)
+    s1 = IncrementingSampler(0)
 
     env_supertype = MockEnv.Supertype(type_value=s1)
 
@@ -110,7 +110,7 @@ def test_env_supertype_in_env_1():
 
 def test_env_supertype_in_env_2():
     # USING DICTIONARY ENV_SUPERTYPES PARAMETER STYLE
-    s1 = MockSampler(0)
+    s1 = IncrementingSampler(0)
 
     env_supertype = MockEnv.Supertype(type_value=s1)
 
@@ -166,7 +166,7 @@ def test_env_type_passed_to_agent():
 
             super().__init__(num_steps=10, network=network, **kwargs)
 
-    env = MockEnv(env_supertype=MockEnv.Supertype(MockSampler(0.0)))
+    env = MockEnv(env_supertype=MockEnv.Supertype(IncrementingSampler(0.0)))
 
     # sampler value = 1.0 (env.__init__())
 
