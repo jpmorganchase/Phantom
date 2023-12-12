@@ -22,12 +22,8 @@ from ...env import PhantomEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
-from .. import (
-    check_env_config,
-    rich_progress,
-    show_pythonhashseed_warning,
-    validate_env,
-)
+from ... import telemetry
+from .. import check_env_config, rich_progress, show_pythonhashseed_warning
 from .wrapper import RLlibEnvWrapper
 
 
@@ -130,7 +126,9 @@ def train(
     check_env_config(env_config)
 
     env = env_class(**env_config)
-    validate_env(env)
+    with telemetry.logger.pause():
+        env.validate()
+        env.reset()
 
     ray.init(ignore_reinit_error=True, **(ray_config or {}))
 

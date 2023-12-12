@@ -18,6 +18,7 @@ from ...fsm import FiniteStateMachineEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
+from ... import telemetry
 from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
@@ -25,7 +26,6 @@ from .. import (
     rich_progress,
     show_pythonhashseed_warning,
     update_val,
-    validate_env,
     Range,
     Sampler,
 )
@@ -178,7 +178,9 @@ def rollout(
             "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
         )
 
-    validate_env(env)
+    with telemetry.logger.pause():
+        env.validate()
+        env.reset()
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 

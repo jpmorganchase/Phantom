@@ -317,6 +317,15 @@ class PhantomEnv(gym.Env):
 
         return is_at_max_step or len(self._truncations) == len(self.strategic_agents)
 
+    def validate(self) -> None:
+        """
+        Validate the environment by executing a number of steps that sufficiently covers
+        the features of the environment.
+        """
+        obs, _ = self.reset()
+        actions = {aid: self.agents[aid].action_space.sample() for aid in obs}
+        self.step(actions)
+
     def _handle_acting_agents(
         self, agent_ids: Sequence[AgentID], actions: Mapping[AgentID, Any]
     ) -> None:

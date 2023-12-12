@@ -7,7 +7,6 @@ import rich.progress
 import rich.text
 from termcolor import colored
 
-from .. import telemetry
 from .ranges import Range
 from .samplers import Sampler
 
@@ -157,18 +156,6 @@ def check_env_config(env_config: Mapping[str, Any]) -> None:
         if name not in ["env_supertype", "agent_supertypes"]:
             if contains_type(value, Sampler):
                 raise Exception
-
-
-def validate_env(env) -> None:
-    with telemetry.logger.pause():
-        obs, _ = env.reset()
-
-        for _ in range(env.num_steps):
-            actions = {aid: env.agents[aid].action_space.sample() for aid in obs}
-            obs, _, done, _, _ = env.step(actions)
-
-            if done["__all__"]:
-                break
 
 
 def show_pythonhashseed_warning() -> None:
