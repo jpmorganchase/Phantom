@@ -226,7 +226,8 @@ class Trainer(ABC):
     def log_rewards(self, rewards: Mapping[AgentID, float]) -> None:
         """Logs the rewards from a provided env."""
         for agent_id, reward in rewards.items():
-            self.logged_rewards[agent_id].append(reward)
+            self.logged_rewards[agent_id]["total"] += reward
+            self.logged_rewards[agent_id]["count"] += 1
 
     def log_vec_rewards(self, rewards: Sequence[Mapping[AgentID, float]]) -> None:
         """Logs the rewards from a provided list of envs."""
@@ -238,17 +239,20 @@ class Trainer(ABC):
         """Writes logged metrics and rewards to tensorboardX and flushes the cache."""
         for name, metric in self.metrics.items():
             self.tbx_write_scalar(name, metric.reduce(self.logged_metrics[name]), step)
-
-        group_reward_count = []
-
+        total_group_reward = 0
+        count_group_reward = 0
         for agent_id, rewards in self.logged_rewards.items():
-            self.tbx_write_scalar(f"rewards/{agent_id}", np.mean(rewards), step)
-            group_reward_count += rewards
-
-        self.tbx_write_scalar("rewards/group", np.mean(group_reward_count), step)
-
+            if rewards["count"] > 0:
+                avg_reward = rewards["total"] / rewards["count"]
+                self.tbx_write_scalar(f"rewards/{agent_id}", avg_reward, step)
+                total_group_reward += rewards["total"]
+                count_group_reward += rewards["count"]
+        if count_group_reward > 0:
+            self.tbx_write_scalar(
+                "rewards/group", total_group_reward / count_group_reward, step
+            )
         self.logged_metrics = defaultdict(list)
-        self.logged_rewards = defaultdict(list)
+        self.logged_rewards = defaultdict(lambda: {"total": 0, "count": 0})
 
     def tbx_write_scalar(self, name: str, value: float, step: int) -> None:
         """Writes a custom scalar value to tensorboard."""
