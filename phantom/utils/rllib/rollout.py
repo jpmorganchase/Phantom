@@ -4,17 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import Any, Dict, Generator, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import ray
@@ -28,6 +18,7 @@ from ...fsm import FiniteStateMachineEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
+from ... import telemetry
 from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
@@ -186,6 +177,10 @@ def rollout(
         raise ValueError(
             "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
         )
+
+    with telemetry.logger.pause():
+        env.validate()
+        env.reset()
 
     num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
 

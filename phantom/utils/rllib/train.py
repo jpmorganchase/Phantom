@@ -3,16 +3,7 @@ import tempfile
 from datetime import datetime
 from inspect import isclass
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import gymnasium as gym
@@ -31,6 +22,7 @@ from ...env import PhantomEnv
 from ...metrics import Metric, logging_helper
 from ...policy import Policy
 from ...types import AgentID
+from ... import telemetry
 from .. import check_env_config, rich_progress, show_pythonhashseed_warning
 from .wrapper import RLlibEnvWrapper
 
@@ -133,10 +125,12 @@ def train(
 
     check_env_config(env_config)
 
-    ray.init(ignore_reinit_error=True, **(ray_config or {}))
-
     env = env_class(**env_config)
-    env.reset()
+    with telemetry.logger.pause():
+        env.validate()
+        env.reset()
+
+    ray.init(ignore_reinit_error=True, **(ray_config or {}))
 
     policy_specs: Dict[str, rllib.policy.policy.PolicySpec] = {}
     policy_mapping: Dict[AgentID, str] = {}
@@ -307,6 +301,8 @@ class RLlibMetricLogger(DefaultCallbacks):
 
 
 def make_rllib_wrapped_policy_class(policy_class: Type[Policy]) -> Type[rllib.Policy]:
+    """Internal function"""
+
     class RLlibPolicyWrapper(rllib.Policy):
         # NOTE:
         # If the action space is larger than -1.0 < x < 1.0, RLlib will attempt to
