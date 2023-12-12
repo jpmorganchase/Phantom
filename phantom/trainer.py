@@ -248,7 +248,9 @@ class Trainer(ABC):
                 total_group_reward += rewards["total"]
                 count_group_reward += rewards["count"]
         if count_group_reward > 0:
-            self.tbx_write_scalar("rewards/group", total_group_reward / count_group_reward, step)
+            self.tbx_write_scalar(
+                "rewards/group", total_group_reward / count_group_reward, step
+            )
         self.logged_metrics = defaultdict(list)
         self.logged_rewards = defaultdict(lambda: {"total": 0, "count": 0})
 
