@@ -82,7 +82,7 @@ def test_rllib_train_rollout(tmpdir):
     # Evaluate policy (explore=False):
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/LATEST",
-        obs=[ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")],
+        obs={"a": np.array([ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")])},
         policy_id="mock_policy",
         explore=False,
     )
@@ -91,14 +91,14 @@ def test_rllib_train_rollout(tmpdir):
     assert results[0][0] == {"r": 0.0}
     assert results[1][0] == {"r": 0.5}
     assert results[2][0] == {"r": 1.0}
-    assert results[0][1][0] == 0.0
-    assert results[1][1][0] == 0.5
-    assert results[2][1][0] == 1.0
+    assert results[0][1]["a"][0] == 0.0
+    assert results[1][1]["a"][0] == 0.5
+    assert results[2][1]["a"][0] == 1.0
 
     # Evaluate policy (explore=True):
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/LATEST",
-        obs=[ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")],
+        obs={"a": np.array([ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")])},
         policy_id="mock_policy",
         explore=True,
     )
@@ -107,9 +107,9 @@ def test_rllib_train_rollout(tmpdir):
     assert results[0][0] == {"r": 0.0}
     assert results[1][0] == {"r": 0.5}
     assert results[2][0] == {"r": 1.0}
-    assert results[0][1][0] == 0.0
-    assert results[1][1][0] == 0.5
-    assert results[2][1][0] == 1.0
+    assert results[0][1]["a"][0] == 0.0
+    assert results[1][1]["a"][0] == 0.5
+    assert results[2][1]["a"][0] == 1.0
 
 
 def test_rllib_rollout_vectorized_fsm_env(tmpdir):

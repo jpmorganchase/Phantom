@@ -387,3 +387,17 @@ class FiniteStateMachineEnv(PhantomEnv):
         rewards = {aid: self._rewards[aid] for aid in observations}
 
         return self.Step(observations, rewards, terminations, truncations, infos)
+
+    def validate(self) -> None:
+        """
+        Validate the environment by executing a number of steps that sufficiently covers
+        the features of the environment.
+        """
+        obs, _ = self.reset()
+
+        for _ in range(self.num_steps):
+            actions = {aid: self.agents[aid].action_space.sample() for aid in obs}
+            obs, _, done, _, _ = self.step(actions)
+
+            if done["__all__"]:
+                break

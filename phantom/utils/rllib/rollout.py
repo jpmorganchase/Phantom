@@ -4,24 +4,13 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    DefaultDict,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import Any, Dict, Generator, List, Mapping, Optional, Tuple, Type, Union
 
 import cloudpickle
 import ray
 from ray.rllib.models.preprocessors import get_preprocessor, Preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
-from ray.rllib.utils.spaces.space_utils import unsquash_action
+from ray.rllib.utils.spaces.space_utils import unbatch, unsquash_action
 from ray.util.queue import Queue
 
 from ...agents import StrategicAgent
@@ -30,6 +19,7 @@ from ...fsm import FiniteStateMachineEnv
 from ...metrics import Metric, MetricValue, NotRecorded, logging_helper
 from ...policy import Policy
 from ...types import AgentID
+from ... import telemetry
 from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
@@ -188,6 +178,10 @@ def rollout(
         raise ValueError(
             "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
         )
+
+    with telemetry.logger.pause():
+        env.validate()
+        env.reset()
 
     num_workers_ = ((os.cpu_count() or 1) - 1) if num_workers is None else num_workers
 
@@ -349,14 +343,14 @@ def _rollout_task_fn(
 
                     processed_obs = [preprocessor.transform(ob) for ob in vec_agent_obs]
 
-                    squashed_actions = policy.compute_actions(
+                    squashed_action = policy.compute_actions(
                         processed_obs, explore=explore
                     )[0]
 
-                    actions[agent_id] = [
-                        unsquash_action(action, policy.action_space_struct)
-                        for action in squashed_actions
-                    ]
+                    unsquashed_action = unsquash_action(
+                        squashed_action, policy.action_space_struct
+                    )
+                    actions[agent_id] = unbatch(unsquashed_action)
 
             # hack for no agent acting step in Ops
             if len(dict_observations) == 0:
