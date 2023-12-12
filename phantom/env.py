@@ -281,9 +281,6 @@ class PhantomEnv:
 
         return self.Step(observations, rewards, terminations, truncations, infos)
 
-    def render(self) -> None:
-        return None
-
     def is_terminated(self) -> bool:
         """Implements the logic to decide when the episode is terminated."""
         return len(self._terminations) == len(self.strategic_agents)
