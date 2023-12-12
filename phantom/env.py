@@ -363,7 +363,9 @@ class PhantomEnv:
         obs, _ = self.reset()
 
         actions = {
-            self.agents[self._agent_id_from_action_id(action_id)].action_space.sample()
+            action_id: self.agents[
+                self._agent_id_from_action_id(action_id)
+            ].action_space.sample()
             for action_id in obs
         }
 
