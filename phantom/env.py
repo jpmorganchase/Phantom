@@ -16,6 +16,11 @@ class PhantomEnv:
     """
     Base Phantom environment.
 
+    This class follows the gym/gymnasium environment and step paradigm. It does not
+    inherit from ``gym.Env`` as the API is different due to being a multi-agent
+    environment. It more closely aligns with the RLlib ```MultiAgentEnv`` class but
+    does not inherit from it so as not to be tied to RLlib.
+
     Usage:
         >>> env = PhantomEnv({ ... })
         >>> env.reset()
