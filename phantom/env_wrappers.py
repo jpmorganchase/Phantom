@@ -113,7 +113,7 @@ class SingleAgentEnvAdapter(gym.Env):
     def action_space(self) -> gym.Space:
         """Return the action space of the selected env agent."""
         return self._env[self._agent_id].action_space
-    
+
     @property
     def observation_space(self) -> gym.Space:
         """Return the observation space of the selected env agent."""
