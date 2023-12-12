@@ -14,6 +14,9 @@ ObsSpaceCompatibleTypes = Union[dict, list, np.ndarray, tuple]
 @dataclass
 class Supertype(ABC):
     def __post_init__(self):
+        # If the supertype instance is passed to the env in the agent_supertypes or
+        # env_supertype arguments, we set this to True so that the Env knows to sample
+        # from this.
         self._managed = False
 
     def sample(self) -> "Supertype":
@@ -65,6 +68,7 @@ class Supertype(ABC):
 
     @property
     def __dict__(self):
+        # Method overloaded to prevent the _managed field from being exposed.
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
 
 
