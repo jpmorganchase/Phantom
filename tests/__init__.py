@@ -6,7 +6,7 @@ import numpy as np
 import phantom as ph
 
 
-class MockSampler(ph.utils.samplers.Sampler[float]):
+class IncrementingSampler(ph.utils.samplers.Sampler[float]):
     def __init__(self, value: float) -> None:
         self._value = value
 
@@ -15,7 +15,7 @@ class MockSampler(ph.utils.samplers.Sampler[float]):
         return self._value
 
 
-class MockComparableSampler(ph.utils.samplers.ComparableSampler[float]):
+class IncrementingComparableSampler(ph.utils.samplers.ComparableSampler[float]):
     def __init__(self, value: float) -> None:
         self._value = value
 
@@ -39,8 +39,8 @@ class MockStrategicAgent(ph.StrategicAgent):
     def __init__(self, *args, num_steps: Optional[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.action_space = gym.spaces.Box(0, 1, (1,))
-        self.observation_space = gym.spaces.Box(0, 1, (1,))
+        self.action_space = gym.spaces.Dict({"a": gym.spaces.Box(0, 1, (1,))})
+        self.observation_space = gym.spaces.Dict({"a": gym.spaces.Box(0, 1, (1,))})
 
         self.encode_obs_count = 0
         self.decode_action_count = 0
@@ -50,9 +50,9 @@ class MockStrategicAgent(ph.StrategicAgent):
 
     def encode_observation(self, ctx: ph.Context):
         self.encode_obs_count += 1
-        return np.array([ctx.env_view.proportion_time_elapsed])
+        return {"a": np.array([ctx.env_view.proportion_time_elapsed])}
 
-    def decode_action(self, ctx: ph.Context, action: np.ndarray):
+    def decode_action(self, ctx: ph.Context, action):
         self.decode_action_count += 1
         return []
 

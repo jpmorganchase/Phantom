@@ -1,5 +1,7 @@
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
+from gymnasium.utils import seeding
+
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -67,10 +69,45 @@ class StackelbergEnv(PhantomEnv):
             - A dictionary with auxillary information, equivalent to the info dictionary
                 in `env.step()`.
         """
-        # Set initial null reward values
+        logger.log_reset()
+
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
+
+        # Reset the clock
+        self._current_step = 0
+
+        # Generate initial sampled values in samplers
+        for sampler in self._samplers:
+            sampler.sample()
+
+        if self.env_supertype is not None:
+            self.env_type = self.env_supertype.sample()
+
+        # Reset the network and call reset method on all agents in the network
+        self.network.reset()
+
+        # Reset the strategic agents' termination/truncation statuses stored by the
+        # environment
+        self._terminations = set()
+        self._truncations = set()
+
         self._rewards = {aid: None for aid in self.strategic_agent_ids}
 
-        return super().reset()
+        # Generate all contexts for strategic leader agents
+        self._ctxs = self._make_ctxs(
+            [aid for aid in self.leader_agents if aid in self.strategic_agent_ids]
+        )
+
+        # Generate initial observations for strategic leader agents
+        obs = {
+            ctx.agent.id: ctx.agent.encode_observation(ctx)
+            for ctx in self._ctxs.values()
+        }
+
+        logger.log_observations(obs)
+
+        return {k: v for k, v in obs.items() if v is not None}, {}
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
@@ -117,6 +154,20 @@ class StackelbergEnv(PhantomEnv):
         }
 
         return self.Step(observations, rewards, terminations, truncations, infos)
+
+    def validate(self) -> None:
+        """
+        Validate the environment by executing a number of steps that sufficiently covers
+        the features of the environment.
+        """
+        obs, _ = self.reset()
+
+        for _ in range(2):
+            actions = {aid: self.agents[aid].action_space.sample() for aid in obs}
+            obs, _, done, _, _ = self.step(actions)
+
+            if done["__all__"]:
+                break
 
     @property
     def _acting_agents(self) -> Sequence[AgentID]:

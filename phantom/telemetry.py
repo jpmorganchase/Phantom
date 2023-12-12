@@ -60,6 +60,8 @@ class TelemetryLogger:
 
         self._current_episode = None
 
+        self._paused: bool = False
+
     def configure_print_logging(
         self,
         enable: Union[bool, None] = None,
@@ -228,8 +230,8 @@ class TelemetryLogger:
             else:
                 print(_t(2) + "None")
 
-    def log_terminations(self, terminations: Mapping[AgentID, bool]) -> None:
-        terminations = [a for a, done in terminations.items() if done]
+    def log_terminations(self, terminations_map: Mapping[AgentID, bool]) -> None:
+        terminations = [a for a, done in terminations_map.items() if done]
 
         if self._current_episode is not None:
             self._current_episode["steps"][-1]["terminations"] = terminations
@@ -243,12 +245,12 @@ class TelemetryLogger:
                 ]
 
             if len(terminations) > 0:
-                print(_t(2) + ", ".join(terminations))
+                print(_t(2) + ", ".join(str(x) for x in terminations))
             else:
                 print(_t(2) + "None")
 
-    def log_truncations(self, truncations: Mapping[AgentID, bool]) -> None:
-        truncations = [a for a, done in truncations.items() if done]
+    def log_truncations(self, truncations_map: Mapping[AgentID, bool]) -> None:
+        truncations = [a for a, done in truncations_map.items() if done]
 
         if self._current_episode is not None:
             self._current_episode["steps"][-1]["truncations"] = truncations
@@ -260,7 +262,7 @@ class TelemetryLogger:
                 truncations = [a for a in truncations if a in self._print_truncations]
 
             if len(truncations) > 0:
-                print(_t(2) + ", ".join(truncations))
+                print(_t(2) + ", ".join(str(x) for x in truncations))
             else:
                 print(_t(2) + "None")
 
@@ -337,9 +339,13 @@ class TelemetryLogger:
 
     def log_metrics(self, env: "PhantomEnv") -> None:
         if self._current_episode is not None:
-            self._current_episode["steps"][-1]["metrics"] = {
-                name: metric.extract(env) for name, metric in self._file_metrics.items()
-            }
+            if self._file_metrics is not None:
+                self._current_episode["steps"][-1]["metrics"] = {
+                    name: metric.extract(env)
+                    for name, metric in self._file_metrics.items()
+                }
+            else:
+                self._current_episode["steps"][-1]["metrics"] = {}
 
         if self._enable_print and self._print_metrics is not None:
             print(_t(1) + colored("METRICS:", color="cyan"))
@@ -356,6 +362,16 @@ class TelemetryLogger:
         if self._enable_print:
             print(_t(1) + colored("EPISODE DONE", color="green", attrs=["bold"]))
 
+    def pause(self) -> "TelemetryLogger.PauseContextManager":
+        class PauseContextManager:
+            def __enter__(self2):
+                self._paused = True
+
+            def __exit__(self2, exc_type, exc_val, exc_tb):
+                self._paused = False
+
+        return PauseContextManager()
+
     def _print_msg(self, message: Message, string: str) -> None:
         if self._should_print_msg(message):
             route_str = f"{message.sender_id: >10} --> {message.receiver_id: <10}"
@@ -369,7 +385,11 @@ class TelemetryLogger:
             )
 
     def _write_episode_to_file(self) -> None:
-        if self._output_file is not None and self._current_episode is not None:
+        if (
+            not self._paused
+            and self._output_file is not None
+            and self._current_episode is not None
+        ):
             json.dump(
                 self._current_episode,
                 self._output_file,
@@ -382,7 +402,8 @@ class TelemetryLogger:
 
     def _should_print_msg(self, message: Message) -> bool:
         return (
-            self._enable_print
+            not self._paused
+            and self._enable_print
             and self._print_messages
             and (
                 isinstance(self._print_messages, bool)
@@ -417,6 +438,9 @@ class NumpyArrayEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, np.ndarray):
             return o.tolist()
+        if isinstance(o, np.number):
+            return o.item()
+
         return json.JSONEncoder.default(self, o)
 
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
+    DefaultDict,
     Dict,
     Generator,
     List,
@@ -20,14 +21,16 @@ import cloudpickle
 import ray
 from ray.rllib.models.preprocessors import get_preprocessor, Preprocessor
 from ray.rllib.policy import Policy as RLlibPolicy
-from ray.rllib.utils.spaces.space_utils import unsquash_action
+from ray.rllib.utils.spaces.space_utils import unbatch, unsquash_action
 from ray.util.queue import Queue
 
+from ...agents import StrategicAgent
 from ...env import PhantomEnv
 from ...fsm import FiniteStateMachineEnv
-from ...metrics import Metric, logging_helper
+from ...metrics import Metric, MetricValue, NotRecorded, logging_helper
 from ...policy import Policy
 from ...types import AgentID
+from ... import telemetry
 from ..rollout import Rollout, Step
 from .. import (
     collect_instances_of_type_with_paths,
@@ -105,9 +108,6 @@ def rollout(
         policy_inference_batch_size > 0
     ), "policy_inference_batch_size must be at least 1"
 
-    if policy_inference_batch_size > 1 and issubclass(env_class, FiniteStateMachineEnv):
-        raise ValueError("Cannot use FSM env when policy_inference_batch_size > 1")
-
     if num_workers is not None:
         assert num_workers >= 0, "num_workers must be at least 0"
 
@@ -169,12 +169,6 @@ def rollout(
         for j in range(num_repeats)
     ]
 
-    num_workers_ = (os.cpu_count() - 1) if num_workers is None else num_workers
-
-    print(
-        f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
-    )
-
     # Load configs from results directory.
     with open(Path(directory, "params.pkl"), "rb") as params_file:
         config = cloudpickle.load(params_file)
@@ -184,6 +178,27 @@ def rollout(
 
     if env_class is None:
         env_class = ph_config["env_class"]
+
+    env = env_class(**rollout_configs[0].env_config)
+
+    if (
+        policy_inference_batch_size > 1
+        and isinstance(env, FiniteStateMachineEnv)
+        and not env.is_fsm_deterministic()
+    ):
+        raise ValueError(
+            "Cannot use non-determinisic FSM when policy_inference_batch_size > 1"
+        )
+
+    with telemetry.logger.pause():
+        env.validate()
+        env.reset()
+
+    num_workers_ = ((os.cpu_count() or 1) - 1) if num_workers is None else num_workers
+
+    print(
+        f"Starting {len(rollout_configs):,} rollout(s) using {num_workers_} worker process(es)"
+    )
 
     # Start the rollouts
     if num_workers_ == 0:
@@ -259,7 +274,7 @@ def _rollout_task_fn(
     custom_policy_mapping: CustomPolicyMapping,
     policy_inference_batch_size: int,
     explore: bool,
-    metric_objects: Optional[Mapping[str, Metric]] = None,
+    metric_objects: Mapping[str, Metric] = None,
     record_messages: bool = False,
 ) -> Generator[Rollout, None, None]:
     """Internal function"""
@@ -286,21 +301,25 @@ def _rollout_task_fn(
             for env in vec_envs:
                 env.network.resolver.enable_tracking = True
 
-        vec_metrics = [defaultdict(list) for _ in range(batch_size)]
-        vec_all_steps = [[] for _ in range(batch_size)]
+        vec_metrics: List[DefaultDict[str, List[Union[MetricValue, NotRecorded]]]] = [
+            defaultdict(list) for _ in range(batch_size)
+        ]
+        vec_all_steps: List[List[Step]] = [[] for _ in range(batch_size)]
 
         vec_observations = [
             env.reset(seed=config.rollout_id)[0]
             for env, config in zip(vec_envs, configs)
         ]
 
-        initted_policy_mapping = {
-            agent_id: policy(
-                vec_envs[0][agent_id].observation_space,
-                vec_envs[0][agent_id].action_space,
+        initted_policy_mapping = {}
+
+        for agent_id, policy in custom_policy_mapping.items():
+            agent = vec_envs[0][agent_id]
+            assert isinstance(agent, StrategicAgent)
+
+            initted_policy_mapping[agent_id] = policy(
+                agent.observation_space, agent.action_space
             )
-            for agent_id, policy in custom_policy_mapping.items()
-        }
 
         # Run rollout steps.
         for i in range(vec_envs[0].num_steps):
@@ -335,14 +354,14 @@ def _rollout_task_fn(
 
                     processed_obs = [preprocessor.transform(ob) for ob in vec_agent_obs]
 
-                    squashed_actions = policy.compute_actions(
+                    squashed_action = policy.compute_actions(
                         processed_obs, explore=explore
                     )[0]
 
-                    actions[agent_id] = [
-                        unsquash_action(action, policy.action_space_struct)
-                        for action in squashed_actions
-                    ]
+                    unsquashed_action = unsquash_action(
+                        squashed_action, policy.action_space_struct
+                    )
+                    actions[agent_id] = unbatch(unsquashed_action)
 
             # hack for no agent acting step in Ops
             if len(dict_observations) == 0:
@@ -350,37 +369,30 @@ def _rollout_task_fn(
             else:
                 vec_actions = [dict(zip(actions, t)) for t in zip(*actions.values())]
 
-            vec_steps = [
-                env.step(actions) for env, actions in zip(vec_envs, vec_actions)
-            ]
+            vec_observations = []
 
-            for j in range(batch_size):
+            for env, actions, metrics, all_steps in zip(
+                vec_envs, vec_actions, vec_metrics, vec_all_steps
+            ):
+                step = env.step(actions)
+                vec_observations.append(step.observations)
+
                 if metric_objects is not None:
-                    logging_helper(vec_envs[j], metric_objects, vec_metrics[j])
+                    logging_helper(env, metric_objects, metrics)
 
                 if record_messages:
-                    messages = deepcopy(vec_envs[j].network.resolver.tracked_messages)
-                    vec_envs[j].network.resolver.clear_tracked_messages()
+                    messages = deepcopy(env.network.resolver.tracked_messages)
+                    env.network.resolver.clear_tracked_messages()
                 else:
                     messages = None
 
-                vec_all_steps[j].append(
-                    Step(
-                        i,
-                        vec_observations[j],
-                        vec_steps[j].rewards,
-                        vec_steps[j].terminations,
-                        vec_steps[j].truncations,
-                        vec_steps[j].infos,
-                        vec_actions[j],
-                        messages,
-                        vec_envs[j].previous_stage
-                        if isinstance(vec_envs[j], FiniteStateMachineEnv)
-                        else None,
-                    )
+                stage = (
+                    env.previous_stage
+                    if isinstance(env, FiniteStateMachineEnv)
+                    else None
                 )
 
-            vec_observations = [step.observations for step in vec_steps]
+                all_steps.append(Step(i, *step, actions, messages, stage))
 
         for j in range(batch_size):
             reduced_metrics = {

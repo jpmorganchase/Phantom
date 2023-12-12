@@ -11,7 +11,7 @@ from typing import (
 
 import gymnasium as gym
 
-from .agents import Agent, AgentID
+from .agents import Agent, AgentID, StrategicAgent
 from .env import PhantomEnv
 from .policy import Policy
 
@@ -62,7 +62,7 @@ class SingleAgentEnvAdapter(gym.Env):
         policies = list(other_policies.keys()) + [agent_id]
 
         for agent in self._env.agents.values():
-            if agent.action_space is not None and agent.id not in policies:
+            if isinstance(agent, StrategicAgent) and agent.id not in policies:
                 raise ValueError(
                     f"Agent '{agent_id}' has not been defined a policy via the 'other_policies' parameter of SingleAgentEnvAdapter"
                 )

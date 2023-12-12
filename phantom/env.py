@@ -1,17 +1,6 @@
-from collections import defaultdict
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence, Set, Tuple
 
-import gymnasium as gym
+from gymnasium.utils import seeding
 from ray.rllib.utils.spaces.space_utils import convert_element_to_space_type
 
 from .agents import Agent, StrategicAgent
@@ -24,9 +13,14 @@ from .utils.samplers import Sampler
 from .views import AgentView, EnvView
 
 
-class PhantomEnv(gym.Env):
+class PhantomEnv:
     """
     Base Phantom environment.
+
+    This class follows the gym/gymnasium environment and step paradigm. It does not
+    inherit from ``gym.Env`` as the API is different due to being a multi-agent
+    environment. It more closely aligns with the RLlib ```MultiAgentEnv`` class but
+    does not inherit from it so as not to be tied to RLlib.
 
     Usage:
         >>> env = PhantomEnv({ ... })
@@ -82,40 +76,27 @@ class PhantomEnv(gym.Env):
         # list contains only one reference to each sampler instance.
         self._samplers: List[Sampler] = []
 
-        if env_supertype is not None:
-            if isinstance(env_supertype, dict):
-                env_supertype = self.Supertype(**env_supertype)
-            else:
-                assert isinstance(env_supertype, self.Supertype)
-
-            # The env will manage sampling the supertype values
-            env_supertype._managed = True
+        def build_supertype(supertype, entity) -> Supertype:
+            if isinstance(supertype, dict):
+                assert hasattr(entity, "Supertype")
+                supertype = entity.Supertype(**supertype)
+            elif hasattr(entity, "Supertype"):
+                assert isinstance(supertype, entity.Supertype)
 
             # Extract samplers from env supertype dict
-            for value in env_supertype.__dict__.values():
+            for value in supertype.__dict__.values():
                 if isinstance(value, Sampler) and value not in self._samplers:
                     self._samplers.append(value)
 
-            self.env_supertype = env_supertype
+            supertype._managed = True
+            return supertype
 
-        if agent_supertypes is not None:
-            for agent_id, agent_supertype in agent_supertypes.items():
-                if isinstance(agent_supertype, dict):
-                    agent_supertype = self.agents[agent_id].Supertype(**agent_supertype)
-                # TODO: fix, temporarily disabled as AgentClass.Supertype changed to __main__.Supertype
-                # else:
-                #     assert isinstance(agent_supertype, self.agents[agent_id].Supertype)
+        if env_supertype is not None:
+            self.env_supertype = build_supertype(env_supertype, self)
 
-                # The env will manage sampling the supertype values
-                agent_supertype._managed = True
-
-                # Extract samplers from agent supertype dict
-                for value in agent_supertype.__dict__.values():
-                    if isinstance(value, Sampler) and value not in self._samplers:
-                        self._samplers.append(value)
-
-                agent = self.network.agents[agent_id]
-                agent.supertype = agent_supertype
+        for agent_id, agent_supertype in (agent_supertypes or {}).items():
+            agent = self.network.agents[agent_id]
+            agent.supertype = build_supertype(agent_supertype, agent)
 
         # Generate initial sampled values in samplers
         for sampler in self._samplers:
@@ -165,7 +146,7 @@ class PhantomEnv(gym.Env):
         """Return a list of the IDs of the agents that do not take actions."""
         return [a.id for a in self.agents.values() if not isinstance(a, StrategicAgent)]
 
-    def view(self, agent_views: Dict[AgentID, AgentView]) -> EnvView:
+    def view(self, agent_views: Dict[AgentID, Optional[AgentView]]) -> EnvView:
         """Return an immutable view to the environment's public state."""
         return EnvView(self.current_step, self.current_step / self.num_steps)
 
@@ -205,7 +186,8 @@ class PhantomEnv(gym.Env):
         """
         logger.log_reset()
 
-        super().reset(seed=seed, options=options)
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
 
         # Reset the clock
         self._current_step = 0
@@ -226,7 +208,7 @@ class PhantomEnv(gym.Env):
         self._truncations = set()
 
         # Generate all contexts for agents taking actions
-        self._make_ctxs(self._acting_agents)
+        self._ctxs = self._make_ctxs(self._acting_agents)
 
         # Generate initial observations for agents taking actions
         obs = {
@@ -277,15 +259,10 @@ class PhantomEnv(gym.Env):
         logger.log_start_decoding_actions()
 
         # Generate contexts for all agents taking actions / generating messages
-        self._make_ctxs(self.agent_ids)
+        self._ctxs = self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
-        stacked_ids = defaultdict(list)
-
-        for aid in actions.keys():
-            if aid.startswith("__stacked__"):
-                i, aid = aid[11:].split("__", 1)
-                stacked_ids[aid].append(int(i))
+        batched_actions = self._batch_actions(actions)
 
         for aid in self.agents:
             if aid in self._terminations or aid in self._truncations:
@@ -293,14 +270,8 @@ class PhantomEnv(gym.Env):
 
             ctx = self._ctxs[aid]
 
-            if aid in actions:
-                if aid in stacked_ids:
-                    actions[aid] = [
-                        actions[f"__stacked__{idx}__{aid}"]
-                        for idx in sorted(stacked_ids[aid])
-                    ]
-
-                messages = ctx.agent.decode_action(ctx, actions[aid]) or []
+            if aid in batched_actions:
+                messages = ctx.agent.decode_action(ctx, batched_actions[aid]) or []
             else:
                 messages = ctx.agent.generate_messages(ctx) or []
 
@@ -320,6 +291,7 @@ class PhantomEnv(gym.Env):
                 continue
 
             ctx = self._ctxs[aid]
+            assert isinstance(ctx.agent, StrategicAgent)
 
             if aid in observing_agents:
                 obs = ctx.agent.encode_observation(ctx)
@@ -371,9 +343,6 @@ class PhantomEnv(gym.Env):
 
         return (observations, rewards, terminations, truncations, infos)
 
-    def render(self) -> None:
-        return None
-
     def is_terminated(self) -> bool:
         """Implements the logic to decide when the episode is terminated."""
         return len(self._terminations) == len(self.strategic_agents)
@@ -386,17 +355,31 @@ class PhantomEnv(gym.Env):
 
         return is_at_max_step or len(self._truncations) == len(self.strategic_agents)
 
+    def validate(self) -> None:
+        """
+        Validate the environment by executing a number of steps that sufficiently covers
+        the features of the environment.
+        """
+        obs, _ = self.reset()
+
+        actions = {
+            self.agents[self._agent_id_from_action_id(action_id)].action_space.sample()
+            for action_id in obs
+        }
+
+        self.step(actions)
+
     @property
     def _acting_agents(self) -> Sequence[AgentID]:
         return self.strategic_agent_ids
 
-    def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> None:
+    def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> Dict[AgentID, Context]:
         """Internal method."""
         env_view = self.view(
             {agent_id: agent.view() for agent_id, agent in self.agents.items()}
         )
 
-        self._ctxs = {
+        return {
             aid: self.network.context_for(aid, env_view)
             for aid in agent_ids
             if aid not in self._terminations and aid not in self._truncations
@@ -426,6 +409,31 @@ class PhantomEnv(gym.Env):
                     )
 
         return observations
+
+    def _batch_actions(self, actions: Dict[str, Any]) -> Dict[AgentID, Any]:
+        """Internal method."""
+        batched_actions = {}
+
+        for action_id in sorted(actions.keys()):
+            if action_id.startswith("__stacked__"):
+                agent_id = self._agent_id_from_action_id(action_id)
+
+                if agent_id not in batched_actions:
+                    batched_actions[agent_id] = []
+
+                batched_actions[agent_id].append(actions[action_id])
+            else:
+                batched_actions[action_id] = actions[action_id]
+
+        return batched_actions
+
+    def _agent_id_from_action_id(self, action_id: str) -> AgentID:
+        """Internal method."""
+        return (
+            action_id[11:].split("__", 1)[1]
+            if action_id.startswith("__stacked__")
+            else action_id
+        )
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]

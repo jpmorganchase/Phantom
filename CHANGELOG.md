@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 2.2.0 (2023-12-05)
+
+- Ensure a checkpoint is taken at the end of a training run when using RLlib and the
+checkpoint_freq parameter != 0.
+- Remove restriction on vectorized env rollouts when using deterministic FSMEnvs.
+- Fix packaging issues due to setuptools depreciations.
+- Temporarily disable unstable RLlib RLModule API.
+- Update Sphinx dependencies.
+- Add deprecation warning for older MsgPayload type.
+
+
 ## Version 2.1.0 (2023-10-25)
 
 - Update many dependencies to newer versions, including ray==2.7.1 and pytorch>=2.0.

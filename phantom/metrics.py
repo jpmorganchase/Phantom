@@ -3,14 +3,15 @@ from functools import reduce
 from typing import (
     Callable,
     DefaultDict,
-    Dict,
     Generic,
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     TypeVar,
+    Union,
 )
 
 import numpy as np
@@ -19,7 +20,7 @@ from .env import PhantomEnv
 from .fsm import FSMStage, FiniteStateMachineEnv
 
 
-MetricValue = TypeVar("MetricValue")
+MetricValue = TypeVar("MetricValue", float, int, np.typing.ArrayLike)
 
 
 class NotRecorded:
@@ -135,10 +136,7 @@ class LambdaMetric(Metric, Generic[MetricValue]):
             raise ValueError(f"Unknown mode: {mode}")
 
 
-SimpleMetricValue = TypeVar("SimpleMetricValue", int, float)
-
-
-class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
+class SimpleMetric(Metric, Generic[MetricValue], ABC):
     """Base class of a set of helper metric classes."""
 
     def __init__(
@@ -164,8 +162,8 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
         super().__init__(fsm_stages, description)
 
     def reduce(
-        self, values: Sequence[SimpleMetricValue], mode: Literal["train", "evaluate"]
-    ) -> SimpleMetricValue:
+        self, values: Sequence[MetricValue], mode: Literal["train", "evaluate"]
+    ) -> Union[MetricValue, np.typing.NDArray[MetricValue]]:
         reduce_action = (
             self.train_reduce_action if mode == "train" else self.eval_reduce_action
         )
@@ -186,7 +184,7 @@ class SimpleMetric(Metric, Generic[SimpleMetricValue], ABC):
         raise ValueError
 
 
-class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
+class SimpleAgentMetric(SimpleMetric, Generic[MetricValue]):
     """
     Simple helper class for extracting single ints or floats from the state of a given
     agent.
@@ -227,11 +225,11 @@ class SimpleAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: PhantomEnv) -> MetricValue:
         return _rgetattr(env.agents[self.agent_id], self.agent_property)
 
 
-class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
+class SimpleEnvMetric(SimpleMetric, Generic[MetricValue]):
     """
     Simple helper class for extracting single ints or floats from the state of the env.
 
@@ -268,11 +266,11 @@ class SimpleEnvMetric(SimpleMetric, Generic[SimpleMetricValue]):
             train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: PhantomEnv) -> MetricValue:
         return _rgetattr(env, self.env_property)
 
 
-class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
+class AggregatedAgentMetric(SimpleMetric, Generic[MetricValue]):
     """
     Simple helper class for extracting single ints or floats from the states of a group
     of agents and performing a reduction operation on the values.
@@ -327,7 +325,7 @@ class AggregatedAgentMetric(SimpleMetric, Generic[SimpleMetricValue]):
             train_reduce_action, eval_reduce_action, fsm_stages, description
         )
 
-    def extract(self, env: PhantomEnv) -> SimpleMetricValue:
+    def extract(self, env: PhantomEnv) -> MetricValue:
         values = [
             _rgetattr(env.agents[agent_id], self.agent_property)
             for agent_id in self.agent_ids
@@ -354,8 +352,8 @@ def _rgetattr(obj, attr, *args):
 
 def logging_helper(
     env: PhantomEnv,
-    metrics: Dict[str, Metric],
-    metric_values: DefaultDict[str, List[float]],
+    metrics: Mapping[str, Metric],
+    metric_values: DefaultDict[str, List[Union[MetricValue, NotRecorded]]],
 ) -> None:
     for metric_id, metric in metrics.items():
         if (

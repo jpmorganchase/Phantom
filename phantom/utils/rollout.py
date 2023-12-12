@@ -26,7 +26,8 @@ class AgentStep:
     i: int
     observation: Optional[Any]
     reward: Optional[float]
-    done: bool
+    terminated: bool
+    truncated: bool
     info: Optional[Dict[str, Any]]
     action: Optional[Any]
     stage: Optional[StageID] = None
@@ -73,7 +74,7 @@ class Rollout:
             step.observations.get(agent_id, None)
             for step in self.steps
             if (drop_nones is False or agent_id in step.observations)
-            and (stages is None or step.stage in stages)
+            and (stages is None or (step.stage is not None and step.stage in stages))
         ]
 
     def rewards_for_agent(
@@ -96,7 +97,7 @@ class Rollout:
                 drop_nones is False
                 or (agent_id in step.rewards and step.rewards[agent_id] is not None)
             )
-            and (stages is None or step.stage in stages)
+            and (stages is None or (step.stage is not None and step.stage in stages))
         ]
 
     def terminations_for_agent(
@@ -116,7 +117,7 @@ class Rollout:
             step.terminations.get(agent_id, None)
             for step in self.steps
             if (drop_nones is False or agent_id in step.terminations)
-            and (stages is None or step.stage in stages)
+            and (stages is None or (step.stage is not None and step.stage in stages))
         ]
 
     def truncations_for_agent(
@@ -136,7 +137,7 @@ class Rollout:
             step.truncations.get(agent_id, None)
             for step in self.steps
             if (drop_nones is False or agent_id in step.truncations)
-            and (stages is None or step.stage in stages)
+            and (stages is None or (step.stage is not None and step.stage in stages))
         ]
 
     def infos_for_agent(
@@ -156,7 +157,7 @@ class Rollout:
             step.infos.get(agent_id, None)
             for step in self.steps
             if (drop_nones is False or agent_id in step.infos)
-            and (stages is None or step.stage in stages)
+            and (stages is None or (step.stage is not None and step.stage in stages))
         ]
 
     def actions_for_agent(
@@ -176,7 +177,7 @@ class Rollout:
             step.actions.get(agent_id, None)
             for step in self.steps
             if (drop_nones is False or agent_id in step.actions)
-            and (stages is None or step.stage in stages)
+            and (stages is None or (step.stage is not None and step.stage in stages))
         ]
 
     def steps_for_agent(
@@ -191,15 +192,19 @@ class Rollout:
         if stages is None:
             steps = self.steps
         else:
-            steps = [step for step in self.steps if step.stage in stages]
+            steps = [
+                step
+                for step in self.steps
+                if (step.stage is not None and step.stage in stages)
+            ]
 
         return [
             AgentStep(
                 step.i,
                 step.observations.get(agent_id, None),
                 step.rewards.get(agent_id, None),
-                step.terminations.get(agent_id, None),
-                step.truncations.get(agent_id, None),
+                step.terminations.get(agent_id, False),
+                step.truncations.get(agent_id, False),
                 step.infos.get(agent_id, None),
                 step.actions.get(agent_id, None),
                 step.stage,
@@ -224,7 +229,7 @@ class Rollout:
                 action
                 for step in self.steps
                 for action in step.actions.values()
-                if step.stage in stages
+                if (step.stage is not None and step.stage in stages)
             )
 
         return Counter(filtered_actions).most_common()
@@ -244,7 +249,7 @@ class Rollout:
             filtered_actions = (
                 step.actions.get(agent_id, None)
                 for step in self.steps
-                if step.stage in stages
+                if (step.stage is not None and step.stage in stages)
             )
 
         return Counter(filtered_actions).most_common()
@@ -280,11 +285,11 @@ def rollouts_to_dataframe(
     """
 
     # Consume iterator (if applicable), throw away everything except params and metrics
-    rollouts = [(rollout.rollout_params, rollout.metrics) for rollout in rollouts]
+    rollouts2 = [(rollout.rollout_params, rollout.metrics) for rollout in rollouts]
 
-    index_cols = list(rollouts[0][0].keys())
+    index_cols = list(rollouts2[0][0].keys())
 
-    df = pd.DataFrame([{**params, **metrics} for params, metrics in rollouts])
+    df = pd.DataFrame([{**params, **metrics} for params, metrics in rollouts2])
 
     if index_value_precision is not None:
         for col in index_cols:

@@ -7,7 +7,7 @@ import pytest
 
 from phantom import Supertype
 
-from . import MockSampler
+from . import IncrementingSampler
 
 
 def test_base_supertype_sample():
@@ -25,7 +25,7 @@ def test_base_supertype_sample():
         "b": "string",
     }
 
-    s2 = TestSupertype(MockSampler(0), "string")
+    s2 = TestSupertype(IncrementingSampler(0), "string")
     t2 = s2.sample()
 
     assert t2.__dict__ == {

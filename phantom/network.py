@@ -1,3 +1,4 @@
+import warnings
 from copy import deepcopy
 from itertools import chain, product
 from typing import (
@@ -68,6 +69,8 @@ class Network:
         self.resolver = resolver or BatchResolver()
         self.ignore_connection_errors = ignore_connection_errors
         self.enforce_msg_payload_checks = enforce_msg_payload_checks
+
+        self._has_raised_msg_payload_deprecation_warning = False
 
         if agents is not None:
             self.add_agents(agents)
@@ -296,6 +299,15 @@ class Network:
         if not hasattr(payload, "_sender_types") or not hasattr(
             payload, "_receiver_types"
         ):
+            if isinstance(payload, MsgPayload):
+                if not self._has_raised_msg_payload_deprecation_warning:
+                    warnings.warn(
+                        "MsgPayload type is deprecated. In future, use the @msg_payload decorator",
+                        DeprecationWarning,
+                    )
+                    self._has_raised_msg_payload_deprecation_warning = True
+                return
+
             raise NetworkError(
                 f"Message payloads sent across the network must use the 'msg_payload' decorator (bad payload = '{payload}')"
             )

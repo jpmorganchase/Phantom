@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import phantom as ph
 import pytest
@@ -5,27 +7,30 @@ import pytest
 from .. import MockStrategicAgent, MockEnv, MockPolicy
 
 
+RLLIB_CONFIG = {
+    "disable_env_checking": True,
+    "num_rollout_workers": 1,
+    "model": {
+        "fcnet_hiddens": [16, 16, 16],
+        "fcnet_activation": "relu",
+    },
+}
+
+
 def test_rllib_train_rollout(tmpdir):
     ph.utils.rllib.train(
         algorithm="PPO",
         env_class=MockEnv,
-        env_config={},
-        policies={
-            "mock_policy": MockStrategicAgent,
-        },
-        rllib_config={
-            "disable_env_checking": True,
-            "num_rollout_workers": 1,
-        },
+        policies={"mock_policy": MockStrategicAgent},
+        rllib_config=RLLIB_CONFIG,
         iterations=2,
-        checkpoint_freq=1,
+        checkpoint_freq=2,
         results_dir=tmpdir,
     )
 
     # Without workers, without env class:
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/LATEST",
-        env_config={},
         num_repeats=3,
         num_workers=0,
     )
@@ -35,7 +40,6 @@ def test_rllib_train_rollout(tmpdir):
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/LATEST",
         env_class=MockEnv,
-        env_config={},
         num_repeats=3,
         num_workers=1,
     )
@@ -53,12 +57,11 @@ def test_rllib_train_rollout(tmpdir):
     with open(f"{tmpdir}/rollouts.json", "w") as f:
         ph.utils.rollout.rollouts_to_jsonl(results, f)
 
-    # TODO: fix
+    # TODO: fix (very small floating point rounding difference in some actions)
     # With batched inference:
     # results2 = ph.utils.rllib.rollout(
     #     directory=f"{tmpdir}/LATEST",
     #     env_class=MockEnv,
-    #     env_config={},
     #     num_repeats=3,
     #     num_workers=1,
     #     policy_inference_batch_size=3,
@@ -70,7 +73,6 @@ def test_rllib_train_rollout(tmpdir):
     results = ph.utils.rllib.rollout(
         directory=f"{tmpdir}/LATEST",
         env_class=MockEnv,
-        env_config={},
         custom_policy_mapping={"a1": MockPolicy},
         num_repeats=1,
         num_workers=1,
@@ -80,7 +82,7 @@ def test_rllib_train_rollout(tmpdir):
     # Evaluate policy (explore=False):
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/LATEST",
-        obs=[ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")],
+        obs={"a": np.array([ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")])},
         policy_id="mock_policy",
         explore=False,
     )
@@ -89,14 +91,14 @@ def test_rllib_train_rollout(tmpdir):
     assert results[0][0] == {"r": 0.0}
     assert results[1][0] == {"r": 0.5}
     assert results[2][0] == {"r": 1.0}
-    assert results[0][1][0] == 0.0
-    assert results[1][1][0] == 0.5
-    assert results[2][1][0] == 1.0
+    assert results[0][1]["a"][0] == 0.0
+    assert results[1][1]["a"][0] == 0.5
+    assert results[2][1]["a"][0] == 1.0
 
     # Evaluate policy (explore=True):
     results = ph.utils.rllib.evaluate_policy(
         directory=f"{tmpdir}/LATEST",
-        obs=[ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")],
+        obs={"a": np.array([ph.utils.ranges.LinspaceRange(0.0, 1.0, 3, name="r")])},
         policy_id="mock_policy",
         explore=True,
     )
@@ -105,30 +107,122 @@ def test_rllib_train_rollout(tmpdir):
     assert results[0][0] == {"r": 0.0}
     assert results[1][0] == {"r": 0.5}
     assert results[2][0] == {"r": 1.0}
-    assert results[0][1][0] == 0.0
-    assert results[1][1][0] == 0.5
-    assert results[2][1][0] == 1.0
+    assert results[0][1]["a"][0] == 0.0
+    assert results[1][1]["a"][0] == 0.5
+    assert results[2][1]["a"][0] == 1.0
 
 
-def test_rllib_rollout_bad(tmpdir):
+def test_rllib_rollout_vectorized_fsm_env(tmpdir):
+    # Non-stochastic FSM Env:
+    class Env(ph.FiniteStateMachineEnv):
+        def __init__(self):
+            agents = [MockStrategicAgent("A")]
+            network = ph.Network(agents)
+            super().__init__(num_steps=1, network=network, initial_stage="StageA")
+
+        @ph.FSMStage(stage_id="StageA", acting_agents=["A"], next_stages=["StageA"])
+        def handle(self):
+            return "StageA"
+
+    ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=Env,
+        policies={"mock_policy": MockStrategicAgent},
+        rllib_config=RLLIB_CONFIG,
+        iterations=2,
+        checkpoint_freq=2,
+        results_dir=tmpdir,
+    )
+
+    results1 = ph.utils.rllib.rollout(
+        directory=f"{tmpdir}/LATEST",
+        num_repeats=3,
+        num_workers=1,
+        policy_inference_batch_size=1,
+    )
+
+    results2 = ph.utils.rllib.rollout(
+        directory=f"{tmpdir}/LATEST",
+        num_repeats=3,
+        num_workers=1,
+        policy_inference_batch_size=3,
+    )
+
+    assert list(results1) == list(results2)
+
+    # Stochastic FSM Env:
+    class Env2(ph.FiniteStateMachineEnv):
+        def __init__(self):
+            agents = [MockStrategicAgent("A")]
+            network = ph.Network(agents)
+            super().__init__(num_steps=1, network=network, initial_stage="StageA")
+
+        @ph.FSMStage(
+            stage_id="StageA", acting_agents=["A"], next_stages=["StageA", "StageB"]
+        )
+        def handleA(self):
+            return "StageB"
+
+        @ph.FSMStage(
+            stage_id="StageB", acting_agents=["A"], next_stages=["StageA", "StageB"]
+        )
+        def handleB(self):
+            return "StageA"
+
+    ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=Env2,
+        policies={"mock_policy": MockStrategicAgent},
+        rllib_config=RLLIB_CONFIG,
+        iterations=2,
+        checkpoint_freq=1,
+        results_dir=tmpdir,
+    )
+
+    with pytest.raises(ValueError):
+        list(
+            ph.utils.rllib.rollout(
+                directory=f"{tmpdir}/LATEST",
+                num_repeats=3,
+                num_workers=1,
+                policy_inference_batch_size=3,
+            )
+        )
+
+
+def test_rllib_rollout_bad():
     # num_repeats < 1
     with pytest.raises(AssertionError):
-        list(
-            ph.utils.rllib.rollout(
-                directory=tmpdir,
-                env_class=MockEnv,
-                env_config={},
-                num_repeats=0,
-            )
-        )
+        list(ph.utils.rllib.rollout(directory="", env_class=MockEnv, num_repeats=0))
 
-    # num_repeats < 0
+    # num_workers < 0
     with pytest.raises(AssertionError):
-        list(
-            ph.utils.rllib.rollout(
-                directory=tmpdir,
-                env_class=MockEnv,
-                env_config={},
-                num_workers=-1,
-            )
-        )
+        list(ph.utils.rllib.rollout(directory="", env_class=MockEnv, num_workers=-1))
+
+
+def test_rllib_train_no_checkpoint(tmpdir):
+    algo = ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=MockEnv,
+        policies={"mock_policy": MockStrategicAgent},
+        rllib_config=RLLIB_CONFIG,
+        iterations=1,
+        checkpoint_freq=0,
+        results_dir=tmpdir,
+    )
+
+    assert not Path(algo.logdir, f"checkpoint_{str(1).zfill(6)}").exists()
+
+
+def test_rllib_train_not_set_checkpoint_freq(tmpdir):
+    algo = ph.utils.rllib.train(
+        algorithm="PPO",
+        env_class=MockEnv,
+        policies={"mock_policy": MockStrategicAgent},
+        rllib_config=RLLIB_CONFIG,
+        iterations=2,
+        checkpoint_freq=None,
+        results_dir=tmpdir,
+    )
+
+    assert Path(algo.logdir, f"checkpoint_{str(2).zfill(6)}").exists()
