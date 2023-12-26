@@ -41,3 +41,20 @@ def test_chained_encoder_reset():
 
     assert e1.id is None
     assert e2.id is None
+
+
+def test_chained_encoder_independence():
+    e1 = SimpleEncoder(1)
+    e2 = SimpleEncoder(2)
+    e3 = SimpleEncoder(3)
+
+    ce1 = ChainedEncoder([e1, e2])
+
+    ce2 = ce1.chain([e3])
+
+    obs_ce2 = ce2.encode(None)
+    assert obs_ce2 == (np.array([1]), np.array([2]), np.array([3]))
+
+    obs_ce1 = ce1.encode(None)
+    assert obs_ce1 == (np.array([1]), np.array([2]))
+    assert len(obs_ce1) == 2

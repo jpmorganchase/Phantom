@@ -86,7 +86,9 @@ class ChainedDecoder(Decoder[Tuple]):
         )
 
     def chain(self, others: Iterable["Decoder"]) -> "ChainedDecoder":
-        return ChainedDecoder(self.decoders + list(others))
+        new_decoders = self.decoders.copy()
+        new_decoders.extend(others)
+        return ChainedDecoder(new_decoders)
 
     def reset(self):
         for decoder in self.decoders:

@@ -80,7 +80,9 @@ class ChainedEncoder(Encoder[Tuple]):
         return tuple(e.encode(ctx) for e in self.encoders)
 
     def chain(self, others: Iterable["Encoder"]) -> "ChainedEncoder":
-        return ChainedEncoder(self.encoders + list(others))
+        new_encoders = self.encoders.copy()
+        new_encoders.extend(others)
+        return ChainedEncoder(new_encoders)
 
     def reset(self):
         for encoder in self.encoders:
