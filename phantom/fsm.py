@@ -326,8 +326,6 @@ class FiniteStateMachineEnv(PhantomEnv):
                 for action_id in obs
             }
 
-            print(actions)
-
             obs, _, done, _, _ = self.step(actions)
 
             if done["__all__"]:
