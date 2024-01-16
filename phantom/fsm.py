@@ -319,7 +319,15 @@ class FiniteStateMachineEnv(PhantomEnv):
         obs, _ = self.reset()
 
         for _ in range(self.num_steps):
-            actions = {aid: self.agents[aid].action_space.sample() for aid in obs}
+            actions = {
+                action_id: self.agents[
+                    self._agent_id_from_action_id(action_id)
+                ].action_space.sample()
+                for action_id in obs
+            }
+
+            print(actions)
+
             obs, _, done, _, _ = self.step(actions)
 
             if done["__all__"]:
