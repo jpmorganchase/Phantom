@@ -126,9 +126,12 @@ def train(
     check_env_config(env_config)
 
     env = env_class(**env_config)
+
+    print("Starting environment validation.")
     with telemetry.logger.pause():
         env.validate()
         env.reset()
+    print("Environment validation complete.")
 
     ray.init(ignore_reinit_error=True, **(ray_config or {}))
 
