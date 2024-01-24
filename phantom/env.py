@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence, Set, Tuple
 
 from gymnasium.utils import seeding
+from ray.rllib.utils.spaces.space_utils import convert_element_to_space_type
 
 from .agents import Agent, StrategicAgent
 from .context import Context
@@ -207,17 +208,21 @@ class PhantomEnv:
         self._truncations = set()
 
         # Generate all contexts for agents taking actions
-        self._ctxs = self._make_ctxs(self.strategic_agent_ids)
+        self._ctxs = self._make_ctxs(self._acting_agents)
 
         # Generate initial observations for agents taking actions
         obs = {
-            ctx.agent.id: ctx.agent.encode_observation(ctx)
-            for ctx in self._ctxs.values()
+            aid: ctx.agent.encode_observation(ctx) for aid, ctx in self._ctxs.items()
         }
 
         logger.log_observations(obs)
 
-        return {k: v for k, v in obs.items() if v is not None}, {}
+        unbatched_obs = {}
+
+        for aid, obs in obs.items():
+            unbatched_obs.update(self._unbatch_obs(aid, obs))
+
+        return {k: v for k, v in unbatched_obs.items() if v is not None}, {}
 
     def step(self, actions: Mapping[AgentID, Any]) -> "PhantomEnv.Step":
         """
@@ -231,6 +236,21 @@ class PhantomEnv:
             A :class:`PhantomEnv.Step` object containing observations, rewards,
             terminations, truncations and infos.
         """
+        self._step_1(actions)
+
+        self.resolve_network()
+
+        observations, rewards, terminations, truncations, infos = self._step_2(
+            self.strategic_agent_ids, self.strategic_agent_ids
+        )
+
+        if terminations["__all__"] or truncations["__all__"]:
+            logger.log_episode_done()
+
+        return self.Step(observations, rewards, terminations, truncations, infos)
+
+    def _step_1(self, actions: Mapping[AgentID, Any]):
+        """Internal method."""
         # Increment the clock
         self._current_step += 1
 
@@ -242,11 +262,24 @@ class PhantomEnv:
         self._ctxs = self._make_ctxs(self.agent_ids)
 
         # Decode action/generate messages for agents and send to the network
-        self._handle_acting_agents(self.agent_ids, actions)
+        batched_actions = self._batch_actions(actions)
 
-        # Resolve the messages on the network and perform mutations:
-        self.resolve_network()
+        for aid in self.agents:
+            if aid in self._terminations or aid in self._truncations:
+                continue
 
+            ctx = self._ctxs[aid]
+
+            if aid in batched_actions:
+                messages = ctx.agent.decode_action(ctx, batched_actions[aid]) or []
+            else:
+                messages = ctx.agent.generate_messages(ctx) or []
+
+            for receiver_id, message in messages:
+                self.network.send(aid, receiver_id, message)
+
+    def _step_2(self, observing_agents: List[AgentID], rewarded_agents: List[AgentID]):
+        """Internal method."""
         observations: Dict[AgentID, Any] = {}
         rewards: Dict[AgentID, Any] = {}
         terminations: Dict[AgentID, bool] = {}
@@ -260,31 +293,55 @@ class PhantomEnv:
             ctx = self._ctxs[aid]
             assert isinstance(ctx.agent, StrategicAgent)
 
-            obs = ctx.agent.encode_observation(ctx)
-            if obs is not None:
-                observations[aid] = obs
-                infos[aid] = ctx.agent.collect_infos(ctx)
-                rewards[aid] = ctx.agent.compute_reward(ctx)
+            if aid in observing_agents:
+                obs = ctx.agent.encode_observation(ctx)
 
-            terminations[aid] = ctx.agent.is_terminated(ctx)
-            truncations[aid] = ctx.agent.is_truncated(ctx)
+                if obs is not None:
+                    infos2 = ctx.agent.collect_infos(ctx)
+                    unbatched_obs = self._unbatch_obs(aid, obs)
+                    observations.update(unbatched_obs)
 
-            if terminations[aid]:
+                    if len(unbatched_obs) == 1:
+                        infos[aid] = infos2
+                    else:
+                        infos.update(
+                            {
+                                f"__stacked__{i}__{aid}": infos2
+                                for i in range(len(unbatched_obs))
+                            }
+                        )
+
+            if aid in rewarded_agents:
+                rewards2 = ctx.agent.compute_reward(ctx)
+
+                if isinstance(rewards2, (float, int)):
+                    rewards[aid] = rewards2
+                elif len(rewards2) == 1:
+                    rewards[aid] = rewards2[0]
+                else:
+                    rewards.update(
+                        {f"__stacked__{i}__{aid}": r for i, r in enumerate(rewards2)}
+                    )
+
+            is_terminated = ctx.agent.is_terminated(ctx)
+            is_truncated = ctx.agent.is_truncated(ctx)
+
+            terminations[aid] = is_terminated
+            truncations[aid] = is_truncated
+
+            if is_terminated:
                 self._terminations.add(aid)
 
-            if truncations[aid]:
+            if is_truncated:
                 self._truncations.add(aid)
-
-        logger.log_step_values(observations, rewards, terminations, truncations, infos)
-        logger.log_metrics(self)
 
         terminations["__all__"] = self.is_terminated()
         truncations["__all__"] = self.is_truncated()
 
-        if terminations["__all__"] or truncations["__all__"]:
-            logger.log_episode_done()
+        logger.log_step_values(observations, rewards, terminations, truncations, infos)
+        logger.log_metrics(self)
 
-        return self.Step(observations, rewards, terminations, truncations, infos)
+        return (observations, rewards, terminations, truncations, infos)
 
     def is_terminated(self) -> bool:
         """Implements the logic to decide when the episode is terminated."""
@@ -304,26 +361,19 @@ class PhantomEnv:
         the features of the environment.
         """
         obs, _ = self.reset()
-        actions = {aid: self.agents[aid].action_space.sample() for aid in obs}
+
+        actions = {
+            action_id: self.agents[
+                self._agent_id_from_action_id(action_id)
+            ].action_space.sample()
+            for action_id in obs
+        }
+
         self.step(actions)
 
-    def _handle_acting_agents(
-        self, agent_ids: Sequence[AgentID], actions: Mapping[AgentID, Any]
-    ) -> None:
-        """Internal method."""
-        for aid in agent_ids:
-            if aid in self._terminations or aid in self._truncations:
-                continue
-
-            ctx = self._ctxs[aid]
-
-            if aid in actions:
-                messages = ctx.agent.decode_action(ctx, actions[aid]) or []
-            else:
-                messages = ctx.agent.generate_messages(ctx) or []
-
-            for receiver_id, message in messages:
-                self.network.send(aid, receiver_id, message)
+    @property
+    def _acting_agents(self) -> Sequence[AgentID]:
+        return self.strategic_agent_ids
 
     def _make_ctxs(self, agent_ids: Sequence[AgentID]) -> Dict[AgentID, Context]:
         """Internal method."""
@@ -336,6 +386,56 @@ class PhantomEnv:
             for aid in agent_ids
             if aid not in self._terminations and aid not in self._truncations
         }
+
+    def _unbatch_obs(self, aid: AgentID, obs: Any) -> Dict[str, Any]:
+        """Internal method."""
+        observations = {aid: obs}
+
+        if isinstance(obs, list):
+            obs_space = self.agents[aid].observation_space
+
+            if not obs_space.contains(obs):
+                obs2 = convert_element_to_space_type(obs[0], obs_space.sample())
+                if obs_space.contains(obs2):
+                    if len(obs) == 1:
+                        observations[aid] = obs2
+                    else:
+                        for i, ob in enumerate(obs):
+                            ob = convert_element_to_space_type(ob, obs_space.sample())
+                            observations[f"__stacked__{i}__{aid}"] = ob
+
+                        del observations[aid]
+                else:
+                    raise ValueError(
+                        f"Detected batched observations but with wrong shape or dtype, expected: {obs_space}, got: {obs[0]}"
+                    )
+
+        return observations
+
+    def _batch_actions(self, actions: Dict[str, Any]) -> Dict[AgentID, Any]:
+        """Internal method."""
+        batched_actions = {}
+
+        for action_id in sorted(actions.keys()):
+            if action_id.startswith("__stacked__"):
+                agent_id = self._agent_id_from_action_id(action_id)
+
+                if agent_id not in batched_actions:
+                    batched_actions[agent_id] = []
+
+                batched_actions[agent_id].append(actions[action_id])
+            else:
+                batched_actions[action_id] = actions[action_id]
+
+        return batched_actions
+
+    def _agent_id_from_action_id(self, action_id: str) -> AgentID:
+        """Internal method."""
+        return (
+            action_id[11:].split("__", 1)[1]
+            if action_id.startswith("__stacked__")
+            else action_id
+        )
 
     def __getitem__(self, agent_id: AgentID) -> Agent:
         return self.network[agent_id]

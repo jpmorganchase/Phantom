@@ -126,9 +126,12 @@ def train(
     check_env_config(env_config)
 
     env = env_class(**env_config)
+
+    print("Starting environment validation.")
     with telemetry.logger.pause():
         env.validate()
         env.reset()
+    print("Environment validation complete.")
 
     ray.init(ignore_reinit_error=True, **(ray_config or {}))
 
@@ -154,7 +157,7 @@ def train(
             else:
                 policy_class, agent_ids, config = params
 
-            if issubclass(policy_class, Policy):
+            if isclass(policy_class) and issubclass(policy_class, Policy):
                 policy_class = make_rllib_wrapped_policy_class(policy_class)
 
             if isclass(agent_ids) and issubclass(agent_ids, Agent):
@@ -177,6 +180,9 @@ def train(
             policy_mapping[agent_id] = policy_name
 
     def policy_mapping_fn(agent_id, *args, **kwargs):
+        if agent_id.startswith("__stacked__"):
+            agent_id = agent_id[11:].split("__", 1)[1]
+
         return policy_mapping[agent_id]
 
     ray.tune.registry.register_env(

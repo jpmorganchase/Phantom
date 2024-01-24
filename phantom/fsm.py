@@ -1,9 +1,7 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from gymnasium.utils import seeding
-
-from .agents import StrategicAgent
 from .env import PhantomEnv
 from .network import Network
 from .supertype import Supertype
@@ -137,16 +135,17 @@ class FiniteStateMachineEnv(PhantomEnv):
 
         # Register stages via FSMStage decorator
         for attr_name in dir(self):
-            attr = getattr(self, attr_name)
-            if callable(attr):
-                handler_fn = attr
-                if hasattr(handler_fn, "_decorator"):
-                    if handler_fn._decorator.id in self._stages:
-                        raise FSMValidationError(
-                            f"Found multiple stages with ID '{handler_fn._decorator.id}'"
-                        )
+            if attr_name != "_acting_agents":
+                attr = getattr(self, attr_name)
+                if callable(attr):
+                    handler_fn = attr
+                    if hasattr(handler_fn, "_decorator"):
+                        if handler_fn._decorator.id in self._stages:
+                            raise FSMValidationError(
+                                f"Found multiple stages with ID '{handler_fn._decorator.id}'"
+                            )
 
-                    self._stages[handler_fn._decorator.id] = handler_fn._decorator
+                        self._stages[handler_fn._decorator.id] = handler_fn._decorator
 
         # Check there is at least one stage
         if len(self._stages) == 0:
@@ -214,47 +213,10 @@ class FiniteStateMachineEnv(PhantomEnv):
             - An optional dictionary with auxillary information, equivalent to the info
             dictionary in `env.step()`.
         """
-        logger.log_reset()
-
-        if seed is not None:
-            self._np_random, seed = seeding.np_random(seed)
-
-        # Reset the clock and stage
-        self._current_step = 0
-        self._current_stage = self.initial_stage
-
-        # Generate initial sampled values in samplers
-        for sampler in self._samplers:
-            sampler.sample()
-
-        if self.env_supertype is not None:
-            self.env_type = self.env_supertype.sample()
-
-        # Reset the network and call reset method on all agents in the network.
-        self.network.reset()
-
-        # Reset the agents' done statuses stored by the environment
-        self._terminations = set()
-        self._truncations = set()
-
         # Set initial null reward values
-        self._rewards = {aid: None for aid in self.strategic_agent_ids}
+        self._rewards = defaultdict(lambda: None)
 
-        # Generate all contexts for agents taking actions
-        acting_agents = self._stages[self.current_stage].acting_agents
-        self._ctxs = self._make_ctxs(
-            [aid for aid in acting_agents if aid in self.strategic_agent_ids]
-        )
-
-        # Generate initial observations for agents taking actions
-        obs = {
-            ctx.agent.id: ctx.agent.encode_observation(ctx)
-            for ctx in self._ctxs.values()
-        }
-
-        logger.log_observations(obs)
-
-        return {k: v for k, v in obs.items() if v is not None}, {}
+        return super().reset()
 
     def step(self, actions: Mapping[AgentID, Any]) -> PhantomEnv.Step:
         """
@@ -268,19 +230,7 @@ class FiniteStateMachineEnv(PhantomEnv):
             A :class:`PhantomEnv.Step` object containing observations, rewards,
             terminations, truncations and infos.
         """
-        # Increment the clock
-        self._current_step += 1
-
-        logger.log_step(self.current_step, self.num_steps)
-        logger.log_actions(actions)
-        logger.log_start_decoding_actions()
-
-        # Generate contexts for all agents taking actions / generating messages
-        self._ctxs = self._make_ctxs(self.agent_ids)
-
-        # Decode action/generate messages for agents and send to the network
-        acting_agents = self._stages[self.current_stage].acting_agents
-        self._handle_acting_agents(acting_agents, actions)
+        self._step_1(actions)
 
         env_handler = self._stages[self.current_stage].handler
 
@@ -327,33 +277,9 @@ class FiniteStateMachineEnv(PhantomEnv):
             rewarded_agents = current_stage.rewarded_agents
             next_acting_agents = self._stages[next_stage].acting_agents
 
-        for aid in self.strategic_agent_ids:
-            if aid in self._terminations or aid in self._truncations:
-                continue
-
-            ctx = self._ctxs[aid]
-            assert isinstance(ctx.agent, StrategicAgent)
-
-            if aid in next_acting_agents:
-                obs = ctx.agent.encode_observation(ctx)
-                if obs is not None:
-                    observations[aid] = obs
-                    infos[aid] = ctx.agent.collect_infos(ctx)
-
-            if aid in rewarded_agents:
-                rewards[aid] = ctx.agent.compute_reward(ctx)
-
-            terminations[aid] = ctx.agent.is_terminated(ctx)
-            truncations[aid] = ctx.agent.is_truncated(ctx)
-
-            if terminations[aid]:
-                self._terminations.add(aid)
-
-            if truncations[aid]:
-                self._truncations.add(aid)
-
-        logger.log_step_values(observations, rewards, terminations, truncations, infos)
-        logger.log_metrics(self)
+        observations, rewards, terminations, truncations, infos = self._step_2(
+            next_acting_agents, rewarded_agents
+        )
 
         self._observations.update(observations)
         self._rewards.update(rewards)
@@ -362,9 +288,6 @@ class FiniteStateMachineEnv(PhantomEnv):
         logger.log_fsm_transition(self.current_stage, next_stage)
 
         self.previous_stage, self._current_stage = self.current_stage, next_stage
-
-        terminations["__all__"] = self.is_terminated()
-        truncations["__all__"] = self.is_truncated()
 
         if (
             self.current_stage is None
@@ -396,8 +319,22 @@ class FiniteStateMachineEnv(PhantomEnv):
         obs, _ = self.reset()
 
         for _ in range(self.num_steps):
-            actions = {aid: self.agents[aid].action_space.sample() for aid in obs}
+            actions = {
+                action_id: self.agents[
+                    self._agent_id_from_action_id(action_id)
+                ].action_space.sample()
+                for action_id in obs
+            }
+
             obs, _, done, _, _ = self.step(actions)
 
             if done["__all__"]:
                 break
+
+    @property
+    def _acting_agents(self) -> Sequence[AgentID]:
+        return [
+            aid
+            for aid in self._stages[self.current_stage].acting_agents
+            if aid in self.strategic_agent_ids
+        ]
