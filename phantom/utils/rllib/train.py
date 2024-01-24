@@ -154,7 +154,7 @@ def train(
             else:
                 policy_class, agent_ids, config = params
 
-            if issubclass(policy_class, Policy):
+            if isclass(policy_class) and issubclass(policy_class, Policy):
                 policy_class = make_rllib_wrapped_policy_class(policy_class)
 
             if isclass(agent_ids) and issubclass(agent_ids, Agent):
