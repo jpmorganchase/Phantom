@@ -9,25 +9,29 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  lint-black:
+  ruff-format:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: psf/black@stable
-
-  lint-ruff:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: chartboost/ruff-action@v1
+      with:
+        args: format
+
+  ruff-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: chartboost/ruff-action@v1
+      with:
+        args: check
 
   test:
     runs-on: ubuntu-latest
     env:
       PYTHONHASHSEED: 1
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: 3.9
 
@@ -46,8 +50,8 @@ jobs:
   build-docs-phantom:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: 3.9
 

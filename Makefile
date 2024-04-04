@@ -13,7 +13,7 @@ install: ## Install the package
 	$(PIP) install .
 
 install-dev:  ## Install dev dependencies
-	$(POETRY) install --with dev
+	$(PIP) install poetry && $(POETRY) install --with dev
 
 test:  ## Run the tests
 	$(PYTEST) tests
