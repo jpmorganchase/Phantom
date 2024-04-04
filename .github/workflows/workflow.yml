@@ -55,11 +55,11 @@ jobs:
       with:
         python-version: 3.9
 
-    - name: Update Pip
+    - name: Update Pip & Poetry
       run: |
-        pip install --upgrade pip wheel
+        pip install --upgrade pip wheel poetry
 
-    - name: Configure poetry
+    - name: Configure Poetry
       run: |
         python -m poetry config virtualenvs.in-project true
 
