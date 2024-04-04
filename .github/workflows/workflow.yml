@@ -35,14 +35,9 @@ jobs:
       run: |
         pip install --upgrade pip wheel
 
-    - name: Install Phantom dependencies
-      run: |
-        make install-deps
-        make install-dev-deps
-
     - name: Install Phantom
       run: |
-        make install
+        make install-dev
 
     - name: Run Phantom tests
       run: |
@@ -60,14 +55,9 @@ jobs:
       run: |
         pip install --upgrade pip wheel
 
-    - name: Install Phantom dependencies
-      run: |
-        make install-deps
-        make install-dev-deps
-
     - name: Install Phantom
       run: |
-        make install
+        make install-dev
 
     - name: Build Phantom docs
       run: |
