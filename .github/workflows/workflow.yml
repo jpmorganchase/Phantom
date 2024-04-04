@@ -59,10 +59,20 @@ jobs:
       run: |
         pip install --upgrade pip wheel
 
+    - name: Configure poetry
+      run: |
+        python -m poetry config virtualenvs.in-project true
+
+    - name: Cache the virtualenv
+      uses: actions/cache@v2
+      with:
+        path: ./.venv
+        key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
+
     - name: Install Phantom
       run: |
         make install-dev
 
     - name: Build Phantom docs
       run: |
-        make build-docs
+        python -m poetry run python -m sphinx -M html "docs/" "docs/_build"
