@@ -105,9 +105,7 @@ class RolloutStorage:
                         + self.rewards[step]
                     ) * self.bad_masks[step + 1] + (
                         1 - self.bad_masks[step + 1]
-                    ) * self.value_preds[
-                        step
-                    ]
+                    ) * self.value_preds[step]
         else:
             if use_gae:
                 self.value_preds[-1] = next_value
@@ -166,7 +164,16 @@ class RolloutStorage:
             else:
                 adv_targ = advantages.view(-1, 1)[indices]
 
-            yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield (
+                obs_batch,
+                recurrent_hidden_states_batch,
+                actions_batch,
+                value_preds_batch,
+                return_batch,
+                masks_batch,
+                old_action_log_probs_batch,
+                adv_targ,
+            )
 
     def recurrent_generator(
         self, advantages, num_mini_batch: int
@@ -229,4 +236,13 @@ class RolloutStorage:
             )
             adv_targ = _flatten_helper(T, N, adv_targ)
 
-            yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield (
+                obs_batch,
+                recurrent_hidden_states_batch,
+                actions_batch,
+                value_preds_batch,
+                return_batch,
+                masks_batch,
+                old_action_log_probs_batch,
+                adv_targ,
+            )
