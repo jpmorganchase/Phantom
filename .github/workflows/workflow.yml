@@ -9,66 +9,80 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  lint-black:
+  ruff-format:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: psf/black@stable
-
-  lint-ruff:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: chartboost/ruff-action@v1
+      with:
+        args: format
+
+  ruff-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: chartboost/ruff-action@v1
+      with:
+        args: check
 
   test:
     runs-on: ubuntu-latest
     env:
       PYTHONHASHSEED: 1
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        python-version: 3.9
 
-    - name: Update Pip
+    - name: Update Pip & Poetry
       run: |
-        pip install --upgrade pip wheel
+        pip install --upgrade pip wheel poetry
 
-    - name: Install Phantom dependencies
+    - name: Configure Poetry
       run: |
-        make install-deps
-        make install-dev-deps
+        python -m poetry config virtualenvs.in-project true
+
+    - name: Cache the virtualenv
+      uses: actions/cache@v4
+      with:
+        path: ./.venv
+        key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install Phantom
       run: |
-        make install
-
+        poetry install --with dev
+  
     - name: Run Phantom tests
       run: |
-        make test
+        python -m poetry run python -m pytest tests
 
   build-docs-phantom:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        python-version: 3.9
 
-    - name: Update Pip
+    - name: Update Pip & Poetry
       run: |
-        pip install --upgrade pip wheel
+        pip install --upgrade pip wheel poetry
 
-    - name: Install Phantom dependencies
+    - name: Configure Poetry
       run: |
-        make install-deps
-        make install-dev-deps
+        python -m poetry config virtualenvs.in-project true
+
+    - name: Cache the virtualenv
+      uses: actions/cache@v4
+      with:
+        path: ./.venv
+        key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install Phantom
       run: |
-        make install
+        poetry install --with dev
 
     - name: Build Phantom docs
       run: |
-        make build-docs
+        python -m poetry run python -m sphinx -M html "docs/" "docs/_build"

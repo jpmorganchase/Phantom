@@ -4,32 +4,22 @@ MODULE			:=phantom
 
 PYTHON			:=python3
 PYTEST			:=$(PYTHON) -m pytest
-MYPY			:=$(PYTHON) -m mypy
 PIP				:=$(PYTHON) -m pip
-BLACK			:=$(PYTHON) -m black
+POETRY			:=$(PYTHON) -m poetry
 SPHINXBUILD     :=$(PYTHON) -m sphinx
 
 
-install-deps:  ## Install dependencies
-	$(PIP) install -r requirements.txt
-
-install-dev-deps:  ## Install dev dependencies
-	$(PIP) install -r requirements-dev.txt
-
 install: ## Install the package
 	$(PIP) install .
+
+install-dev:  ## Install dev dependencies
+	$(PIP) install poetry && $(POETRY) install --with dev
 
 test:  ## Run the tests
 	$(PYTEST) tests
 
 cov:  ## Run the tests with coverage
 	$(PYTEST) tests --cov-report term-missing:skip-covered --cov=${MODULE}
-
-check:  ## Check the types
-	$(MYPY) ${MODULE}
-
-format:  ## Format the code
-	$(BLACK) ${MODULE} tests
 
 dev:  ## Build the package in develop mode
 	$(PIP) install --editable .
