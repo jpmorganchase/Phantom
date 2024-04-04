@@ -35,17 +35,27 @@ jobs:
       with:
         python-version: 3.9
 
-    - name: Update Pip
+    - name: Update Pip & Poetry
       run: |
-        pip install --upgrade pip wheel
+        pip install --upgrade pip wheel poetry
+
+    - name: Configure Poetry
+      run: |
+        python -m poetry config virtualenvs.in-project true
+
+    - name: Cache the virtualenv
+      uses: actions/cache@v4
+      with:
+        path: ./.venv
+        key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install Phantom
       run: |
-        make install-dev
-
+        poetry install --with dev
+  
     - name: Run Phantom tests
       run: |
-        make test
+        python -m poetry run python -m pytest tests
 
   build-docs-phantom:
     runs-on: ubuntu-latest
@@ -64,14 +74,14 @@ jobs:
         python -m poetry config virtualenvs.in-project true
 
     - name: Cache the virtualenv
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ./.venv
         key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install Phantom
       run: |
-        make install-dev
+        poetry install --with dev
 
     - name: Build Phantom docs
       run: |
