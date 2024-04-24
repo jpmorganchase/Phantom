@@ -48,7 +48,7 @@ Phantom is a multi-agent reinforcement-learning simulator built on top of RLlib.
 
 ## Installation
 
-### Prerequisites
+### Prerequisites 
 
 The main requirements for installing Phantom are a modern Python installation
 (3.8 minimum) and access to the pip Python package manager.
