@@ -85,6 +85,9 @@ ipython_config.py
 # VSCode
 .vscode/
 
+# Pycharm
+.idea/
+
 # pyenv
 .python-version
 
@@ -140,3 +143,4 @@ dmypy.json
 
 # profiling output
 *.prof
+

@@ -5,14 +5,12 @@ import numpy as np
 from typing import Sequence
 import pandas as pd
 
-# Use local version of phantom
 import sys
-PATH = "INSERT_FOLDER_PATH_HERE"
-sys.path.insert(0, PATH + 'Bounded MARL/')
 import phantom as ph
-print("Phantom version", ph.__version__)
-from bounded_games.bounded_phantom import BoundedStrategicAgent
 from phantom.utils.samplers import NormalSampler
+
+from ray.rllib.models import ModelCatalog
+from custom import BoundedStrategicAgent, TorchOrdinalCategorical, BoundedPolicies
 
 NUM_EPISODE_STEPS = 50
 NUM_PARTICIPANTS = 6
@@ -117,7 +115,7 @@ class ProducerAgent(BoundedStrategicAgent):
         integer_id = int(self._id.split("PRODUCER")[1])  # ID is in form PRODUCERX
         return np.array([integer_id,
                          self.realized_market_price, self._safe_mean(self.historical_realized_price), self._safe_mean(self.historical_forecasts),
-                         self.type.penalty] + list(self.prior_beliefs))
+                         self.type.penalty] + list(self.prior_beliefs), dtype=np.float32)
 
     def decode_action(self, ctx: ph.Context, action: int):
         # We have discrete actions 0..100, but convert to range 0..10
@@ -169,23 +167,26 @@ class CobwebEnv(ph.PhantomEnv):
 
 
 def train():
+    ModelCatalog.register_custom_action_dist("ordinal_categorical_dist", TorchOrdinalCategorical)
+
     ph.utils.rllib.train(
-        algorithm=ALGORITHM,
+        algorithm="PPO",
         env_class=CobwebEnv,
         env_config={},
         rllib_config={"model": {"fcnet_hiddens": [64, 64], "custom_action_dist": "ordinal_categorical_dist"}},
         iterations=100,
         checkpoint_freq=None,
         policies={"producer_policy": ProducerAgent},  # Each producer shares policy
+        custom_callbacks=[BoundedPolicies],
         metrics=metrics,
-        results_dir=f"~/ray_results/{ALGORITHM}/cobweb/{MU}-{SIGMA}",
+        results_dir=f"~/ray_results/cobweb/{MU}-{SIGMA}",
         show_training_metrics=True,
     )
 
 
 def rollout():
     results = ph.utils.rllib.rollout(
-        directory=f"~/ray_results/{ALGORITHM}/cobweb/{MU}-{SIGMA}/LATEST",
+        directory=f"~/ray_results/cobweb/{MU}-{SIGMA}/LATEST",
         num_repeats=100,
         num_workers=1,
         metrics=metrics,
@@ -214,8 +215,6 @@ def rollout():
 if __name__ == '__main__':
 
     metrics = {}
-    ALGORITHM = "BoundedPPO"  # BoundedPPO for proposed, PPO for comparison
-
     MU = float(sys.argv[2])
     SIGMA = MU * float(sys.argv[3])
 
