@@ -21,10 +21,11 @@ import ray
 import rich.pretty
 from ray import rllib
 from ray.rllib.algorithms import Algorithm
-from ray.rllib.algorithms.callbacks import DefaultCallbacks
+from ray.rllib.algorithms.callbacks import DefaultCallbacks, make_multi_callbacks
 from ray.rllib.evaluation import Episode, MultiAgentEpisode
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.typing import TensorStructType, TensorType
+
 
 from ...agents import Agent
 from ...env import PhantomEnv
@@ -60,6 +61,7 @@ def train(
     env_config: Optional[Mapping[str, Any]] = None,
     rllib_config: Optional[Mapping[str, Any]] = None,
     ray_config: Optional[Mapping[str, Any]] = None,
+    custom_callbacks: Optional[List[DefaultCallbacks]] = None,
     metrics: Optional[Mapping[str, Metric]] = None,
     results_dir: str = ray.tune.result.DEFAULT_RESULTS_DIR,
     show_training_metrics: bool = False,
@@ -82,6 +84,7 @@ def train(
         env_config: Configuration parameters to pass to the environment init method.
         rllib_config: Optional algorithm parameters dictionary to pass to RLlib.
         ray_config: Optional algorithm parameters dictionary to pass to ``ray.init()``.
+        custom_callbacks: Any custom RLLib callbacks to apply.
         metrics: Optional set of metrics to record and log.
         results_dir: A custom results directory, default is ~/ray_results/
         show_training_metrics: Set to True to print training metrics every iteration.
@@ -198,8 +201,11 @@ def train(
         logdir = tempfile.mkdtemp(prefix=logdir_prefix, dir=results_dir)
         return ray.tune.logger.UnifiedLogger(config, logdir, loggers=None)
 
+    extra_callbacks = custom_callbacks if custom_callbacks is not None else []
+    callbacks = make_multi_callbacks([RLlibMetricLogger(metrics)] + extra_callbacks)
+
     config = {
-        "callbacks": RLlibMetricLogger(metrics),
+        "callbacks": callbacks,
         "enable_connectors": True,
         "env": env_class.__name__,
         "env_config": env_config,
