@@ -1,5 +1,5 @@
 cloudpickle>=3.0
-ray[rllib]==2.7.1
+ray[rllib]==2.56.0
 rich>=13.0
 tensorboardX>=2.6
 torch>=2.0
